@@ -1,0 +1,97 @@
+{
+  "version": "2026-07-02-demo",
+  "scale": [
+    0,
+    4
+  ],
+  "_note": "分数为示例(依据知识库04表价值梯度合成),正式上线须用DOC赋分表24×10真实值替换,并锁定order口径。",
+  "scores": [
+    {
+      "item_id": "Q1",
+      "by_order": {
+        "A>B>C>D": 4,
+        "A>B>D>C": 2,
+        "A>C>B>D": 4,
+        "A>C>D>B": 3,
+        "A>D>B>C": 2,
+        "A>D>C>B": 2,
+        "B>A>C>D": 3,
+        "B>A>D>C": 2,
+        "B>C>A>D": 3,
+        "B>C>D>A": 2,
+        "B>D>A>C": 1,
+        "B>D>C>A": 1,
+        "C>A>B>D": 4,
+        "C>A>D>B": 3,
+        "C>B>A>D": 4,
+        "C>B>D>A": 2,
+        "C>D>A>B": 2,
+        "C>D>B>A": 2,
+        "D>A>B>C": 0,
+        "D>A>C>B": 1,
+        "D>B>A>C": 0,
+        "D>B>C>A": 0,
+        "D>C>A>B": 1,
+        "D>C>B>A": 0
+      }
+    },
+    {
+      "item_id": "Q5",
+      "by_order": {
+        "A>B>C>D": 1,
+        "A>B>D>C": 2,
+        "A>C>B>D": 0,
+        "A>C>D>B": 0,
+        "A>D>B>C": 2,
+        "A>D>C>B": 1,
+        "B>A>C>D": 2,
+        "B>A>D>C": 3,
+        "B>C>A>D": 2,
+        "B>C>D>A": 3,
+        "B>D>A>C": 4,
+        "B>D>C>A": 4,
+        "C>A>B>D": 0,
+        "C>A>D>B": 0,
+        "C>B>A>D": 1,
+        "C>B>D>A": 2,
+        "C>D>A>B": 1,
+        "C>D>B>A": 2,
+        "D>A>B>C": 3,
+        "D>A>C>B": 2,
+        "D>B>A>C": 4,
+        "D>B>C>A": 4,
+        "D>C>A>B": 2,
+        "D>C>B>A": 3
+      }
+    },
+    {
+      "item_id": "Q6",
+      "by_order": {
+        "A>B>C>D": 1,
+        "A>B>D>C": 1,
+        "A>C>B>D": 2,
+        "A>C>D>B": 3,
+        "A>D>B>C": 2,
+        "A>D>C>B": 3,
+        "B>A>C>D": 0,
+        "B>A>D>C": 0,
+        "B>C>A>D": 1,
+        "B>C>D>A": 1,
+        "B>D>A>C": 1,
+        "B>D>C>A": 1,
+        "C>A>B>D": 2,
+        "C>A>D>B": 3,
+        "C>B>A>D": 2,
+        "C>B>D>A": 2,
+        "C>D>A>B": 4,
+        "C>D>B>A": 3,
+        "D>A>B>C": 2,
+        "D>A>C>B": 3,
+        "D>B>A>C": 2,
+        "D>B>C>A": 2,
+        "D>C>A>B": 4,
+        "D>C>B>A": 3
+      }
+    }
+  ]
+}

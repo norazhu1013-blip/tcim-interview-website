@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据导入 → 自动评分 → 自动筛选 → AI问答 · Demo</title>
+<style>
+  :root{--brand:#4f7cff;--teal:#12b3a6;--ink:#1f2430;--ink2:#5a6274;--ink3:#9aa2b4;--line:#e7eaf2;--ok:#2fb37a;--warn:#f0a020;--bad:#ef5b6b;--bg:#f5f7fb}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);padding:28px;line-height:1.5}
+  .wrap{max-width:960px;margin:0 auto}
+  h1{font-size:22px;font-weight:800}
+  .lead{color:var(--ink2);font-size:13px;margin:8px 0 20px;line-height:1.7}
+  .lead code{background:#eef1f7;padding:1px 6px;border-radius:5px;font-size:12px}
+  .step{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:18px;box-shadow:0 4px 14px rgba(31,45,80,.05)}
+  .step h2{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .step h2 .n{width:24px;height:24px;border-radius:7px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:13px}
+  .step p.d{font-size:12px;color:var(--ink3);margin-bottom:14px}
+  .ranks{display:flex;flex-direction:column;gap:8px}
+  .qblock{border:1px solid var(--line);border-radius:12px;padding:12px}
+  .qblock .qt{font-size:13px;font-weight:700;margin-bottom:8px}
+  .optrow{display:flex;align-items:center;gap:8px;background:#f8f9fc;border:1px solid var(--line);border-radius:9px;padding:7px 10px;margin-bottom:6px;font-size:12px;cursor:grab}
+  .optrow .tag{width:22px;height:22px;border-radius:6px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800;font-size:11px;flex:0 0 auto}
+  .optrow .up,.optrow .dn{margin-left:auto;color:var(--ink3);cursor:pointer;font-size:14px;padding:0 4px;user-select:none}
+  .optrow .txt{flex:1}
+  button.run{background:var(--brand);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 6px 14px rgba(79,124,255,.3)}
+  button.run.teal{background:var(--teal);box-shadow:0 6px 14px rgba(18,179,166,.3)}
+  .out{margin-top:14px;background:#0f1729;color:#d6e0f5;border-radius:12px;padding:14px 16px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap;line-height:1.7;display:none}
+  .out.show{display:block}
+  .k{color:#8ab4ff}.g{color:#7ee0b0}.y{color:#ffcf6b}.r{color:#ff9aa6}.m{color:#c9a3ff}.dim{color:#7c88a6}
+  .chatbox{margin-top:14px;display:none}.chatbox.show{display:block}
+  .msg{display:flex;gap:8px;margin-bottom:10px}
+  .msg .av{width:28px;height:28px;border-radius:8px;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:13px;flex:0 0 auto}
+  .msg .bub{background:#eef1f7;border-radius:4px 12px 12px 12px;padding:8px 11px;font-size:12.5px;max-width:620px}
+  .msg.me{flex-direction:row-reverse}.msg.me .av{background:#c7cede}.msg.me .bub{background:var(--teal);color:#fff;border-radius:12px 4px 12px 12px}
+  .led{margin-top:6px;background:#fff;border:1px dashed var(--teal);border-radius:10px;padding:10px;font-size:11.5px;color:var(--ink2)}
+  .led b{color:var(--teal)}
+  .files{font-size:11.5px;color:var(--ink3);margin-top:6px}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px}
+  .badge.C{background:rgba(47,179,122,.14);color:var(--ok)}.badge.A{background:rgba(138,92,246,.14);color:#8a5cf6}.badge.B{background:rgba(240,160,32,.14);color:var(--warn)}
+  /* 最终3题可视化页面 */
+  .selpage{margin-top:14px;background:#f5f7fb;border:1px solid var(--line);border-radius:14px;padding:16px}
+  .sptitle{font-size:14px;font-weight:800;margin-bottom:12px}.sptitle span{font-size:11px;font-weight:600;color:var(--ink3);margin-left:8px}
+  .qc{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:10px}
+  .qc-h{display:flex;align-items:center;gap:8px;font-size:13.5px}
+  .qc-n{width:24px;height:24px;border-radius:7px;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:800;font-size:12px;flex:0 0 auto}
+  .qc-r{font-size:12px;color:var(--ink2);margin-top:8px}.qc-r .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-right:6px;vertical-align:middle}
+  .qc-m{font-size:11px;color:var(--ink3);margin-top:4px}
+  .qc-btn{margin-top:10px;background:var(--teal);color:#fff;border:none;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .spnote{font-size:11px;color:var(--ink3);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>数据导入 → 自动评分 → 自动筛选 → AI问答 · 运行 Demo</h1>
+  <p class="lead">本页内置了与 <code>demo/*.json</code> 一致的数据(题库/赋分/映射/规则/知识库),演示<b>三步全自动</b>如何依赖这些导入文件运作。你可用 ▲▼ 调整下面 3 题的排序,再依次点三个按钮观察结果。<br>
+  <span class="files">数据文件:1_questions · 2_score_table · 3_indicator_map · 4_selection_rules · 5_knowledge_base · 6_process_log(过程埋点)</span></p>
+
+  <!-- 作答 -->
+  <div class="step">
+    <h2><span class="n" style="background:#8a94ad">0</span>教师作答(可调整排序)</h2>
+    <p class="d">拖动或用 ▲▼ 把四种做法从「最理想」排到「最不理想」。这里预置了一份典型作答。</p>
+    <div class="ranks" id="ranks"></div>
+  </div>
+
+  <!-- Step1 评分 -->
+  <div class="step">
+    <h2><span class="n">1</span>自动评分 <span class="d" style="margin:0 0 0 4px">← 依赖 2_score_table.json(排列→分数查表)</span></h2>
+    <button class="run" onclick="doScore()">▶ 运行自动评分</button>
+    <div class="out" id="out1"></div>
+  </div>
+
+  <!-- Step2 筛选 -->
+  <div class="step">
+    <h2><span class="n">2</span>自动筛选 3 题 <span class="d" style="margin:0 0 0 4px">← 依赖 3_indicator_map + 4_selection_rules</span></h2>
+    <button class="run" onclick="doSelect()">▶ 运行 R/P/G 筛选</button>
+    <div class="out" id="out2"></div>
+    <div id="selPage"></div>
+  </div>
+
+  <!-- Step3 AI问答 -->
+  <div class="step">
+    <h2><span class="n" style="background:var(--teal)">3</span>模拟 AI 访谈 <span class="d" style="margin:0 0 0 4px">← 依赖 5_knowledge_base.json(触发T→脚本Q→证据E)</span></h2>
+    <p class="d">以第1题为例:根据你的排序命中触发规则,调用追问脚本逐轮提问(教师回答为演示脚本)。</p>
+    <button class="run teal" onclick="doInterview()">▶ 运行访谈(第1题)</button>
+    <div class="out" id="out3"></div>
+    <div class="chatbox" id="chat"></div>
+  </div>
+</div>
+
+<script>
+/* ===== 内置数据(= demo/*.json) ===== */
+const QUESTIONS={
+ Q1:{title:"篮球架玩水",opts:{A:"不干预，待兴趣减弱后再讨论适宜性",B:"表扬发现，提议换个地方玩水",C:"参与粉刷游戏，逐步引导到适宜地方",D:"提醒篮球架用于运动，召唤打篮球转移注意"}},
+ Q5:{title:"价值不符",opts:{A:"耐心解释真实火灾的危害",B:"询问开心的是着火还是救火成功",C:"引导思考着火值不值得开心",D:"请孩子讲讲着火后的故事，理解游戏体验"}},
+ Q6:{title:"材料无层次",opts:{A:"按能力有针对性发放任务卡",B:"暂不介入，尊重自主选择",C:"调整呈现方式，鼓励选不同挑战",D:"回顾已完成任务，邀请选稍有挑战的"}}
+};
+/* 评分梯度(镜像 2_score_table 生成逻辑) */
+const MERIT={Q1:{C:3,A:3,B:2,D:0},Q5:{D:3,B:3,A:1,C:1},Q6:{C:3,D:3,A:2,B:1}};
+function scoreOrder(order,m){
+  const n=order.length,perms=permute(Object.keys(m));
+  const val=o=>o.reduce((s,x,i)=>s+(n-1-i)*m[x],0);
+  const cur=val(order),best=Math.max(...perms.map(val)),worst=Math.min(...perms.map(val));
+  return Math.round(4*(cur-worst)/(best-worst));
+}
+function permute(a){return a.length<=1?[a]:a.flatMap((x,i)=>permute(a.slice(0,i).concat(a.slice(i+1))).map(p=>[x,...p]));}
+/* 指标映射 */
+const MAP={Q1:{sec:"C",ter:"C2"},Q5:{sec:"A",ter:"A1"},Q6:{sec:"B",ter:"B1"}};
+
+/* 过程埋点日志(= 6_process_log.sample.json,含10题) */
+const PROCESS_LOG={
+ Q1:{dur:68000,revise:4,first:["D","A","B","C"],final:["C","A","B","D"],dwell:{A:8200,B:5400,C:11200,D:14800},
+     move:[{o:"A",f:2,t:1},{o:"C",f:4,t:1},{o:"D",f:1,t:3},{o:"D",f:3,t:4}]},
+ Q2:{dur:18000,revise:0,first:["A","D","C","B"],final:["A","D","C","B"],dwell:{A:6000,B:3200,C:4800,D:3600},move:[]},
+ Q3:{dur:52000,revise:1,first:["C","D","A","B"],final:["C","D","A","B"],dwell:{A:5000,B:4000,C:9000,D:6000},move:[{o:"D",f:3,t:2}]},
+ Q4:{dur:60000,revise:2,first:["A","B","C","D"],final:["A","C","B","D"],dwell:{A:6000,B:7000,C:8000,D:5000},move:[{o:"C",f:3,t:2},{o:"B",f:2,t:3}]},
+ Q5:{dur:114000,revise:3,first:["B","D","C","A"],final:["D","B","C","A"],dwell:{A:4200,B:22000,C:6100,D:19800},
+     move:[{o:"D",f:2,t:1},{o:"B",f:1,t:2},{o:"C",f:4,t:3}]},
+ Q6:{dur:40000,revise:1,first:["A","C","D","B"],final:["A","C","D","B"],dwell:{A:11000,B:4000,C:9000,D:6000},move:[{o:"D",f:4,t:3}]},
+ Q7:{dur:45000,revise:0,first:["C","A","D","B"],final:["C","A","D","B"],dwell:{A:6000,B:5000,C:8000,D:4000},move:[]},
+ Q8:{dur:88000,revise:3,first:["A","C","B","D"],final:["C","A","B","D"],dwell:{A:12000,B:7000,C:14000,D:6000},move:[{o:"C",f:2,t:1},{o:"A",f:1,t:2},{o:"B",f:4,t:3}]},
+ Q9:{dur:50000,revise:1,first:["C","A","B","D"],final:["C","A","B","D"],dwell:{A:5000,B:6000,C:7000,D:5000},move:[{o:"B",f:4,t:3}]},
+ Q10:{dur:75000,revise:2,first:["A","C","D","B"],final:["C","A","D","B"],dwell:{A:9000,B:6000,C:10000,D:7000},move:[{o:"C",f:2,t:1},{o:"A",f:1,t:2}]}
+};
+/* 从日志派生过程指标 + P-IVI(镜像知识库12表口径,阈值来自 4_selection_rules) */
+const DUR_P75=70000, DUR_P90=100000, DUR_P25=25000;
+
+/* 回放 move_log:从 first_ranking 起,逐步"移除该选项→插入到 to_pos",重建每一步完整排序。
+   为对埋点误差鲁棒,忽略 from_pos,只用 option + to_pos 定位。 */
+function replayStates(L){
+  let cur=[...L.first]; const states=[cur.slice()];
+  for(const m of L.move){
+    const from=cur.indexOf(m.o); if(from>-1) cur.splice(from,1);
+    const to=Math.max(0, Math.min(cur.length, (m.t||1)-1));
+    cur.splice(to,0,m.o); states.push(cur.slice());
+  }
+  return states; // states[0]=初始首排, 末=最终
+}
+/* 首/末位摇摆:回放后取每步首(或末)位序列,数变更次数并给出路径 */
+function swingOf(states, pos /* 'top'|'bottom' */){
+  const seq=states.map(s=> pos==='top' ? s[0] : s[s.length-1]);
+  const path=seq.filter((v,i)=>i===0||v!==seq[i-1]);
+  const changes=path.length-1;                 // 首位变更次数
+  const revisit=new Set(); let prev=null,seen=new Set(),osc=false;
+  for(const v of seq){ if(v!==prev){ if(seen.has(v))osc=true; seen.add(v); prev=v; } }
+  return {changes, path:path.join("→"), swing:changes>=1, strong:changes>=2, revisit:osc};
+}
+/* 路径振荡:任一选项在各步中的位次出现方向反转(先上后下 / 先下后上)=在两取向间反复 */
+function hasOscillation(states){
+  for(const o of states[0]){
+    const p=states.map(s=>s.indexOf(o));
+    for(let i=1;i<p.length-1;i++){
+      const d1=p[i]-p[i-1], d2=p[i+1]-p[i];
+      if(d1!==0 && d2!==0 && Math.sign(d1)!==Math.sign(d2)) return true;
+    }
+  }
+  return false;
+}
+function computeProcess(q){
+  const L=PROCESS_LOG[q]; if(!L) return {pivi:0,tags:[]};
+  const tags=[]; let anom=0;
+  const states=replayStates(L);
+  // 首位摇摆(精确:回放首位序列)
+  const top=swingOf(states,'top');
+  if(top.strong){tags.push(`首位强摇摆(${top.path})`);anom++;}
+  else if(top.swing){tags.push(`首位摇摆(${top.path})`);anom++;}
+  // 末位摇摆
+  const bot=swingOf(states,'bottom');
+  if(bot.swing){tags.push(`末位摇摆(${bot.path})`);anom++;}
+  // 路径振荡(方向反转)
+  const osc=hasOscillation(states); if(osc){tags.push("路径振荡");anom++;}
+  // 修改次数
+  if(L.revise>=4){tags.push("高修正投入");anom++;} else if(L.revise>=2){tags.push("多次修改");anom++;}
+  // 时长
+  if(L.dur>=DUR_P90){tags.push("长时权衡");anom++;} else if(L.dur>=DUR_P75){tags.push("偏长");anom++;}
+  if(L.dur<DUR_P25 && L.revise===0){tags.push("极快作答");anom++;}
+  // 关键停顿:某选项聚焦远超其他
+  const dw=Object.entries(L.dwell).sort((a,b)=>b[1]-a[1]);
+  if(dw[0][1] >= dw[1][1]*1.6){tags.push(`${dw[0][0]}停顿长`);}
+  // P-IVI:异常项数,≥2 为高访谈线索
+  return {pivi:anom, tags, topPath:top.path, botPath:bot.path, osc};
+}
+/* 触发规则(简化匹配) + 追问脚本(节选自 5_knowledge_base) */
+const KB_Q1={
+ triggers:[
+  {code:"T1",prio:3,test:r=>r[0]==="D"||r.indexOf("D")<=1,target:"确认是否只看器械功能而忽视玩水兴趣",scripts:["Q1","Q2-D","Q3"]},
+  {code:"T2",prio:3,test:r=>r[3]==="A",target:"确认是否把A误解为放任、是否理解延迟观察价值",scripts:["Q1","Q2-A","Q3"]},
+  {code:"T5",prio:2,test:r=>r[0]==="C",target:"确认参与式支架是否保护儿童主体性",scripts:["Q1","Q2-C","Q3"]},
+  {code:"T6",prio:1,test:r=>(r[0]==="A"||r[0]==="C")&&r[3]==="D",target:"高水平确认:能否说明尊重兴趣→判断适宜→渐进转场→长期规则",scripts:["Q1","Q2-A","Q3"]}
+ ],
+ scripts:{
+  "Q1":{q:"刚才这个情境中，您最先注意到的是什么？孩子的行为背后可能表达了什么兴趣或经验？",E:["E2","E3"]},
+  "Q2-D":{q:"这个情境涉及“对游戏行为的分析与回应”。您把“召唤打篮球转移注意”放得靠前，主要出于什么考虑？",E:["E1","E2"]},
+  "Q2-A":{q:"您对“先不干预、待兴趣减弱后再讨论”怎么看？之后您会怎么和孩子讨论玩水的适宜性？",E:["E1","E5"]},
+  "Q2-C":{q:"您把“参与粉刷、逐步转场”排在前面。您会怎样加入游戏，又如何转场时不打断兴趣？",E:["E4","E7"]},
+  "Q3":{q:"如果要在保护游戏的同时支持孩子，您现场会说的第一句话是什么？",E:["E5"]},
+  "Q-stop":{q:"您已说明了对行为的理解、介入依据和后续支持，我们进入下一个情境。",E:[]}
+ },
+ /* 演示用教师回答 */
+ answers:{
+  "Q1":"我先注意到他们不是在破坏，是发现了往篮框灌水、下面接水的新玩法，玩得很投入。",
+  "Q2-D":"其实我不太会优先转移注意，我觉得先理解他们的玩法更重要。",
+  "Q2-A":"不干预不代表放任，等他们兴趣稍退，我会和他们一起看看哪里更适合玩水。",
+  "Q2-C":"我会以‘一起粉刷’的身份加入，再顺势说‘这边水多，我们搬到水池边继续好不好’。",
+  "Q3":"我会说：‘你们发现的接水办法真好玩，我们去水池那边水更多，可以接得更多！’"
+ }
+};
+const E_NAME={E1:"指标定位",E2:"游戏意义识别",E3:"观察分析",E4:"介入时机",E5:"支架具体性",E6:"长期效果",E7:"文化适宜"};
+
+/* ===== 教师作答 UI ===== */
+let ANSWER={Q1:["C","A","B","D"],Q5:["D","B","C","A"],Q6:["A","C","D","B"]}; // 预置(Q6故意A首位,便于演示风险)
+function renderRanks(){
+  const el=document.getElementById('ranks');el.innerHTML='';
+  for(const q of ["Q1","Q5","Q6"]){
+    const box=document.createElement('div');box.className='qblock';
+    box.innerHTML=`<div class="qt">${q} · ${QUESTIONS[q].title}</div>`;
+    ANSWER[q].forEach((o,i)=>{
+      const row=document.createElement('div');row.className='optrow';
+      row.innerHTML=`<span class="tag">${o}</span><span class="txt">${QUESTIONS[q].opts[o]}</span>
+        <span class="up" onclick="mv('${q}',${i},-1)">▲</span><span class="dn" onclick="mv('${q}',${i},1)">▼</span>`;
+      box.appendChild(row);
+    });
+    el.appendChild(box);
+  }
+}
+function mv(q,i,d){const a=ANSWER[q];const j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];renderRanks();}
+renderRanks();
+
+/* ===== Step1 评分 ===== */
+let SCORES={};
+function doScore(){
+  let s='';let items=["Q1","Q5","Q6"];SCORES={};
+  s+=`<span class="k">// 每题:排列 → 查 by_order 表 → 0-4 分</span>\n`;
+  items.forEach(q=>{
+    const order=ANSWER[q],sc=scoreOrder(order,MERIT[q]);SCORES[q]=sc;
+    s+=`${q} 排序 <span class="y">${order.join(">")}</span>  →  得分 <span class="g">${sc}</span> / 4\n`;
+  });
+  const vals=items.map(q=>SCORES[q]),total=vals.reduce((a,b)=>a+b,0),mean=(total/vals.length);
+  s+=`\n<span class="k">// 派生(演示以3题计)</span>\n总分 <span class="g">${total}</span>　平均 <span class="g">${mean.toFixed(2)}</span>\n`;
+  s+=`每题相对个人均值偏离 RD:\n`;
+  items.forEach(q=>{const rd=(SCORES[q]-mean).toFixed(2);const c=rd<0?'r':'g';s+=`  ${q}: <span class="${c}">${rd>0?'+':''}${rd}</span>\n`;});
+  show('out1',s);
+}
+
+/* ===== Step2 筛选 ===== */
+/* 其余7题的示例得分(3道可编辑题用真实评分) */
+const MOCK_SCORE={Q2:3,Q3:4,Q4:3,Q7:4,Q8:2,Q9:3,Q10:3};
+const MOCK_MAP={Q2:{sec:"C",ter:"C2"},Q3:{sec:"C",ter:"C1"},Q4:{sec:"C",ter:"C2"},Q7:{sec:"C",ter:"C2"},Q8:{sec:"C",ter:"C2"},Q9:{sec:"C",ter:"C1"},Q10:{sec:"C",ter:"C2"}};
+function doSelect(){
+  if(!Object.keys(SCORES).length){doScore();}
+  // 10题:3道用真实评分, 7道用示例分; 过程指标全部由 PROCESS_LOG 派生
+  const ids=["Q1","Q2","Q3","Q4","Q5","Q6","Q7","Q8","Q9","Q10"];
+  const items=ids.map(id=>{
+    const proc=computeProcess(id);
+    const m=MAP[id]||MOCK_MAP[id];
+    return {id, score:(SCORES[id]!=null?SCORES[id]:MOCK_SCORE[id]), sec:m.sec, ter:m.ter, pivi:proc.pivi, tags:proc.tags};
+  });
+  const mean=items.reduce((a,b)=>a+b.score,0)/items.length;
+  items.forEach(it=>it.rd=it.score-mean);
+  let s=`<span class="k">// 过程指标(由 6_process_log 的 move_log/时长派生)</span>\n`;
+  items.forEach(it=>{ if(it.tags.length) s+=`  ${it.id}: P-IVI=${it.pivi}  <span class="dim">${it.tags.join("、")}</span>\n`; });
+  s+=`\n<span class="k">// 依据 4_selection_rules 三路候选</span>\n`;
+  const R=[...items].sort((a,b)=>Math.abs(b.rd)-Math.abs(a.rd)).slice(0,2);
+  const P=[...items].sort((a,b)=>b.pivi-a.pivi).slice(0,2);
+  const G=[...items].filter(it=>Math.abs(it.rd)>=1&&it.pivi>=1).sort((a,b)=>(Math.abs(b.rd)+b.pivi)-(Math.abs(a.rd)+a.pivi)).slice(0,2);
+  s+=`R分(结果偏离 |RD|↓): <span class="y">${R.map(x=>x.id+`(RD${x.rd.toFixed(1)})`).join(", ")}</span>\n`;
+  s+=`P分(P-IVI↓):        <span class="y">${P.map(x=>x.id+`(P-IVI${x.pivi})`).join(", ")}</span>\n`;
+  s+=`G分(结果×过程):     <span class="y">${G.map(x=>x.id).join(", ")||"—"}</span>\n\n`;
+  // 合并去重 + 覆盖校验(不同主二级)
+  let pool=[...new Set([...R,...P,...G].map(x=>x.id))].map(id=>items.find(i=>i.id===id));
+  s+=`合并去重候选: <span class="m">${pool.map(x=>x.id).join(", ")}</span>\n`;
+  s+=`<span class="k">// 覆盖校验:尽量不选3道同主二级指标</span>\n`;
+  const final=[];const usedSec={};
+  pool.sort((a,b)=>Math.abs(b.rd)-Math.abs(a.rd));
+  for(const it of pool){ if(final.length>=3)break;
+    if((usedSec[it.sec]||0)>=2 && new Set(pool.map(p=>p.sec)).size>1){ s+=`  跳过 ${it.id}(${it.sec}类已够,保覆盖)\n`; continue;}
+    final.push(it);usedSec[it.sec]=(usedSec[it.sec]||0)+1;
+  }
+  while(final.length<3){for(const it of items){if(!final.includes(it)){final.push(it);break;}}}
+  s+=`\n<span class="k">// 最终3题</span>\n`;
+  final.slice(0,3).forEach(it=>{ s+=`<span class="g">▸ ${it.id}</span> ${QUESTIONS[it.id]?.title||''} `+
+    `[${it.sec}/${it.ter}] RD=${it.rd.toFixed(1)} P-IVI=${it.pivi}${it.tags.length?' ('+it.tags.join("、")+')':''}\n`;});
+  show('out2',s);
+  renderSelPage(final.slice(0,3), {R,P,G});
+}
+
+/* 把最终3题渲染成一个"访谈情境页面" */
+function renderSelPage(final, routes){
+  const secName={A:"特点·价值理解",B:"条件保障",C:"支持与指导"};
+  const badge=(sec)=>`<span class="badge ${sec}">${sec} · ${secName[sec]}</span>`;
+  const srcOf=(id)=>{const s=[];if(routes.R.find(x=>x.id===id))s.push("R分·结果偏离");if(routes.P.find(x=>x.id===id))s.push("P分·过程异常");if(routes.G.find(x=>x.id===id))s.push("G分·结果×过程");return s.join(" / ")||"覆盖增补";};
+  let h=`<div class="selpage">
+    <div class="sptitle">🎙 已为你挑选 3 个访谈情境 <span>每个 ≤10 分钟 · 无标准答案</span></div>`;
+  final.forEach((it,i)=>{
+    h+=`<div class="qc">
+      <div class="qc-h"><span class="qc-n">${i+1}</span><b>${it.id} ${QUESTIONS[it.id]?.title||''}</b>${badge(it.sec)}</div>
+      <div class="qc-r"><span class="dot"></span>入选:${srcOf(it.id)}</div>
+      <div class="qc-m">RD ${it.rd.toFixed(1)}　P-IVI ${it.pivi}${it.tags.length?'　'+it.tags.join("、"):''}</div>
+      <button class="qc-btn" onclick="jumpInterview('${it.id}')">开始访谈 →</button>
+    </div>`;
+  });
+  h+=`<div class="spnote">✦ 3 题覆盖不同主二级指标(${[...new Set(final.map(f=>f.sec))].join("/")}),保证观察分散性。</div></div>`;
+  document.getElementById('selPage').innerHTML=h;
+}
+function jumpInterview(id){ document.querySelector('.step:last-child').scrollIntoView({behavior:'smooth'}); doInterview(); }
+
+/* ===== Step3 访谈 ===== */
+function doInterview(){
+  const r=ANSWER.Q1;
+  // 命中触发
+  const fired=KB_Q1.triggers.filter(t=>t.test(r)).sort((a,b)=>b.prio-a.prio);
+  const T=fired[0];
+  let s=`<span class="k">// 输入</span>\n第1题排序: <span class="y">${r.join(">")}</span>\n`;
+  s+=`<span class="k">// 命中触发规则(08表)</span>\n`;
+  fired.forEach(t=>s+=`  ${t===T?'▶':' '} ${t.code}(优先级${t.prio}) ${t.target}\n`);
+  s+=`\n<span class="k">// 调用追问脚本序列(09表)</span> <span class="m">${T.scripts.join(" → ")}</span>\n`;
+  show('out3',s);
+  // 播放对话
+  const chat=document.getElementById('chat');chat.className='chatbox show';chat.innerHTML='';
+  const got=new Set();let delay=200;
+  const seq=[];
+  T.scripts.forEach(code=>{
+    const sc=KB_Q1.scripts[code]; if(!sc)return;
+    seq.push({who:'ai',code,text:sc.q,E:sc.E});
+    if(KB_Q1.answers[code]) seq.push({who:'me',text:KB_Q1.answers[code],E:sc.E});
+  });
+  seq.push({who:'ai',code:'Q-stop',text:KB_Q1.scripts["Q-stop"].q,E:[]});
+  seq.forEach((m,idx)=>{
+    setTimeout(()=>{
+      const d=document.createElement('div');d.className='msg'+(m.who==='me'?' me':'');
+      d.innerHTML=`<div class="av">${m.who==='ai'?'游':'师'}</div><div class="bub">${m.text}</div>`;
+      chat.appendChild(d);
+      if(m.who==='me'&&m.E){ m.E.forEach(e=>got.add(e));
+        const led=document.createElement('div');led.className='led';
+        led.innerHTML=`证据账本更新 → 已获: <b>${[...got].map(e=>e+" "+E_NAME[e]).join("、")}</b>`;
+        chat.appendChild(led);
+      }
+      if(idx===seq.length-1){
+        const led=document.createElement('div');led.className='led';led.style.borderColor='#8a94ad';
+        led.innerHTML=`<b style="color:#5a6274">访谈收束</b> · 依据 10表评分锚点编码 → 本题判断: <b style="color:var(--ok)">中高(E1/E2/E4/E5具备, E6/E7可深化)</b>`;
+        chat.appendChild(led);
+      }
+      window.scrollTo(0,document.body.scrollHeight);
+    },delay); delay+=650;
+  });
+}
+function show(id,html){const el=document.getElementById(id);el.className='out show';el.innerHTML=html;}
+</script>
+</body>
+</html>

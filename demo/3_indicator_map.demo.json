@@ -1,0 +1,23 @@
+{
+  "version": "2026-07-02-demo",
+  "map": [
+    {
+      "item_id": "Q1",
+      "primary":       { "secondary": "C", "tertiary": "C2", "observation_points": ["介入时机的把握", "介入方式的适宜有效性"] },
+      "secondary_ind": { "secondary": "A", "tertiary": "A1", "observation_points": ["对游戏本质特征的理解"] },
+      "interview_focus": "自主生成游戏与安全规则之间的平衡"
+    },
+    {
+      "item_id": "Q5",
+      "primary":       { "secondary": "A", "tertiary": "A1", "observation_points": ["游戏本质特征", "儿童游戏逻辑"] },
+      "secondary_ind": { "secondary": "A", "tertiary": "A3", "observation_points": ["对游戏价值实现的认识"] },
+      "interview_focus": "区分儿童游戏情节体验与成人现实价值判断"
+    },
+    {
+      "item_id": "Q6",
+      "primary":       { "secondary": "B", "tertiary": "B1", "observation_points": ["材料分析和投放", "动态调整"] },
+      "secondary_ind": { "secondary": "C", "tertiary": "C2", "observation_points": ["对幼儿游戏行为的分析判断"] },
+      "interview_focus": "通过材料层次和适度挑战支持儿童持续发展"
+    }
+  ]
+}

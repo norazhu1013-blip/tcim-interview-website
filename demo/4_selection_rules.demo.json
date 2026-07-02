@@ -1,0 +1,20 @@
+{
+  "version": "2026-07-02-demo",
+  "process_thresholds": {
+    "duration_enhance_pct": 75,
+    "duration_strong_pct": 90,
+    "revise_enhance": 2,
+    "revise_strong": 4,
+    "oscillation_strong": 2,
+    "fast_answer_pct": 25
+  },
+  "R": { "pick": 2, "basis": "RD绝对值降序(结果性偏离)" },
+  "P": { "pick": 2, "basis": "P-IVI/过程异常降序" },
+  "G": { "pick": 2, "basis": "结果-过程关系最值得解释" },
+  "merge": {
+    "final_count": 3,
+    "dedup": true,
+    "coverage_rule": "尽量不选3道主二级指标相同的题(8题主指标为C)",
+    "note": "最终3题≠最低分题;能力覆盖修正仅在候选同质时启用"
+  }
+}

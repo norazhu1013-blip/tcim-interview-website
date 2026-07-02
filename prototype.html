@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>游戏支持与引导能力测评 · 小程序原型</title>
+<style>
+  :root{
+    --pri:#3f63d6; --ink:#1f2530; --ink2:#5f6672; --ink3:#a6abb5;
+    --line:#ebedf1; --bg:#fafbfc; --soft:#f4f5f7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#eceef2;color:var(--ink);padding:36px 24px 70px;-webkit-font-smoothing:antialiased}
+  .head{max-width:1240px;margin:0 auto 24px}
+  .head h1{font-size:21px;font-weight:700;letter-spacing:.3px}
+  .head p{color:var(--ink2);font-size:13px;margin-top:7px;line-height:1.7;max-width:720px}
+  .grp{max-width:1240px;margin:34px auto 14px;display:flex;align-items:baseline;gap:10px}
+  .grp b{font-size:14px;font-weight:700}
+  .grp span{font-size:12px;color:var(--ink3)}
+  .gallery{max-width:1240px;margin:0 auto;display:flex;flex-wrap:wrap;gap:28px}
+
+  .phone{width:286px}
+  .cap{font-size:12px;color:var(--ink2);margin-bottom:9px}
+  .screen{width:286px;height:596px;background:var(--bg);border-radius:26px;border:1px solid #dfe2e8;overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .sb{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:10.5px;color:var(--ink2);background:#fff}
+  .nav{height:46px;background:#fff;display:flex;align-items:center;justify-content:center;position:relative;font-weight:600;font-size:15px;border-bottom:1px solid var(--line)}
+  .nav .bk{position:absolute;left:16px;font-size:18px;color:var(--ink3);font-weight:400}
+  .nav .rt{position:absolute;right:16px;font-size:12px;color:var(--ink3)}
+  .bd{flex:1;overflow:auto;padding:16px}
+  .bd::-webkit-scrollbar{width:0}
+
+  .card{background:#fff;border-radius:12px;padding:15px;border:1px solid var(--line)}
+  .card+.card{margin-top:11px}
+  .btn{display:block;width:100%;background:var(--pri);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14.5px;font-weight:600;text-align:center;white-space:nowrap}
+  .btn.sm{padding:9px 6px;font-size:12.5px}
+  .btn.o{background:#fff;color:var(--pri);border:1px solid var(--pri)}
+  .btn.g{background:#fff;color:var(--ink2);border:1px solid var(--line)}
+  .h{font-size:15px;font-weight:700}
+  .t{font-size:12.5px;color:var(--ink2);line-height:1.65}
+  .muted{font-size:11.5px;color:var(--ink3)}
+  .sect{font-size:12px;color:var(--ink3);margin:18px 2px 8px;font-weight:600}
+  .foot{position:absolute;left:0;right:0;bottom:0;padding:12px 16px;background:#fff;border-top:1px solid var(--line)}
+  .row{display:flex;align-items:center;gap:10px}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:6px;background:var(--soft);color:var(--ink2)}
+  .pill.on{background:#eef2fd;color:var(--pri);font-weight:600}
+
+  .opt{display:flex;align-items:center;gap:11px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:11px;margin-bottom:9px}
+  .opt .b{width:24px;height:24px;border-radius:7px;background:var(--pri);color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px;flex:0 0 auto}
+  .opt .b.off{background:var(--soft);color:var(--ink3)}
+  .opt .x{font-size:12px;line-height:1.45}
+  .opt .m{margin-left:auto;color:#d3d7df;font-size:14px}
+
+  .li{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+  .li:last-child{border:none}
+  .bar{height:6px;background:var(--soft);border-radius:4px;overflow:hidden;flex:1}
+  .bar i{display:block;height:100%;background:var(--pri);border-radius:4px}
+
+  .msg{display:flex;gap:8px;margin-bottom:12px}
+  .msg .a{width:26px;height:26px;border-radius:7px;background:var(--pri);color:#fff;display:grid;place-items:center;font-size:12px;flex:0 0 auto}
+  .msg .u{background:#fff;border:1px solid var(--line);border-radius:3px 11px 11px 11px;padding:9px 11px;font-size:12.5px;line-height:1.55;max-width:188px}
+  .msg.me{flex-direction:row-reverse}.msg.me .a{background:#c8cdd8}.msg.me .u{background:var(--pri);color:#fff;border:none;border-radius:11px 3px 11px 11px}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>游戏支持与引导能力测评 · 小程序原型</h1>
+  <p>单一主页(首页含记录)+ 子页面。功能:答题 · 评分 · 记录 · 访谈。无底部 Tab。</p>
+</div>
+
+<!-- 登录 -->
+<div class="grp"><b>登录</b><span>微信一键登录 · 首次绑定教师信息</span></div>
+<div class="gallery">
+
+  <div class="phone">
+    <div class="cap">P0 · 微信登录</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>5G</span></div>
+      <div class="bd" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:56px 24px 0">
+        <div style="width:58px;height:58px;border-radius:15px;background:var(--pri)"></div>
+        <div class="h" style="font-size:17px;margin-top:18px">游戏支持与引导能力测评</div>
+        <div class="muted" style="margin-top:6px">幼儿园教师保教能力测评</div>
+        <div class="t" style="margin-top:30px;text-align:left;width:100%">登录后可:完成情境测评并自动评分、进行 AI 访谈、查看记录与报告。</div>
+        <div style="flex:1"></div>
+      </div>
+      <div class="foot" style="border:none;padding:16px 24px 28px">
+        <button class="btn">微信一键登录</button>
+        <div class="muted" style="margin-top:14px;text-align:center">登录即同意《用户协议》《隐私政策》</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="cap">P0b · 完善信息(首次)</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>5G</span></div>
+      <div class="nav">完善信息</div>
+      <div class="bd">
+        <div class="muted" style="margin:2px 0 12px">首次登录绑定信息,用于数据同步与报告生成。</div>
+        <div class="card">
+          <div class="li"><span class="t">姓名</span><span class="muted">请输入 ›</span></div>
+          <div class="li"><span class="t">园所</span><span class="muted">请选择 ›</span></div>
+          <div class="li"><span class="t">任教班级</span><span class="muted">中班 ›</span></div>
+          <div class="li"><span class="t">教龄</span><span class="muted">3–5 年 ›</span></div>
+          <div class="li"><span class="t">试卷码(选填)</span><span class="muted">GS-2026-07 ›</span></div>
+        </div>
+      </div>
+      <div class="foot"><button class="btn">保存并进入</button></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 首页(含记录) -->
+<div class="grp"><b>首页(含记录)</b><span>开始测评 + 待办 + 历次记录,合为一页</span></div>
+<div class="gallery">
+
+  <div class="phone">
+    <div class="cap">P1 · 首页 / 记录</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>5G</span></div>
+      <div class="bd">
+        <div style="padding:4px 2px 14px"><div class="h" style="font-size:17px">王老师</div><div class="muted" style="margin-top:3px">阳光幼儿园 · 中班</div></div>
+
+        <div class="card">
+          <div class="h" style="font-size:15px">开始新测评</div>
+          <div class="t" style="margin-top:6px">10 道情境题 · 约 20 分钟,完成后自动评分并生成 AI 访谈。</div>
+          <button class="btn" style="margin-top:14px">开始答题</button>
+        </div>
+
+        <div class="sect">我的记录</div>
+        <div class="card">
+          <div class="row"><b style="font-size:14px">2026-07-02</b><span class="pill on" style="margin-left:auto">访谈 1/3</span></div>
+          <div class="muted" style="margin-top:6px">10 题 · 总分 30 · 中上</div>
+          <div class="row" style="margin-top:10px;gap:6px"><button class="btn g sm" style="flex:1">看答题</button><button class="btn g sm" style="flex:1">看评分</button><button class="btn o sm" style="flex:1">去访谈</button></div>
+        </div>
+        <div class="card">
+          <div class="row"><b style="font-size:14px">2026-03-15</b><span class="pill" style="margin-left:auto">访谈 3/3</span></div>
+          <div class="muted" style="margin-top:6px">10 题 · 总分 27 · 中等</div>
+          <div class="row" style="margin-top:10px;gap:6px"><button class="btn g sm" style="flex:1">看答题</button><button class="btn g sm" style="flex:1">看评分</button><button class="btn g sm" style="flex:1">回看</button></div>
+        </div>
+        <div class="card">
+          <div class="row"><b style="font-size:14px">2026-01-08</b><span class="pill" style="margin-left:auto">未完成</span></div>
+          <div class="muted" style="margin-top:6px">答到第 6 题 · 未提交</div>
+          <div class="row" style="margin-top:10px"><button class="btn o sm" style="flex:1">继续答题</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 答题 -->
+<div class="grp"><b>答题</b><span>情境排序 → 提交</span></div>
+<div class="gallery">
+
+  <div class="phone">
+    <div class="cap">P2 · 答题(排序)</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>18:12</span></div>
+      <div class="nav"><span class="bk">‹</span>第 1 / 10 题</div>
+      <div style="height:2px;background:var(--soft)"><div style="width:10%;height:100%;background:var(--pri)"></div></div>
+      <div class="bd" style="padding-bottom:76px">
+        <div class="card">
+          <div class="muted" style="color:var(--pri);font-weight:600">情境 · 篮球架玩水</div>
+          <div class="t" style="margin-top:6px;color:var(--ink)">户外活动时几名幼儿在篮球架旁粉刷并灌水玩水。面对幼儿自主游戏与规则不符,请把四种做法从最理想到最不理想排序。</div>
+        </div>
+        <div class="muted" style="margin:12px 0 8px">点击选择顺序,或长按拖动</div>
+        <div class="opt"><div class="b">1</div><div class="x">教师C:参与粉刷游戏,逐步引导到适宜地方继续玩。</div><span class="m">⁝</span></div>
+        <div class="opt"><div class="b">2</div><div class="x">教师A:不干预,待兴趣减弱后再讨论适宜性。</div><span class="m">⁝</span></div>
+        <div class="opt"><div class="b">3</div><div class="x">教师B:表扬发现,提议换个地方玩水。</div><span class="m">⁝</span></div>
+        <div class="opt"><div class="b off">4</div><div class="x">教师D:提醒篮球架用于运动,召唤打篮球。</div><span class="m">⁝</span></div>
+      </div>
+      <div class="foot row" style="gap:10px"><button class="btn g sm" style="flex:0 0 78px">上一题</button><button class="btn sm" style="flex:1">下一题</button></div>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="cap">P3 · 提交完成</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>5G</span></div>
+      <div class="bd" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:84px">
+        <div style="width:56px;height:56px;border-radius:50%;border:2px solid var(--pri);display:grid;place-items:center;color:var(--pri);font-size:26px">✓</div>
+        <div class="h" style="margin-top:18px">答题已提交</div>
+        <div class="t" style="margin-top:8px;padding:0 16px">系统已自动评分,并挑选 3 个情境用于 AI 访谈。</div>
+        <div style="width:100%;margin-top:26px;display:flex;flex-direction:column;gap:11px">
+          <button class="btn">查看评分</button>
+          <button class="btn o">去 AI 访谈</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 评分 -->
+<div class="grp"><b>评分</b><span>评分结果 → 自动筛选 3 题</span></div>
+<div class="gallery">
+
+  <div class="phone">
+    <div class="cap">P4 · 评分结果</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>5G</span></div>
+      <div class="nav"><span class="bk">‹</span>我的评分</div>
+      <div class="bd">
+        <div class="card" style="text-align:center">
+          <div class="muted">测评总分</div>
+          <div style="font-size:38px;font-weight:700;line-height:1.3">30<span style="font-size:15px;color:var(--ink3)"> / 40</span></div>
+          <div class="t">总体水平:中上</div>
+        </div>
+        <div class="card">
+          <div class="h" style="font-size:14px;margin-bottom:4px">各题得分</div>
+          <div class="li"><span class="t">Q1 篮球架玩水</span><b>4 / 4</b></div>
+          <div class="li"><span class="t">Q2 幼儿频繁求助</span><b>3 / 4</b></div>
+          <div class="li"><span class="t">Q3 区域停留短</span><b>1 / 4</b></div>
+          <div class="li"><span class="t">Q4 未参与建构</span><b>3 / 4</b></div>
+          <div class="li"><span class="t">Q5 价值不符</span><b>2 / 4</b></div>
+          <div class="li"><span class="t">Q6 材料无层次</span><b>3 / 4</b></div>
+          <div class="li"><span class="t">Q7 艾莎不运动</span><b>4 / 4</b></div>
+          <div class="li"><span class="t">Q8 引水难题</span><b>3 / 4</b></div>
+          <div class="li"><span class="t">Q9 飞行棋各走各的</span><b>3 / 4</b></div>
+          <div class="li"><span class="t">Q10 跳绳秩序混乱</span><b>4 / 4</b></div>
+        </div>
+        <div class="muted" style="margin-top:12px;text-align:center">依固定赋分表自动计算,无标准答案泄露</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="cap">P5 · 自动筛选 3 题</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>5G</span></div>
+      <div class="nav"><span class="bk">‹</span>挑选访谈情境</div>
+      <div class="bd">
+        <div class="t">从 10 题中自动挑 3 个最值得深入交流的情境(非最低分题)。</div>
+        <div class="card" style="margin-top:12px">
+          <div class="muted" style="margin-bottom:6px">三路候选</div>
+          <div class="li"><span class="t">R 分 · 结果偏离大</span><span class="muted">Q3、Q5</span></div>
+          <div class="li"><span class="t">P 分 · 过程异常</span><span class="muted">Q1、Q5</span></div>
+          <div class="li"><span class="t">G 分 · 结果×过程</span><span class="muted">Q6</span></div>
+        </div>
+        <div class="muted" style="text-align:center;margin:10px 0">合并去重 · 覆盖校验(A/B/C 分散)</div>
+        <div class="card">
+          <div class="h" style="font-size:14px;margin-bottom:8px">最终 3 题</div>
+          <div class="opt"><div class="b">1</div><div class="x">Q1 篮球架玩水<div class="muted" style="margin-top:2px">C类 · R分 · 首位摇摆</div></div></div>
+          <div class="opt"><div class="b">2</div><div class="x">Q5 价值不符<div class="muted" style="margin-top:2px">A类 · P分 · 长时权衡</div></div></div>
+          <div class="opt"><div class="b">3</div><div class="x">Q6 材料无层次<div class="muted" style="margin-top:2px">B类 · G分</div></div></div>
+        </div>
+      </div>
+      <div class="foot"><button class="btn">去 AI 访谈</button></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 记录回看 -->
+<div class="grp"><b>记录回看</b><span>从首页记录卡「看答题」进入</span></div>
+<div class="gallery">
+
+  <div class="phone">
+    <div class="cap">P6 · 看答题(回看排序)</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>5G</span></div>
+      <div class="nav"><span class="bk">‹</span>Q1 篮球架玩水<span class="rt">1/10</span></div>
+      <div class="bd">
+        <div class="card">
+          <div class="muted">你的排序(最理想 → 最不理想)</div>
+          <div class="opt" style="margin-top:10px"><div class="b">1</div><div class="x">教师C:参与粉刷,逐步引导转场</div></div>
+          <div class="opt"><div class="b">2</div><div class="x">教师A:不干预,兴趣减弱后讨论</div></div>
+          <div class="opt"><div class="b">3</div><div class="x">教师B:提议换地方玩水</div></div>
+          <div class="opt"><div class="b off">4</div><div class="x">教师D:召唤打篮球转移注意</div></div>
+        </div>
+        <div class="card row"><span class="t">本题得分</span><b style="margin-left:auto">4 / 4</b></div>
+        <div class="muted" style="margin-top:12px;text-align:center">左右滑动查看其它题</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 访谈 -->
+<div class="grp"><b>访谈</b><span>从某条答题记录进入 · 3 情境 · AI 一对一 · 每题≤10 分钟</span></div>
+<div class="gallery">
+
+  <div class="phone">
+    <div class="cap">P7 · 访谈情境列表(记录子页)</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>5G</span></div>
+      <div class="nav"><span class="bk">‹</span>AI 访谈 · 2026-07-02</div>
+      <div class="bd">
+        <div class="t">AI 将就以下 3 个情境和你聊聊,每个不超过 10 分钟,没有标准答案。</div>
+        <div class="card" style="margin-top:12px">
+          <div class="row"><b style="font-size:14px">① 篮球架玩水</b><span class="pill on" style="margin-left:auto">已完成</span></div>
+          <div class="muted" style="margin-top:6px">介入时机与安全平衡</div>
+          <button class="btn g sm" style="margin-top:10px">回看访谈</button>
+        </div>
+        <div class="card">
+          <div class="row"><b style="font-size:14px">⑤ 价值不符</b><span class="pill" style="margin-left:auto">待访谈</span></div>
+          <div class="muted" style="margin-top:6px">游戏体验 vs 现实价值判断</div>
+          <button class="btn sm" style="margin-top:10px">开始访谈</button>
+        </div>
+        <div class="card">
+          <div class="row"><b style="font-size:14px">⑥ 材料无层次</b><span class="pill" style="margin-left:auto">待访谈</span></div>
+          <div class="muted" style="margin-top:6px">材料层次与适度挑战</div>
+          <button class="btn sm" style="margin-top:10px">开始访谈</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="cap">P8 · 访谈对话</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>06:41</span></div>
+      <div class="nav"><span class="bk">‹</span>情境⑤ 价值不符</div>
+      <div class="bd" style="padding-bottom:66px">
+        <div class="msg"><div class="a">AI</div><div class="u">阳阳说“着火好开心”,你觉得他真正开心的可能是什么?</div></div>
+        <div class="msg me"><div class="a">我</div><div class="u">他享受的是救火、当英雄的情节,不是真的喜欢着火。</div></div>
+        <div class="msg"><div class="a">AI</div><div class="u">你能区分游戏情节和现实价值。那你为什么把“解释火灾危险”排最后?</div></div>
+        <div class="msg me"><div class="a">我</div><div class="u">急着讲道理会打断他的游戏体验。</div></div>
+        <div class="msg"><div class="a">AI</div><div class="u">如果要在保护游戏的同时帮他理解,你会怎么开口第一句?</div></div>
+      </div>
+      <div class="foot row" style="gap:8px"><div style="flex:1;border:1px solid var(--line);border-radius:16px;padding:9px 13px;font-size:12px;color:var(--ink3)">说说你的想法…</div><div style="width:34px;height:34px;border-radius:50%;background:var(--pri);color:#fff;display:grid;place-items:center;font-size:13px">语音</div></div>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="cap">P9 · 访谈完成</div>
+    <div class="screen">
+      <div class="sb"><span>9:41</span><span>5G</span></div>
+      <div class="bd" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:88px">
+        <div style="width:56px;height:56px;border-radius:50%;border:2px solid var(--pri);display:grid;place-items:center;color:var(--pri);font-size:24px">✓</div>
+        <div class="h" style="margin-top:18px">访谈完成,感谢</div>
+        <div class="t" style="margin-top:8px;padding:0 20px">3 个情境都聊完了,可在首页记录里回看访谈内容。</div>
+        <div style="width:100%;margin-top:26px"><button class="btn">回到首页</button></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="head" style="margin-top:38px">
+  <div class="card" style="max-width:1240px">
+    <div class="h" style="font-size:14px">说明</div>
+    <div class="t" style="margin-top:8px">
+    <b>首页 = 记录</b>:开始测评、当前待办(继续访谈)、历次答题记录合为一页,无底部 Tab,其余均为带返回的子页面。每条记录含「看答题 / 看评分 / 去访谈(或回看)」入口。<b>访谈归属于具体记录</b>(每次测评生成该次的 3 题访谈)。视觉从简:单一主色、留白、无多余色块。完整逻辑见 <b>设计文档.md</b>、<b>数据导入规范.md</b>,可运行示例见 <b>demo/</b>。
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

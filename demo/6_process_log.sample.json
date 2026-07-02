@@ -1,0 +1,109 @@
+{
+  "_desc": "前端过程埋点上报样例:一位教师一场测验的完整过程数据。对应《设计文档.md》5.2 字段清单。后端据此计算 8 项过程指标 + P-IVI,写入 process_summary。",
+  "version": "2026-07-02-demo",
+
+  "session": {
+    "paper_code": "GS-2026-07",
+    "batch_id": "B20260702-0930",
+    "teacher_name": "王老师",
+    "teacher_id": "T10086",
+    "exam_start_ts": 1751505000000,
+    "exam_submit_ts": 1751505812000,
+    "total_exam_ms": 812000,
+    "exam_limit_ms": 1200000,
+    "submit_status": "已提交"
+  },
+
+  "items": [
+    {
+      "item_id": "Q1",
+      "enter_ts": 1751505010000,
+      "submit_ts": 1751505078000,
+      "duration_ms": 68000,
+      "first_ranking": ["D", "A", "B", "C"],
+      "final_ranking": ["C", "A", "B", "D"],
+      "first_response_option": "D",
+      "revise_count": 4,
+      "move_log": [
+        { "ts": 1751505022000, "option": "A", "from_pos": 2, "to_pos": 1 },
+        { "ts": 1751505034000, "option": "C", "from_pos": 4, "to_pos": 1 },
+        { "ts": 1751505050000, "option": "D", "from_pos": 1, "to_pos": 3 },
+        { "ts": 1751505066000, "option": "D", "from_pos": 3, "to_pos": 4 }
+      ],
+      "focus_dwell": { "A": 8200, "B": 5400, "C": 11200, "D": 14800 },
+      "enter_leave_events": [
+        { "type": "enter", "ts": 1751505010000 },
+        { "type": "leave", "ts": 1751505078000 }
+      ],
+      "_derived_hint": {
+        "note": "以下为后端可从上面派生的过程指标,前端无需上报,仅示意",
+        "首反应选项": "D",
+        "首位修改轨迹": "D → A → C(首位最终为C)",
+        "末位修改轨迹": "C → D(最终D末位)",
+        "路径振荡": "D在首/末之间往返,振荡=2",
+        "关键停顿点": "D聚焦最久(14.8s),提示在器械功能与儿童兴趣间纠结",
+        "极快作答": false,
+        "过程标签": ["首位摇摆", "高修正投入", "D停顿长"]
+      }
+    },
+    {
+      "item_id": "Q2",
+      "enter_ts": 1751505078000,
+      "submit_ts": 1751505096000,
+      "duration_ms": 18000,
+      "first_ranking": ["A", "D", "C", "B"],
+      "final_ranking": ["A", "D", "C", "B"],
+      "first_response_option": "A",
+      "revise_count": 0,
+      "move_log": [],
+      "focus_dwell": { "A": 6000, "B": 3200, "C": 4800, "D": 3600 },
+      "enter_leave_events": [
+        { "type": "enter", "ts": 1751505078000 },
+        { "type": "leave", "ts": 1751505096000 }
+      ],
+      "_derived_hint": {
+        "极快作答": true,
+        "过程标签": ["快速定型", "无修改"],
+        "note": "时长短且无修改,凭直觉作答;是否高水平需结合结果与访谈"
+      }
+    },
+    {
+      "item_id": "Q5",
+      "enter_ts": 1751505096000,
+      "submit_ts": 1751505210000,
+      "duration_ms": 114000,
+      "first_ranking": ["B", "D", "C", "A"],
+      "final_ranking": ["D", "B", "C", "A"],
+      "first_response_option": "B",
+      "revise_count": 3,
+      "move_log": [
+        { "ts": 1751505150000, "option": "D", "from_pos": 2, "to_pos": 1 },
+        { "ts": 1751505172000, "option": "B", "from_pos": 1, "to_pos": 2 },
+        { "ts": 1751505198000, "option": "C", "from_pos": 4, "to_pos": 3 }
+      ],
+      "focus_dwell": { "A": 4200, "B": 22000, "C": 6100, "D": 19800 },
+      "enter_leave_events": [
+        { "type": "enter", "ts": 1751505096000 },
+        { "type": "leave", "ts": 1751505210000 }
+      ],
+      "_derived_hint": {
+        "过程标签": ["长时权衡", "首位摇摆(B↔D)", "高修正投入"],
+        "note": "时长明显偏长且首位在B/D间切换,提示对'理解体验vs价值澄清'有冲突感"
+      }
+    }
+  ],
+
+  "_upload_spec": {
+    "endpoint": "POST /api/exam/process-log(测验平台→同步接口)",
+    "sync_rule": "测验第10分钟起每30秒轮询同步;按 paper_code + batch_id + teacher_id 覆盖/增量更新",
+    "trigger_interview": "仅当 submit_status ∈ {已提交, 超时自动提交} 才进入访谈题优选",
+    "must_fields": ["paper_code","batch_id","teacher_name","item_id","final_ranking","enter_ts","submit_ts","duration_ms","first_ranking","revise_count","move_log","total_exam_ms","submit_status"],
+    "optional_fields": ["first_response_option","focus_dwell","enter_leave_events"],
+    "notes": [
+      "字段名以 _ 开头(如 _derived_hint/_desc)为文档注释,真实上报可省略。",
+      "move_log 为核心:首反应/首末位摇摆/路径振荡均由其派生,勿只传 final_ranking。",
+      "时间戳毫秒级;focus_dwell 合并 <300ms 抖动即可。",
+      "行为类字段须在隐私指引中说明用途。"
+    ]
+  }
+}
