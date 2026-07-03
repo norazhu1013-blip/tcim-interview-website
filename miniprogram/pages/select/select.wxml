@@ -1,0 +1,28 @@
+<view class="bd bd-pad-btn">
+  <view class="t">从 {{examCount}} 题中自动挑 {{finalCount}} 个最值得深入交流的情境（非最低分题）。</view>
+
+  <view class="card" style="margin-top:24rpx;">
+    <view class="muted" style="margin-bottom:12rpx;">三路候选</view>
+    <view class="li"><text class="t">R 分 · 结果偏离大</text><text class="muted">{{routeR}}</text></view>
+    <view class="li"><text class="t">P 分 · 过程异常</text><text class="muted">{{routeP}}</text></view>
+    <view class="li"><text class="t">G 分 · 结果×过程</text><text class="muted">{{routeG}}</text></view>
+  </view>
+
+  <view class="muted" style="text-align:center;margin:20rpx 0;">合并去重 · 覆盖校验（主二级指标尽量分散）</view>
+
+  <view class="card">
+    <view class="h" style="font-size:28rpx;margin-bottom:14rpx;">最终 {{finalCount}} 题</view>
+    <view wx:for="{{finals}}" wx:key="id" class="opt" style="align-items:flex-start;">
+      <view class="b">{{index + 1}}</view>
+      <view class="x">
+        <view>{{item.id}} {{item.title}}</view>
+        <view class="muted" style="margin-top:4rpx;">{{item.secName}} · {{item.sourceText}}{{item.tagText}}</view>
+      </view>
+    </view>
+    <view class="muted" style="margin-top:8rpx;">✦ 覆盖主二级指标：{{coverText}}</view>
+  </view>
+</view>
+
+<view class="foot">
+  <button class="btn" bindtap="onGo">去 AI 访谈</button>
+</view>

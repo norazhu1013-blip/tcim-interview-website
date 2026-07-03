@@ -1,0 +1,27 @@
+.mine-hd {
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  padding: 12rpx 4rpx 24rpx;
+}
+.mine-hd .avatar {
+  width: 92rpx;
+  height: 92rpx;
+  border-radius: 50%;
+  background: var(--pri);
+  flex: 0 0 auto;
+}
+.fld {
+  text-align: right;
+  font-size: 25rpx;
+  color: var(--ink);
+  flex: 1;
+  margin-left: 20rpx;
+}
+.picker {
+  width: 100%;
+}
+.pick-val {
+  font-size: 25rpx;
+  color: var(--ink3);
+}

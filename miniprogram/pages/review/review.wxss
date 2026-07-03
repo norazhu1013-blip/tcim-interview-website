@@ -1,0 +1,28 @@
+.rv-head {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  padding: 20rpx 32rpx;
+  border-bottom: 1rpx solid var(--line);
+}
+.rv-swiper {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 90rpx;
+  bottom: 70rpx;
+}
+.rv-foot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  text-align: center;
+  padding: 20rpx 0;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--bg);
+}
+.b-score {
+  font-weight: 700;
+  font-size: 27rpx;
+}

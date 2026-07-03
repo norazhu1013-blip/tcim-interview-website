@@ -1,0 +1,9 @@
+{
+  "name": "gsyg_interviewChat",
+  "version": "1.0.0",
+  "description": "AI 访谈动态追问（LLM provider 抽象；未配置/失败时客户端回退规则版）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

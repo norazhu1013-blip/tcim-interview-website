@@ -1,0 +1,32 @@
+.login {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 180rpx 48rpx 60rpx;
+}
+.brand {
+  width: 116rpx;
+  height: 116rpx;
+  border-radius: 30rpx;
+  background: var(--pri);
+}
+.title {
+  margin-top: 36rpx;
+}
+.sub {
+  margin-top: 12rpx;
+}
+.desc {
+  margin-top: 60rpx;
+  text-align: left;
+  width: 100%;
+}
+.foot-area {
+  margin-top: auto;
+  width: 100%;
+}
+.agree {
+  margin-top: 28rpx;
+}

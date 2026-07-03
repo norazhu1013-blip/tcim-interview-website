@@ -1,0 +1,9 @@
+{
+  "name": "gsyg_reportSession",
+  "version": "1.0.0",
+  "description": "上报答题结果到 gsyg_sessions",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

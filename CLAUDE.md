@@ -79,10 +79,10 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
 - 点情境 →「开始访谈」;AI **先呈现完整案例(不用插图)+ 四个选项 + 该教师的排序**,不再要求教师先填"最有效做法"。
 - **单情境限时 10 分钟**(非三题总计时)。AI 生成问题前**剩余 ≥1 分钟**才生成新问;**<1 分钟**不再生成但保存记录。
 - 教师正在回答时超 10 分钟**不强制中断**,等提交;提交后标记「已完成」。超时未提交提示:「本情境访谈时间已到,请尽快提交当前回答」。
-- 每轮**只问一个问题**;先接住回答,再围绕缺失证据追问;后台维护证据账本。支持语音+文字。
+- 每轮**只问一个问题**;先接住回答,再围绕缺失证据追问;后台维护证据账本。**AI 对话为纯文字输入(不做语音)**。
 - 情境选择界面:**已访谈**左上角红勾,按键为「退出案例/回看访谈」,默认不可重访只可回看(回看=题干+四选项+本人原排序+每轮问答+提交时间);**未访谈**可开始。
 - 三题全完成:弹窗「访谈完成,感谢!」(可关闭/回首页)。
-- **信息架构(已定)**:**首页与记录合并为单一主页,无底部 Tab**。首页含:开始测评 CTA + 历次答题记录列表;其余页面均为带返回的子页。访谈**从属于具体答题记录**(每次测评生成该次专属的 3 题访谈),入口=记录卡的「去访谈/回看」,**不设独立"访谈" Tab、首页也不放访谈快捷卡**。每条记录卡有「看答题 / 看评分 / 去访谈(或回看)」三入口。评分是某条记录的结果页。理由:多条记录时全局访谈入口无法表达"这是哪次访谈"。
+- **信息架构(已定)**:**底部 2 个 Tab:答题 / 我的**。「答题」Tab=首页(开始测评 CTA + 历次答题记录列表,首页与记录合并);「我的」Tab=个人信息页(profile:姓名/园所/班级/教龄/试卷码,可随时查看修改,保存后更新后端 profile)。答题/评分/筛选/访谈/回看均为带返回的子页。访谈**从属于具体答题记录**(每次测评生成该次专属的 3 题访谈),入口=记录卡的「去访谈/回看」,**不设独立"访谈" Tab**。每条记录卡有「看答题 / 看评分 / 去访谈(或回看)」三入口。评分是某条记录的结果页。理由:多条记录时全局访谈入口无法表达"这是哪次访谈"。
 
 ---
 
@@ -96,8 +96,8 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
 
 - 前端:微信小程序原生/Taro;拖拽排序 `movable-view`;图表 ec-canvas。
 - LLM **不能在小程序直连**,必须经自有已备案后端;打分/筛题为独立确定性服务。
-- 语音:`RecorderManager` → 后端 ASR(一期"说完再转")。报告 PDF/DOC **服务端生成**。
-- 合规硬门槛:①教育类目资质+ICP备案+企业主体;②UGC与AI生成内容均过 `msgSecCheck`/`mediaCheckAsync`,AI问答需人工审核+可追溯;③隐私指引+`scope.record`授权。
+- **AI 对话纯文字输入,不做语音**(已移除语音按钮/`scope.record`)。报告 PDF/DOC **服务端生成**。
+- 合规硬门槛:①教育类目资质+ICP备案+企业主体;②UGC与AI生成内容均过 `msgSecCheck`/`mediaCheckAsync`,AI问答需人工审核+可追溯;③隐私指引。
 
 ---
 
@@ -140,3 +140,25 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
 ### 待办 / 未决(接手前先看)
 - ⚠️ **赋分表 24 行 ↔ 排列顺序口径**:需与研究团队确认;确认后更新 `数据导入规范.md` 与 demo 的 `2_score_table`。
 - 未做:Excel→JSON 正式导入脚本;10题知识库全部结构化;AI访谈系统提示词模板。
+
+---
+
+## 13. 小程序实现说明(`miniprogram/`)
+
+原生微信小程序(无框架/无 npm 依赖),严格对照 `prototype.html` P0–P9。详见 `miniprogram/README.md`。关键实现决策:
+
+- **信息架构**:**底部 2 Tab(app.json tabBar)——「答题」=home(首页含记录,默认选中)/「我的」=profile(个人信息,可随时查看修改,保存调 gsyg_reportTeacher)**;color/selectedColor=#a6abb5/#3f63d6,纯文字无图标。login 不在 tabBar,登录后 switchTab 到 home(无 profile 则先 switchTab 到 profile 完善)。其余 exam/submit/score/select/review/interviewList/interview/done 为 navigateTo 子页;返回 home 一律 switchTab。访谈从属于具体答题记录。共 11 页。
+- **存储**:除 3 个后端上报接口外全部本地(`wx.setStorageSync`,`utils/store.js`);每次答题前端生成 UUID 作 sessionId(记录主键),可多次答题。
+- **后端 = 微信云开发 CloudBase「云函数 + 云数据库」**,客户端**不直连 DB**,统一前缀 `gsyg_`(与知识库 GSYG_ 一致,集中于 `utils/config.js` 的 `PREFIX`)。`utils/api.js` 用 `wx.cloud.callFunction` 调 3 个云函数 → 云函数(wx-server-sdk 拿 openid)读写集合:`gsyg_reportTeacher`→`gsyg_teachers`(按 openid upsert) / `gsyg_reportSession`→`gsyg_sessions`(按 sessionId upsert:answers+scores+total+selection+时间字段) / `gsyg_reportInterview`→`gsyg_interviews`(按 sessionId upsert:transcripts)。云函数代码在**仓库根** `cloudfunctions/gsyg_*/`(开发者工具在**仓库根**打开;根 `project.config.json` 为唯一权威:`miniprogramRoot=miniprogram/`、`cloudfunctionRoot=cloudfunctions/`、appid=wxb3835ca53ec166c8;`miniprogram/` 下不再放 project.config.json)。**本地优先**:先写本地再异步 callFunction,失败入 `pendingReports`(`app.onShow` 自动 flush)、不阻塞;wx.cloud 不可用时降级只存本地。部署步骤(右键上传云函数+建集合+权限设"仅管理端")见 `miniprogram/README.md`「云开发部署」。
+- **算法移植自 `demo.html`**:评分=查表(`utils/scoring.js`);过程指标必回放 move_log(`utils/process.js`,首末位摇摆按各步序列变更次数、路径振荡=方向反转,勿用"首≠尾"简化);R/P/G 筛选=`selectThree`(合并去重+覆盖校验)。已用 demo Q1 埋点验证与 demo.html 一致。
+- **访谈**(`utils/interview.js`)为**规则版**:命中触发规则(T)→脚本序列(Q)逐轮一问→证据账本(E)→锚点编码;不暴露专家排序/得分/标准答案;单情境限时 10 分钟、剩余<1 分钟不再生成新问但保存;已完成只可回看。真实 LLM 动态追问经云函数 `gsyg_interviewChat`(`llmNextQuestion` 调用;provider 走环境变量 LLM_PROVIDER/ENDPOINT/KEY/MODEL,推荐微信云开发 AI 或国产大模型);**LLM 未配置/失败/超时自动回退规则版脚本序列**,离线也能走完。
+  - ⚠️ **已知局限(上线接真实 AI 必须修)**:规则版是「问过即算」——`pages/interview/interview.js` 在教师一回答就把该问关联的 E 证据点计入账本,**未语义判断回答是否真的覆盖证据**。真实 AI 阶段,`gsyg_interviewChat` 须按教师**原话判定** E 证据是否成立(返回已覆盖的 evidenceHint 驱动账本),而不是"问过即算";否则"AI 访谈"名不副实。边界不变:knowledge.js 定专业内容/脚本边界,AI 只负责对话中的理解/追问/证据确认/表达组织,**评分与筛题仍为确定性程序、AI 不参与**。
+- **评分用 DOC 真实赋分表**:`data/scoreTable.js` 由 `tools/build_scoreTable.js` 从《000 10题赋分.xlsx》一次性生成(全 10 题×24 排列)。排列顺序口径来自 xlsx 首列「选项组合」(ABCD…DCBA 字典序)显式给出、非假设;已用知识库 04 表方向自检通过。仅「该列语义=排序」待研究团队最终核对,若不符改 `permToKey` 一处重生成。
+- **时间埋点**:每题 duration + 整卷 examStartTs/examSubmitTs/totalExamMs 均本地存 + 随 sessions 上报(items[].durationMs/totalDurationMs);时间用于 P-IVI/筛选,评分不依赖时间。
+- **全 10 题真实数据**:questions/scoreTable/indicatorMap/knowledge 四处均为 Q1–Q10 DOC 真实数据、题号一致(已校验);答题走 10 题、R/P/G 10 选 3。
+  - questions/indicatorMap/scoreTable 由 `tools/build_questions.js`/`build_indicatorMap.js`/`build_scoreTable.js` 从 DOC 生成。
+  - **knowledge.js 由 `tools/build_knowledge.js` 生成(全 10 题富结构,已完成——非骨架)**:每题含 core_orientation、empirical_note、paths(4-5)、evidence_points E1-E7、biases P1-P7、triggers T(7-8:result_cond+process_cond+target+scripts+priority/prio)、scripts Q1-Q7+Q-stop(09 表真实措辞,字段 q/E/stage/goal/next)、anchors 5 档、suggestions(7)。均取自各题知识库 xlsx 13 表真实内容。
+  - 知识库源 xlsx 有**两套列模板**(变体A:Q1/2/4/5/6/7 = Q码脚本;变体B:Q3/8/9/10 = S码/首问内嵌),build_knowledge.js 用表头关键词通用取列兼容两套;追问脚本码统一归一到 09 表基码 Q1-Q7/Q-stop,triggers.scripts/biases 引用皆存在于本题。
+  - triggers.result_cond 为文本,`interview.js` 运行时**通用正则判定**(首/末位、靠前≤2、靠后≥3、X/Y前两位),按 prio 取最高、无命中回退首条;已用流水线验证(Q1 D首→T1、A/C前二→T4;Q5/Q8/Q10 均正确出脚本)。真实 LLM 访谈留 `interview.js` 的 `llmNextQuestion` 桩 + 计划中的 `gsyg_interviewChat` 云函数。
+  - ⚠️ 曾出现竞态:我(lead)一度用一份精简版 knowledge.js 覆盖了 worker 富版;已用 `tools/build_knowledge.js` 重新生成富版并验证兼容,精简版及其 build_knowledge.py 已删。**knowledge.js 以 `tools/build_knowledge.js` 为唯一生成源。**
+  - 报告页(设计文档第 8 节)本期未做。

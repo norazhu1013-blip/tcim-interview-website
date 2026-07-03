@@ -1,0 +1,56 @@
+.exam-top {
+  background: #fff;
+  padding: 20rpx 32rpx 18rpx;
+  border-bottom: 1rpx solid var(--line);
+}
+.timer {
+  font-size: 25rpx;
+  color: var(--ink2);
+}
+.timer.low {
+  color: #e0483c;
+  font-weight: 600;
+}
+.exam-body {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 120rpx;
+  bottom: 150rpx;
+  padding: 32rpx;
+}
+/* 拖拽排序 */
+.sorting-list {
+  position: relative;
+}
+.sorting-list .opt {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+/* 拖拽手柄 */
+.handle {
+  margin-left: auto;
+  width: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.handle-ic {
+  font-size: 34rpx;
+  color: #c3c8d2;
+  line-height: 1;
+  letter-spacing: -6rpx;
+}
+/* 被拖起的项：浮起 + 主色描边 + 阴影 */
+.opt.dragging {
+  opacity: 0.92;
+  border-color: var(--pri);
+  box-shadow: 0 10rpx 26rpx rgba(63, 99, 214, 0.22);
+  transform: scale(1.02);
+  z-index: 10;
+}
+/* 拖拽经过的落点占位 */
+.opt.drag-over {
+  border-color: var(--pri);
+  background: #eef2fd;
+}

@@ -1,0 +1,9 @@
+{
+  "name": "gsyg_reportInterview",
+  "version": "1.0.0",
+  "description": "上报访谈结果到 gsyg_interviews",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

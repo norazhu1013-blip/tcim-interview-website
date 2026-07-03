@@ -1,0 +1,213 @@
+/* app.wxss — 全局极简样式，移植自 prototype.html */
+page {
+  --pri: #3f63d6;
+  --ink: #1f2530;
+  --ink2: #5f6672;
+  --ink3: #a6abb5;
+  --line: #ebedf1;
+  --bg: #fafbfc;
+  --soft: #f4f5f7;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 28rpx;
+  -webkit-font-smoothing: antialiased;
+}
+
+view, text, button, input, textarea, scroll-view {
+  box-sizing: border-box;
+}
+
+/* 页面主体 */
+.bd {
+  padding: 32rpx;
+}
+.bd-pad-btn {
+  padding-bottom: 160rpx;
+}
+
+/* 卡片 */
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 30rpx;
+  border: 1rpx solid var(--line);
+}
+.card + .card {
+  margin-top: 22rpx;
+}
+
+/* 文字层级 */
+.h {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+.h-lg {
+  font-size: 34rpx;
+  font-weight: 700;
+}
+.t {
+  font-size: 25rpx;
+  color: var(--ink2);
+  line-height: 1.65;
+}
+.ink {
+  color: var(--ink);
+}
+.muted {
+  font-size: 23rpx;
+  color: var(--ink3);
+}
+.sect {
+  font-size: 24rpx;
+  color: var(--ink3);
+  margin: 36rpx 4rpx 16rpx;
+  font-weight: 600;
+}
+
+/* 按钮 */
+.btn {
+  display: block;
+  width: 100%;
+  background: var(--pri);
+  color: #fff;
+  border: none;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  font-size: 29rpx;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+}
+.btn::after {
+  border: none;
+}
+.btn.sm {
+  padding: 18rpx 12rpx;
+  font-size: 25rpx;
+}
+.btn.o {
+  background: #fff;
+  color: var(--pri);
+  border: 1rpx solid var(--pri);
+}
+.btn.g {
+  background: #fff;
+  color: var(--ink2);
+  border: 1rpx solid var(--line);
+}
+.btn[disabled] {
+  opacity: 0.5;
+}
+
+/* 行 / 列表项 */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+.li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid var(--line);
+}
+.li:last-child {
+  border: none;
+}
+
+/* 药丸标签 */
+.pill {
+  display: inline-block;
+  font-size: 22rpx;
+  padding: 4rpx 18rpx;
+  border-radius: 12rpx;
+  background: var(--soft);
+  color: var(--ink2);
+}
+.pill.on {
+  background: #eef2fd;
+  color: var(--pri);
+  font-weight: 600;
+}
+
+/* 选项行 */
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  background: #fff;
+  border: 1rpx solid var(--line);
+  border-radius: 20rpx;
+  padding: 22rpx;
+  margin-bottom: 18rpx;
+}
+.opt .b {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 14rpx;
+  background: var(--pri);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 24rpx;
+  flex: 0 0 auto;
+}
+.opt .b.off {
+  background: var(--soft);
+  color: var(--ink3);
+}
+.opt .x {
+  font-size: 25rpx;
+  line-height: 1.45;
+  flex: 1;
+}
+
+/* 底部固定操作条 */
+.foot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1rpx solid var(--line);
+}
+
+/* 进度条 */
+.bar {
+  height: 12rpx;
+  background: var(--soft);
+  border-radius: 8rpx;
+  overflow: hidden;
+  flex: 1;
+}
+.bar > i {
+  display: block;
+  height: 100%;
+  background: var(--pri);
+  border-radius: 8rpx;
+}
+
+/* 居中结果页 */
+.center-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.ok-ring {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  border: 4rpx solid var(--pri);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pri);
+  font-size: 52rpx;
+}

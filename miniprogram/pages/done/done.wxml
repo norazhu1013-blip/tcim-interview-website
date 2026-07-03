@@ -1,0 +1,8 @@
+<view class="bd center-col" style="padding-top:140rpx;">
+  <view class="ok-ring">✓</view>
+  <view class="h-lg" style="margin-top:32rpx;">访谈完成，感谢</view>
+  <view class="t" style="margin-top:14rpx;padding:0 40rpx;">3 个情境都聊完了，可在首页记录里回看访谈内容。</view>
+  <view style="width:100%;margin-top:52rpx;">
+    <button class="btn" bindtap="onHome">回到首页</button>
+  </view>
+</view>

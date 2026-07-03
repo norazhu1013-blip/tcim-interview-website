@@ -1,0 +1,9 @@
+{
+  "name": "gsyg_reportTeacher",
+  "version": "1.0.0",
+  "description": "上报教师信息到 gsyg_teachers",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

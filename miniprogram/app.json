@@ -1,0 +1,35 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/profile/profile",
+    "pages/home/home",
+    "pages/exam/exam",
+    "pages/submit/submit",
+    "pages/score/score",
+    "pages/select/select",
+    "pages/review/review",
+    "pages/interviewList/interviewList",
+    "pages/interview/interview",
+    "pages/done/done"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "游戏支持与引导能力测评",
+    "backgroundColor": "#fafbfc",
+    "backgroundTextStyle": "light"
+  },
+  "cloud": true,
+  "tabBar": {
+    "color": "#a6abb5",
+    "selectedColor": "#3f63d6",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/home/home", "text": "答题", "iconPath": "images/tab_exam.png", "selectedIconPath": "images/tab_exam_on.png" },
+      { "pagePath": "pages/profile/profile", "text": "我的", "iconPath": "images/tab_me.png", "selectedIconPath": "images/tab_me_on.png" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

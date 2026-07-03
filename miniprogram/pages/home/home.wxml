@@ -1,0 +1,41 @@
+<view class="bd">
+  <!-- 顶部 -->
+  <view class="header">
+    <view class="h-lg">{{profile.name || '老师'}}</view>
+    <view class="muted" style="margin-top:6rpx;">{{profile.kindergarten || '未填园所'}} · {{profile.grade || ''}}</view>
+  </view>
+
+  <!-- 开始测评 -->
+  <view class="card">
+    <view class="h">开始新测评</view>
+    <view class="t" style="margin-top:10rpx;">{{examCount}} 道情境题 · 约 20 分钟，完成后自动评分并生成 AI 访谈。</view>
+    <button class="btn" style="margin-top:24rpx;" bindtap="onStart">开始答题</button>
+  </view>
+
+  <view class="sect">我的记录</view>
+
+  <view wx:if="{{records.length === 0}}" class="card">
+    <view class="muted" style="text-align:center;padding:20rpx 0;">还没有测评记录，点上方「开始答题」开始吧。</view>
+  </view>
+
+  <view wx:for="{{records}}" wx:key="sessionId" class="card">
+    <view class="row">
+      <text class="h" style="font-size:28rpx;">{{item.dateText}}</text>
+      <text class="pill {{item.pillOn ? 'on' : ''}}" style="margin-left:auto;">{{item.pillText}}</text>
+    </view>
+    <view class="muted" style="margin-top:12rpx;">{{item.summary}}</view>
+
+    <!-- 未完成：继续答题 -->
+    <view wx:if="{{item.status === 'in_progress'}}" class="row" style="margin-top:20rpx;">
+      <button class="btn o sm" style="flex:1;" data-id="{{item.sessionId}}" bindtap="onContinue">继续答题</button>
+      <button class="btn g sm" style="flex:0 0 140rpx;" data-id="{{item.sessionId}}" bindtap="onDelete">删除</button>
+    </view>
+
+    <!-- 已提交：三入口 -->
+    <view wx:else class="row" style="margin-top:20rpx;gap:12rpx;">
+      <button class="btn g sm" style="flex:1;" data-id="{{item.sessionId}}" bindtap="onReview">看答题</button>
+      <button class="btn g sm" style="flex:1;" data-id="{{item.sessionId}}" bindtap="onScore">看评分</button>
+      <button class="btn {{item.interviewDone ? 'g' : 'o'}} sm" style="flex:1;" data-id="{{item.sessionId}}" bindtap="onInterview">{{item.interviewDone ? '回看' : '去访谈'}}</button>
+    </view>
+  </view>
+</view>

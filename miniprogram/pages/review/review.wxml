@@ -1,0 +1,26 @@
+<view class="rv-head">
+  <text class="h" style="font-size:27rpx;">{{cur.id}} {{cur.title}}</text>
+  <text class="muted" style="margin-left:auto;">{{swiperIdx + 1}}/{{pages.length}}</text>
+</view>
+
+<swiper class="rv-swiper" current="{{swiperIdx}}" bindchange="onSwipe">
+  <swiper-item wx:for="{{pages}}" wx:key="id">
+    <scroll-view scroll-y style="height:100%;">
+      <view class="bd">
+        <view class="card">
+          <view class="muted">你的排序（最理想 → 最不理想）</view>
+          <view wx:for="{{item.rows}}" wx:for-item="row" wx:key="opt" class="opt" style="margin-top:{{index === 0 ? 16 : 0}}rpx;">
+            <view class="b {{row.last ? 'off' : ''}}">{{row.pos}}</view>
+            <view class="x">{{row.text}}</view>
+          </view>
+        </view>
+        <view class="card row">
+          <text class="t">本题得分</text>
+          <text class="b-score" style="margin-left:auto;">{{item.score}} / 4</text>
+        </view>
+      </view>
+    </scroll-view>
+  </swiper-item>
+</swiper>
+
+<view class="muted rv-foot">左右滑动查看其它题</view>

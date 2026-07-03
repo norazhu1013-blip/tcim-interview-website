@@ -1,0 +1,11 @@
+<view class="login">
+  <view class="brand"></view>
+  <view class="h-lg title">游戏支持与引导能力测评</view>
+  <view class="muted sub">幼儿园教师保教能力测评</view>
+  <view class="t desc">登录后可：完成情境测评并自动评分、进行 AI 访谈、查看记录与报告。</view>
+
+  <view class="foot-area">
+    <button class="btn" bindtap="onLogin" loading="{{logging}}">微信一键登录</button>
+    <view class="muted agree">登录即同意《用户协议》《隐私政策》</view>
+  </view>
+</view>

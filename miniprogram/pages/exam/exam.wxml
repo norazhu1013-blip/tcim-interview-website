@@ -1,0 +1,36 @@
+<view class="exam-top">
+  <view class="row">
+    <text class="muted">第 {{idx + 1}} / {{total}} 题</text>
+    <text class="timer {{timeLow ? 'low' : ''}}" style="margin-left:auto;">剩余 {{countdown}}</text>
+  </view>
+  <view class="bar" style="margin-top:12rpx;"><i style="width:{{progress}}%;"></i></view>
+</view>
+
+<scroll-view scroll-y class="exam-body">
+  <view class="card">
+    <view class="muted" style="color:var(--pri);font-weight:600;">情境 · {{q.title}}</view>
+    <view class="t ink" style="margin-top:10rpx;">{{q.stem}}</view>
+  </view>
+
+  <view class="muted" style="margin:20rpx 0 14rpx;">长按并拖动选项进行排序（序号 1 = 最理想，序号 {{order.length}} = 最不理想）</view>
+
+  <view class="sorting-list">
+    <view wx:for="{{order}}" wx:key="*this"
+          class="opt {{draggingIndex === index ? 'dragging' : ''}} {{dragOverIndex === index ? 'drag-over' : ''}}"
+          data-index="{{index}}"
+          bindtouchstart="onTouchStart"
+          bindlongpress="onDragStart"
+          bindtouchmove="onTouchMove"
+          bindtouchend="onTouchEnd"
+          bindtouchcancel="onTouchEnd">
+      <view class="b {{index === order.length - 1 ? 'off' : ''}}">{{index + 1}}</view>
+      <view class="x">{{q.options[item]}}</view>
+      <view class="handle"><text class="handle-ic">⋮⋮</text></view>
+    </view>
+  </view>
+</scroll-view>
+
+<view class="foot row" style="gap:20rpx;">
+  <button class="btn g sm" style="flex:0 0 150rpx;" bindtap="onPrev" disabled="{{idx === 0}}">上一题</button>
+  <button class="btn sm" style="flex:1;" bindtap="onNext">{{idx === total - 1 ? '提交' : '下一题'}}</button>
+</view>
