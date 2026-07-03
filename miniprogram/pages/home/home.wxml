@@ -8,7 +8,36 @@
   <!-- 开始测评 -->
   <view class="card">
     <view class="h">开始新测评</view>
-    <view class="t" style="margin-top:10rpx;">{{examCount}} 道情境题 · 约 20 分钟，完成后自动评分并生成 AI 访谈。</view>
+    <view class="muted intro-line" style="margin-top:14rpx;">
+      面向幼儿园教师的「游戏支持与引导能力」评估，通过真实情境判断了解你在观察、介入、支持儿童游戏中的偏向与优势。
+    </view>
+
+    <view class="intro-steps">
+      <view class="intro-step">
+        <text class="intro-num">1</text>
+        <view class="intro-body">
+          <text class="intro-title">情境判断（约 20 分钟）</text>
+          <text class="intro-sub">{{examCount}} 道真实幼儿园情境，把 4 种做法从「最理想」拖到「最不理想」排序</text>
+        </view>
+      </view>
+      <view class="intro-step">
+        <text class="intro-num">2</text>
+        <view class="intro-body">
+          <text class="intro-title">自动评分与情境挑选</text>
+          <text class="intro-sub">依固定赋分表算分（不泄露标准答案），自动挑 3 个最值得深入交流的情境</text>
+        </view>
+      </view>
+      <view class="intro-step">
+        <text class="intro-num">3</text>
+        <view class="intro-body">
+          <text class="intro-title">AI 一对一访谈</text>
+          <text class="intro-sub">围绕你的真实排序追问，单情境约 10 分钟，采集判断依据与介入策略</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="muted intro-hint">*非评判、可回溯；结果仅用于本人能力画像与成长建议。</view>
+
     <button class="btn" style="margin-top:24rpx;" bindtap="onStart">开始答题</button>
   </view>
 

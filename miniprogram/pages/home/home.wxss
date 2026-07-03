@@ -1,3 +1,56 @@
 .header {
   padding: 8rpx 4rpx 24rpx;
 }
+
+/* 首页「开始新测评」卡内的目的+流程说明 */
+.intro-line {
+  font-size: 24rpx;
+  line-height: 1.55;
+}
+.intro-steps {
+  margin-top: 22rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+.intro-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 18rpx;
+}
+.intro-num {
+  flex: 0 0 auto;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: var(--pri);
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 600;
+  text-align: center;
+  line-height: 40rpx;
+}
+.intro-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  flex: 1;
+  min-width: 0;
+}
+.intro-title {
+  font-size: 25rpx;
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.intro-sub {
+  font-size: 22rpx;
+  color: var(--ink3);
+  line-height: 1.5;
+}
+.intro-hint {
+  display: block;
+  margin-top: 18rpx;
+  font-size: 21rpx;
+  color: var(--ink3);
+}

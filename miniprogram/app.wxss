@@ -10,7 +10,7 @@ page {
   background: var(--bg);
   color: var(--ink);
   font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 28rpx;
+  font-size: 34rpx;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -39,15 +39,15 @@ view, text, button, input, textarea, scroll-view {
 
 /* 文字层级 */
 .h {
-  font-size: 30rpx;
+  font-size: 36rpx;
   font-weight: 700;
 }
 .h-lg {
-  font-size: 34rpx;
+  font-size: 42rpx;
   font-weight: 700;
 }
 .t {
-  font-size: 25rpx;
+  font-size: 32rpx;
   color: var(--ink2);
   line-height: 1.65;
 }
@@ -55,11 +55,11 @@ view, text, button, input, textarea, scroll-view {
   color: var(--ink);
 }
 .muted {
-  font-size: 23rpx;
+  font-size: 28rpx;
   color: var(--ink3);
 }
 .sect {
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--ink3);
   margin: 36rpx 4rpx 16rpx;
   font-weight: 600;
@@ -74,7 +74,7 @@ view, text, button, input, textarea, scroll-view {
   border: none;
   border-radius: 20rpx;
   padding: 24rpx;
-  font-size: 29rpx;
+  font-size: 34rpx;
   font-weight: 600;
   text-align: center;
   line-height: 1.2;
@@ -84,7 +84,7 @@ view, text, button, input, textarea, scroll-view {
 }
 .btn.sm {
   padding: 18rpx 12rpx;
-  font-size: 25rpx;
+  font-size: 30rpx;
 }
 .btn.o {
   background: #fff;
@@ -120,8 +120,8 @@ view, text, button, input, textarea, scroll-view {
 /* 药丸标签 */
 .pill {
   display: inline-block;
-  font-size: 22rpx;
-  padding: 4rpx 18rpx;
+  font-size: 26rpx;
+  padding: 6rpx 20rpx;
   border-radius: 12rpx;
   background: var(--soft);
   color: var(--ink2);
@@ -144,16 +144,16 @@ view, text, button, input, textarea, scroll-view {
   margin-bottom: 18rpx;
 }
 .opt .b {
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 14rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 16rpx;
   background: var(--pri);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 24rpx;
+  font-size: 32rpx;
   flex: 0 0 auto;
 }
 .opt .b.off {
@@ -161,8 +161,8 @@ view, text, button, input, textarea, scroll-view {
   color: var(--ink3);
 }
 .opt .x {
-  font-size: 25rpx;
-  line-height: 1.45;
+  font-size: 32rpx;
+  line-height: 1.5;
   flex: 1;
 }
 

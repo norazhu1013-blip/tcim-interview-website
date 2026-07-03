@@ -12,9 +12,7 @@
     <view class="t ink" style="margin-top:10rpx;">{{q.stem}}</view>
   </view>
 
-  <view class="muted" style="margin:20rpx 0 14rpx;">长按并拖动选项进行排序（序号 1 = 最理想，序号 {{order.length}} = 最不理想）</view>
-
-  <view class="sorting-list">
+  <view class="sorting-list" style="margin-top:20rpx;">
     <view wx:for="{{order}}" wx:key="*this"
           class="opt {{draggingIndex === index ? 'dragging' : ''}} {{dragOverIndex === index ? 'drag-over' : ''}}"
           data-index="{{index}}"

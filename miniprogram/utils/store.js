@@ -93,7 +93,7 @@ function saveInterview(sessionId, itemId, interviewObj) {
 function formatDate(ts) {
   const d = new Date(ts);
   const p = (n) => (n < 10 ? '0' + n : '' + n);
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 }
 
 module.exports = {

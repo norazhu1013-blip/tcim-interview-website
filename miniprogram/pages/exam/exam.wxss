@@ -1,10 +1,10 @@
 .exam-top {
   background: #fff;
-  padding: 20rpx 32rpx 18rpx;
+  padding: 14rpx 32rpx 12rpx;
   border-bottom: 1rpx solid var(--line);
 }
 .timer {
-  font-size: 25rpx;
+  font-size: 30rpx;
   color: var(--ink2);
 }
 .timer.low {
@@ -15,9 +15,19 @@
   position: fixed;
   left: 0;
   right: 0;
-  top: 120rpx;
-  bottom: 150rpx;
-  padding: 32rpx;
+  top: 96rpx;
+  /* iOS 底部 Home Bar 高度算进来，避免选项被 foot 遮挡 */
+  bottom: calc(128rpx + env(safe-area-inset-bottom));
+  padding: 20rpx 24rpx 40rpx;
+}
+/* 隐藏 scroll-view 滚动条（含内部滚动容器） */
+.exam-body ::-webkit-scrollbar,
+.exam-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+  background: transparent;
+  color: transparent;
 }
 /* 拖拽期间禁止滚动条与惯性滚动，避免 pageY 抖动干扰位次换算 */
 .exam-body.no-scroll {
@@ -33,7 +43,10 @@
 .sorting-list {
   position: relative;
 }
+/* 答题页选项卡：紧凑上下间距 */
 .sorting-list .opt {
+  padding: 16rpx 18rpx;
+  margin-bottom: 12rpx;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
 }
 /* 拖拽手柄 */
