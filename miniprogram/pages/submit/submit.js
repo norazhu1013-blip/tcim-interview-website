@@ -14,7 +14,7 @@ Page({
     wx.redirectTo({ url: '/pages/score/score?sid=' + this.data.sid });
   },
   onSelect() {
-    wx.redirectTo({ url: '/pages/select/select?sid=' + this.data.sid });
+    wx.redirectTo({ url: '/pages/interviewList/interviewList?sid=' + this.data.sid });
   },
   onHome() {
     wx.switchTab({ url: '/pages/home/home' });

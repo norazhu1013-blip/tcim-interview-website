@@ -17,7 +17,6 @@ Page({
       const rows = ranking.map((opt, i) => ({
         opt,
         pos: i + 1,
-        last: i === ranking.length - 1,
         text: it.options[opt]
       }));
       const score = s.scores && s.scores.perItem[it.item_id] != null ? s.scores.perItem[it.item_id] : '-';

@@ -26,16 +26,17 @@ Page({
         teachAgeIdx: ti,
         isFirst: false
       });
-      wx.setNavigationBarTitle({ title: '我的' });
+      wx.setNavigationBarTitle({ title: this.data.isFirst ? '完善信息' : '我的' });
     } else {
       this.setData({ isFirst: true });
-      wx.setNavigationBarTitle({ title: '完善信息' });
+      wx.setNavigationBarTitle({ title: this.data.isFirst ? '完善信息' : '我的' });
     }
   },
 
   onInput(e) {
     const k = e.currentTarget.dataset.k;
-    this.setData({ ['form.' + k]: e.detail.value });
+    const patch = { ['form.' + k]: e.detail.value };
+    this.setData(patch);
   },
   onGrade(e) {
     const i = Number(e.detail.value);
@@ -75,23 +76,9 @@ Page({
     } else {
       // 编辑：留在本页，刷新头部
       this.setData({ isFirst: false });
-      wx.setNavigationBarTitle({ title: '我的' });
+      wx.setNavigationBarTitle({ title: this.data.isFirst ? '完善信息' : '我的' });
       wx.showToast({ title: '已保存', icon: 'success' });
     }
   },
 
-  onAbout() {
-    wx.showModal({
-      title: '关于测评',
-      content: '幼儿园教师「游戏支持与引导能力」测评：10 题情境判断 + AI 一对一访谈，自动评分、非评判、结果可回溯。',
-      showCancel: false
-    });
-  },
-  onPrivacy() {
-    wx.showModal({
-      title: '隐私政策',
-      content: '仅采集必要的教师信息与作答/访谈数据用于测评与报告；录音仅用于本次访谈转写。详见完整隐私政策。',
-      showCancel: false
-    });
-  }
 });

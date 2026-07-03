@@ -1,0 +1,10 @@
+{
+  "name": "gsyg_initDb",
+  "version": "1.0.0",
+  "description": "一次性初始化数据库：创建 gsyg_teachers/gsyg_sessions/gsyg_interviews 集合及其唯一/复合索引",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/manager-node": "^4.0.0",
+    "wx-server-sdk": "~2.6.3"
+  }
+}

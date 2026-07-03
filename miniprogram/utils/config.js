@@ -20,7 +20,8 @@ const CLOUD_FUNCTIONS = {
   reportTeacher: PREFIX + 'reportTeacher', // gsyg_reportTeacher
   reportSession: PREFIX + 'reportSession', // gsyg_reportSession
   reportInterview: PREFIX + 'reportInterview', // gsyg_reportInterview
-  interviewChat: PREFIX + 'interviewChat' // gsyg_interviewChat（AI 动态追问）
+  interviewChat: PREFIX + 'interviewChat', // gsyg_interviewChat（AI 动态追问）
+  initDb: PREFIX + 'initDb' // gsyg_initDb（一次性建集合与索引，管理端调用）
 };
 
 module.exports = { CLOUD_ENV, PREFIX, COLLECTIONS, CLOUD_FUNCTIONS };

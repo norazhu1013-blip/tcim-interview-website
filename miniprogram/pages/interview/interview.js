@@ -48,7 +48,7 @@ Page({
     const ans = session.answers[itemId] || {};
     const ranking = (ans.final_ranking || ['A', 'B', 'C', 'D']).slice();
     const rankRows = ranking.map((opt, i) => ({
-      opt, pos: i + 1, last: i === ranking.length - 1, text: q.options[opt]
+      opt, pos: i + 1, text: q.options[opt]
     }));
 
     this.setData({ sid, itemId, isReview, q, rankRows });

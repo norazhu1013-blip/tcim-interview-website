@@ -1,16 +1,19 @@
+page {
+  height: 100vh;
+}
 .rv-head {
   display: flex;
   align-items: center;
   background: #fff;
   padding: 20rpx 32rpx;
   border-bottom: 1rpx solid var(--line);
+  height: 90rpx;
+  box-sizing: border-box;
 }
+/* swiper 必须显式高度，否则退回默认 150px；父级需给出可算高度 */
 .rv-swiper {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 90rpx;
-  bottom: 70rpx;
+  width: 100%;
+  height: calc(100vh - 90rpx - 90rpx - env(safe-area-inset-bottom));
 }
 .rv-foot {
   position: fixed;

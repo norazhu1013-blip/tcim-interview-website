@@ -19,6 +19,16 @@
   bottom: 150rpx;
   padding: 32rpx;
 }
+/* 拖拽期间禁止滚动条与惯性滚动，避免 pageY 抖动干扰位次换算 */
+.exam-body.no-scroll {
+  overflow: hidden;
+  touch-action: none;
+}
+.sorting-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
 /* 拖拽排序 */
 .sorting-list {
   position: relative;

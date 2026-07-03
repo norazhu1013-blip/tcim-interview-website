@@ -6,7 +6,7 @@
   <view class="bar" style="margin-top:12rpx;"><i style="width:{{progress}}%;"></i></view>
 </view>
 
-<scroll-view scroll-y class="exam-body">
+<scroll-view scroll-y="{{!isDragging}}" class="exam-body {{isDragging ? 'no-scroll' : ''}}">
   <view class="card">
     <view class="muted" style="color:var(--pri);font-weight:600;">情境 · {{q.title}}</view>
     <view class="t ink" style="margin-top:10rpx;">{{q.stem}}</view>
@@ -23,7 +23,7 @@
           bindtouchmove="onTouchMove"
           bindtouchend="onTouchEnd"
           bindtouchcancel="onTouchEnd">
-      <view class="b {{index === order.length - 1 ? 'off' : ''}}">{{index + 1}}</view>
+      <view class="b">{{item}}</view>
       <view class="x">{{q.options[item]}}</view>
       <view class="handle"><text class="handle-ic">⋮⋮</text></view>
     </view>

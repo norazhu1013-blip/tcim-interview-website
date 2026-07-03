@@ -1,46 +1,42 @@
 <view class="bd bd-pad-btn">
-  <!-- 顶部身份（已有信息时展示） -->
-  <view wx:if="{{!isFirst}}" class="mine-hd">
-    <view class="avatar"></view>
-    <view>
-      <view class="h" style="font-size:30rpx;">{{form.name}}</view>
-      <view class="muted" style="margin-top:4rpx;">{{form.kindergarten || '未填园所'}} · {{form.grade || ''}}</view>
-    </view>
-  </view>
-  <view wx:else class="muted" style="margin-bottom:20rpx;">首次登录请完善信息，用于数据同步与报告生成。</view>
-
-  <view class="sect">个人信息</view>
-  <view class="card">
+  <view class="card form-card">
     <view class="li">
-      <text class="t">姓名</text>
+      <text class="t">姓名<text class="req">*</text></text>
       <input class="fld" placeholder="请输入" value="{{form.name}}" data-k="name" bindinput="onInput" />
     </view>
     <view class="li">
       <text class="t">园所</text>
       <input class="fld" placeholder="请输入园所名称" value="{{form.kindergarten}}" data-k="kindergarten" bindinput="onInput" />
     </view>
-    <picker class="li picker" mode="selector" range="{{grades}}" value="{{gradeIdx}}" bindchange="onGrade">
-      <text class="t">任教班级</text>
-      <text class="pick-val">{{form.grade || '请选择'}} ›</text>
+    <picker class="picker" mode="selector" range="{{grades}}" value="{{gradeIdx}}" bindchange="onGrade">
+      <view class="li picker-row">
+        <text class="t">任教班级</text>
+        <view class="pick-val {{form.grade ? '' : 'placeholder'}}">
+          <text class="pick-text">{{form.grade || '请选择'}}</text>
+          <text class="chev">›</text>
+        </view>
+      </view>
     </picker>
-    <picker class="li picker" mode="selector" range="{{teachAges}}" value="{{teachAgeIdx}}" bindchange="onTeachAge">
-      <text class="t">教龄</text>
-      <text class="pick-val">{{form.teachAge || '请选择'}} ›</text>
+    <picker class="picker" mode="selector" range="{{teachAges}}" value="{{teachAgeIdx}}" bindchange="onTeachAge">
+      <view class="li picker-row">
+        <text class="t">教龄</text>
+        <view class="pick-val {{form.teachAge ? '' : 'placeholder'}}">
+          <text class="pick-text">{{form.teachAge || '请选择'}}</text>
+          <text class="chev">›</text>
+        </view>
+      </view>
     </picker>
     <view class="li">
-      <text class="t">试卷码（选填）</text>
+      <text class="t">试卷码<text class="opt-tag">选填</text></text>
       <input class="fld" placeholder="如 GS-2026-07" value="{{form.paperCode}}" data-k="paperCode" bindinput="onInput" />
     </view>
   </view>
-  <view class="muted" style="margin-top:16rpx;">姓名需与测验平台绑定的统一教师姓名一致。</view>
-
-  <view class="sect">其他</view>
-  <view class="card">
-    <view class="li" bindtap="onAbout"><text class="t">关于测评</text><text class="muted">›</text></view>
-    <view class="li" bindtap="onPrivacy"><text class="t">隐私政策</text><text class="muted">›</text></view>
+  <view class="tip-line">
+    <text class="tip-ic">ⓘ</text>
+    <text class="tip-txt">姓名需与测验平台绑定的统一教师姓名一致，否则无法同步作答结果。</text>
   </view>
 </view>
 
 <view class="foot">
-  <button class="btn" bindtap="onSave">{{isFirst ? '保存并开始答题' : '保存'}}</button>
+  <button class="btn" bindtap="onSave">{{isFirst ? '保存并开始答题' : '保存修改'}}</button>
 </view>

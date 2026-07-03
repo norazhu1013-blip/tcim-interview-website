@@ -151,14 +151,20 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
 - **存储**:除 3 个后端上报接口外全部本地(`wx.setStorageSync`,`utils/store.js`);每次答题前端生成 UUID 作 sessionId(记录主键),可多次答题。
 - **后端 = 微信云开发 CloudBase「云函数 + 云数据库」**,客户端**不直连 DB**,统一前缀 `gsyg_`(与知识库 GSYG_ 一致,集中于 `utils/config.js` 的 `PREFIX`)。`utils/api.js` 用 `wx.cloud.callFunction` 调 3 个云函数 → 云函数(wx-server-sdk 拿 openid)读写集合:`gsyg_reportTeacher`→`gsyg_teachers`(按 openid upsert) / `gsyg_reportSession`→`gsyg_sessions`(按 sessionId upsert:answers+scores+total+selection+时间字段) / `gsyg_reportInterview`→`gsyg_interviews`(按 sessionId upsert:transcripts)。云函数代码在**仓库根** `cloudfunctions/gsyg_*/`(开发者工具在**仓库根**打开;根 `project.config.json` 为唯一权威:`miniprogramRoot=miniprogram/`、`cloudfunctionRoot=cloudfunctions/`、appid=wxb3835ca53ec166c8;`miniprogram/` 下不再放 project.config.json)。**本地优先**:先写本地再异步 callFunction,失败入 `pendingReports`(`app.onShow` 自动 flush)、不阻塞;wx.cloud 不可用时降级只存本地。部署步骤(右键上传云函数+建集合+权限设"仅管理端")见 `miniprogram/README.md`「云开发部署」。
 - **算法移植自 `demo.html`**:评分=查表(`utils/scoring.js`);过程指标必回放 move_log(`utils/process.js`,首末位摇摆按各步序列变更次数、路径振荡=方向反转,勿用"首≠尾"简化);R/P/G 筛选=`selectThree`(合并去重+覆盖校验)。已用 demo Q1 埋点验证与 demo.html 一致。
-- **访谈**(`utils/interview.js`)为**规则版**:命中触发规则(T)→脚本序列(Q)逐轮一问→证据账本(E)→锚点编码;不暴露专家排序/得分/标准答案;单情境限时 10 分钟、剩余<1 分钟不再生成新问但保存;已完成只可回看。真实 LLM 动态追问经云函数 `gsyg_interviewChat`(`llmNextQuestion` 调用;provider 走环境变量 LLM_PROVIDER/ENDPOINT/KEY/MODEL,推荐微信云开发 AI 或国产大模型);**LLM 未配置/失败/超时自动回退规则版脚本序列**,离线也能走完。
-  - ⚠️ **已知局限(上线接真实 AI 必须修)**:规则版是「问过即算」——`pages/interview/interview.js` 在教师一回答就把该问关联的 E 证据点计入账本,**未语义判断回答是否真的覆盖证据**。真实 AI 阶段,`gsyg_interviewChat` 须按教师**原话判定** E 证据是否成立(返回已覆盖的 evidenceHint 驱动账本),而不是"问过即算";否则"AI 访谈"名不副实。边界不变:knowledge.js 定专业内容/脚本边界,AI 只负责对话中的理解/追问/证据确认/表达组织,**评分与筛题仍为确定性程序、AI 不参与**。
+- **访谈**(`utils/interview.js`):LLM 首选 + 规则版兜底。命中触发规则(T)→脚本序列(Q)逐轮一问→证据账本(E)→锚点编码;不暴露专家排序/得分/标准答案;单情境限时 10 分钟、剩余<1 分钟不再生成新问但保存;已完成只可回看。真实 LLM 动态追问经云函数 `gsyg_interviewChat`(`llmNextQuestion` 调用);**LLM 未配置/失败/超时自动回退规则版脚本序列**,离线也能走完。
+- **`gsyg_interviewChat` 已接入微信云开发 AI(CloudBase AI / wxai)**,链路已跑通。踩坑一次全记清,免得下次接手又猜:
+  - 云函数**必须 Nodejs18.15+ 运行时**(创建时锁定,不能就地改;要升老函数只能删了重建;`wx-server-sdk` 也要 ≥ 4.x 才能 `require('wx-server-sdk').ai`)。
+  - `cloud.ai` 是**工厂函数**,先 `cloud.ai()` 拿实例,再 `ai.createModel(provider)` 拿 model 客户端。`createModel` 的参数是 **provider**(默认 `cloudbase`),**不是** model_id。
+  - `model.generateText / streamText` 请求参数**同时放顶层和 data 内**:`{model, messages, data:{model, messages}}`。SDK 从顶层读,`data` 层保留兼容。
+  - 环境变量集中在云函数配置里,不进代码:`WXAI_MODEL`(默认 `hy3-preview`) / `WXAI_PROVIDER`(默认 `cloudbase`) / `LLM_TIMEOUT_MS`(默认 12000) / `SEC_CHECK=1` 开 `openapi.security.msgSecCheck` v2 scene:4 机审(合规硬门槛③,上线必开)。
+  - **evidenceHint 由 LLM 判定,已修复"问过即算"**:system prompt 强制严格 JSON `{"next_question","done","covered_evidence":["E1","E3"]}`,基于教师**上一轮原话**判定覆盖了哪些 E,客户端 `interview.js` 落账本。规则版只在 LLM 失败时兜底(彼时才回落"问过即算",可接受)。
+  - 边界不变:knowledge.js 定专业内容/脚本边界,AI 只负责对话中的理解/追问/证据确认/表达组织,**评分与筛题仍为确定性程序、AI 不参与**。
 - **评分用 DOC 真实赋分表**:`data/scoreTable.js` 由 `tools/build_scoreTable.js` 从《000 10题赋分.xlsx》一次性生成(全 10 题×24 排列)。排列顺序口径来自 xlsx 首列「选项组合」(ABCD…DCBA 字典序)显式给出、非假设;已用知识库 04 表方向自检通过。仅「该列语义=排序」待研究团队最终核对,若不符改 `permToKey` 一处重生成。
 - **时间埋点**:每题 duration + 整卷 examStartTs/examSubmitTs/totalExamMs 均本地存 + 随 sessions 上报(items[].durationMs/totalDurationMs);时间用于 P-IVI/筛选,评分不依赖时间。
 - **全 10 题真实数据**:questions/scoreTable/indicatorMap/knowledge 四处均为 Q1–Q10 DOC 真实数据、题号一致(已校验);答题走 10 题、R/P/G 10 选 3。
   - questions/indicatorMap/scoreTable 由 `tools/build_questions.js`/`build_indicatorMap.js`/`build_scoreTable.js` 从 DOC 生成。
   - **knowledge.js 由 `tools/build_knowledge.js` 生成(全 10 题富结构,已完成——非骨架)**:每题含 core_orientation、empirical_note、paths(4-5)、evidence_points E1-E7、biases P1-P7、triggers T(7-8:result_cond+process_cond+target+scripts+priority/prio)、scripts Q1-Q7+Q-stop(09 表真实措辞,字段 q/E/stage/goal/next)、anchors 5 档、suggestions(7)。均取自各题知识库 xlsx 13 表真实内容。
   - 知识库源 xlsx 有**两套列模板**(变体A:Q1/2/4/5/6/7 = Q码脚本;变体B:Q3/8/9/10 = S码/首问内嵌),build_knowledge.js 用表头关键词通用取列兼容两套;追问脚本码统一归一到 09 表基码 Q1-Q7/Q-stop,triggers.scripts/biases 引用皆存在于本题。
-  - triggers.result_cond 为文本,`interview.js` 运行时**通用正则判定**(首/末位、靠前≤2、靠后≥3、X/Y前两位),按 prio 取最高、无命中回退首条;已用流水线验证(Q1 D首→T1、A/C前二→T4;Q5/Q8/Q10 均正确出脚本)。真实 LLM 访谈留 `interview.js` 的 `llmNextQuestion` 桩 + 计划中的 `gsyg_interviewChat` 云函数。
+  - triggers.result_cond 为文本,`interview.js` 运行时**通用正则判定**(首/末位、靠前≤2、靠后≥3、X/Y前两位),按 prio 取最高、无命中回退首条;已用流水线验证(Q1 D首→T1、A/C前二→T4;Q5/Q8/Q10 均正确出脚本)。真实 LLM 访谈由 `interview.js` 的 `llmNextQuestion` → `gsyg_interviewChat` 云函数完成(见上方 wxai 说明)。
   - ⚠️ 曾出现竞态:我(lead)一度用一份精简版 knowledge.js 覆盖了 worker 富版;已用 `tools/build_knowledge.js` 重新生成富版并验证兼容,精简版及其 build_knowledge.py 已删。**knowledge.js 以 `tools/build_knowledge.js` 为唯一生成源。**
   - 报告页(设计文档第 8 节)本期未做。

@@ -1,9 +1,9 @@
 {
   "name": "gsyg_interviewChat",
-  "version": "1.0.0",
-  "description": "AI 访谈动态追问（LLM provider 抽象；未配置/失败时客户端回退规则版）",
+  "version": "1.1.0",
+  "description": "AI 访谈动态追问（微信云开发 AI，cloud.extend.AI）；运行时必须 Nodejs18",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.6.3"
+    "wx-server-sdk": "latest"
   }
 }

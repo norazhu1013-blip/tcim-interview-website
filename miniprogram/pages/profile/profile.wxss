@@ -1,27 +1,111 @@
-.mine-hd {
+/* 表单卡 */
+.form-card {
+  padding: 4rpx 24rpx;
+}
+.form-card .li {
+  padding: 26rpx 0;
+}
+.form-card .li .t {
+  font-size: 26rpx;
+  color: var(--ink);
+  font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 22rpx;
-  padding: 12rpx 4rpx 24rpx;
+  gap: 8rpx;
+  line-height: 40rpx;
 }
-.mine-hd .avatar {
-  width: 92rpx;
-  height: 92rpx;
-  border-radius: 50%;
-  background: var(--pri);
-  flex: 0 0 auto;
+.form-card .req {
+  color: #e0483c;
+  margin-left: 2rpx;
+  font-weight: 600;
 }
+.form-card .opt-tag {
+  display: inline-block;
+  font-size: 20rpx;
+  color: var(--ink3);
+  background: var(--soft);
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  margin-left: 8rpx;
+  font-weight: 400;
+}
+
+/* 输入框 */
 .fld {
   text-align: right;
-  font-size: 25rpx;
+  font-size: 26rpx;
   color: var(--ink);
   flex: 1;
   margin-left: 20rpx;
+  min-height: 40rpx;
+  line-height: 40rpx;
 }
+
+/* picker */
 .picker {
   width: 100%;
+  display: block;
+  line-height: 40rpx;
+}
+/* picker 内层 li 是 picker 的 :last-child，会误命中 app.wxss 的 .li:last-child{border:none}，
+   这里以更高优先级恢复分割线；表单卡里 picker 从不放最后一行，所以不需要判断真·末行 */
+.form-card .picker .li.picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  width: 100%;
+  border-bottom: 1rpx solid var(--line);
+  min-height: 92rpx;
+  padding: 26rpx 0;
+}
+.picker-row .t {
+  flex: 0 0 auto;
 }
 .pick-val {
-  font-size: 25rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6rpx;
+  font-size: 26rpx;
+  color: var(--ink);
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  line-height: 40rpx;
+}
+.pick-val.placeholder {
   color: var(--ink3);
+}
+.pick-val .pick-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  line-height: 40rpx;
+}
+.pick-val .chev {
+  color: var(--ink3);
+  font-size: 30rpx;
+  line-height: 40rpx;
+}
+
+/* 提示行 */
+.tip-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8rpx;
+  margin-top: 20rpx;
+  padding: 16rpx 20rpx;
+  background: #f5f7fd;
+  border-radius: 14rpx;
+}
+.tip-ic {
+  color: var(--pri);
+  font-size: 24rpx;
+  line-height: 1.5;
+  flex: 0 0 auto;
+}
+.tip-txt {
+  font-size: 22rpx;
+  color: var(--ink2);
+  line-height: 1.5;
 }
