@@ -11,6 +11,8 @@ Page({
     gradeIdx: 1,
     teachAgeIdx: 2,
     isFirst: true,
+    openid: '',
+    isAdmin: false,
     form: { name: '', kindergarten: '', grade: '中班', teachAge: '3–5 年', paperCode: '' }
   },
 
@@ -31,6 +33,50 @@ Page({
       this.setData({ isFirst: true });
       wx.setNavigationBarTitle({ title: this.data.isFirst ? '完善信息' : '我的' });
     }
+    // 拉云端身份（openid + isAdmin），失败静默
+    api.whoami().then((who) => {
+      if (who) this.setData({ openid: who.openid || '', isAdmin: !!who.isAdmin });
+    });
+  },
+
+  onCopyOpenid() {
+    if (!this.data.openid) return;
+    wx.setClipboardData({ data: this.data.openid, success: () => wx.showToast({ title: '已复制', icon: 'none' }) });
+  },
+
+  onExport() {
+    if (!this.data.isAdmin) return;
+    if (this._exporting) return;
+    this._exporting = true;
+    wx.showLoading({ title: '导出中…', mask: true });
+    api.exportData({}).then((r) => {
+      wx.hideLoading();
+      this._exporting = false;
+      if (!r || !r.ok) {
+        wx.showModal({
+          title: '导出失败',
+          content: (r && r.error) || '云端返回空，请检查 gsyg_exportData 是否已部署及 isAdmin 是否已设置。',
+          showCancel: false
+        });
+        return;
+      }
+      const url = r.downloadURL || '';
+      if (!url) {
+        wx.showModal({ title: '导出成功但无下载链接', content: '文件已生成：' + r.cloudPath, showCancel: false });
+        return;
+      }
+      wx.setClipboardData({
+        data: url,
+        success: () => {
+          const kb = Math.round((r.bytes || 0) / 1024);
+          wx.showModal({
+            title: '导出成功',
+            content: '下载链接已复制到剪贴板\n\n共 ' + kb + ' KB\nteachers=' + (r.count.teachers || 0) + ' / sessions=' + (r.count.sessions || 0) + ' / interviews=' + (r.count.interviews || 0) + '\n\n粘贴到浏览器打开即可下载（有效期约 2 小时）',
+            showCancel: false
+          });
+        }
+      });
+    });
   },
 
   onInput(e) {

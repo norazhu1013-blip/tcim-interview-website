@@ -3,10 +3,23 @@
 | 云函数 | 触发方 | 集合 | 作用 |
 |---|---|---|---|
 | `gsyg_initDb` | 管理端一次性 | 三个集合 | 幂等建集合 + 建唯一/复合索引 |
-| `gsyg_reportTeacher` | 客户端保存 profile | `gsyg_teachers` | 按 `openid` upsert |
+| `gsyg_reportTeacher` | 客户端保存 profile | `gsyg_teachers` | 按 `openid` upsert（isAdmin 不接受客户端写入） |
 | `gsyg_reportSession` | 客户端提交答题 | `gsyg_sessions` | 按 `sessionId` upsert |
 | `gsyg_reportInterview` | 客户端提交访谈 | `gsyg_interviews` | 按 `sessionId` upsert |
 | `gsyg_interviewChat` | 访谈对话每轮 | —— | LLM 动态追问，失败回退规则版 |
+| `gsyg_whoami` | 客户端「我的」页 onShow | `gsyg_teachers` | 返回 `{openid, isAdmin, teacher}` |
+| `gsyg_exportData` | 管理员在「我的」页触发 | 三个集合 | 全量导 JSON → 云存储 `gsyg-exports/` → 返回下载链接 |
+
+## 管理员标记
+
+`gsyg_teachers` 集合有 `isAdmin: boolean` 字段（默认 `false`）。**客户端上传的 profile 不能改 `isAdmin`**，必须在云开发控制台数据库里手工把某条 teacher 记录的 `isAdmin` 改为 `true` —— 这就是"最简管理员认证"。
+
+设置流程：
+1. 目标用户先在小程序里完善一次个人信息（触发 `gsyg_reportTeacher` upsert 建条记录）。
+2. 云开发控制台 → 数据库 → `gsyg_teachers` → 找到该 openid 记录 → 编辑 → `isAdmin: true`。
+3. 该用户下次进「我的」页会看到"角色：管理员"。
+
+后续要做的导出/清理等管理功能可以在云函数里读 teacher.isAdmin 判定是否放行。
 
 ## 部署新环境的一次性流程
 

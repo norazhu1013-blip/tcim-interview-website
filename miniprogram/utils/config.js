@@ -21,7 +21,9 @@ const CLOUD_FUNCTIONS = {
   reportSession: PREFIX + 'reportSession', // gsyg_reportSession
   reportInterview: PREFIX + 'reportInterview', // gsyg_reportInterview
   interviewChat: PREFIX + 'interviewChat', // gsyg_interviewChat（AI 动态追问）
-  initDb: PREFIX + 'initDb' // gsyg_initDb（一次性建集合与索引，管理端调用）
+  initDb: PREFIX + 'initDb', // gsyg_initDb（一次性建集合与索引，管理端调用）
+  whoami: PREFIX + 'whoami', // gsyg_whoami（拉 openid + isAdmin）
+  exportData: PREFIX + 'exportData' // gsyg_exportData（管理员导出全表 → 云存储 → 下载链接）
 };
 
 module.exports = { CLOUD_ENV, PREFIX, COLLECTIONS, CLOUD_FUNCTIONS };

@@ -88,6 +88,23 @@
   line-height: 40rpx;
 }
 
+/* 内联保存按钮：紧跟个人信息表单 */
+.save-inline {
+  margin-top: 24rpx;
+  margin-bottom: 8rpx;
+}
+
+/* openid 单行文本：等宽、可截断 */
+.openid-txt {
+  font-family: Menlo, Consolas, monospace;
+  font-size: 22rpx;
+  color: var(--ink2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.li-hover { background: var(--soft); }
+
 /* 提示行 */
 .tip-line {
   display: flex;

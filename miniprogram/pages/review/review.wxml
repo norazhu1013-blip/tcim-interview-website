@@ -10,7 +10,7 @@
         <view class="card">
           <view class="muted">你的排序（最理想 → 最不理想）</view>
           <view wx:for="{{item.rows}}" wx:for-item="row" wx:key="opt" class="opt" style="margin-top:{{index === 0 ? 16 : 0}}rpx;">
-            <view class="b">{{row.pos}}</view>
+            <view class="b">{{row.opt}}</view>
             <view class="x">{{row.text}}</view>
           </view>
         </view>

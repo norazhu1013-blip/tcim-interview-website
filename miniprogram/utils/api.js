@@ -128,4 +128,46 @@ function flushPending() {
   });
 }
 
-module.exports = { reportProfile, reportExam, reportInterview, flushPending, cloudReady };
+/**
+ * 拉自己的身份：openid + isAdmin + teacher。失败/离线返回 null。
+ * 不进 pendingReports 队列（只读，不重传）。
+ */
+function whoami() {
+  return new Promise((resolve) => {
+    if (!cloudReady()) return resolve(null);
+    try {
+      wx.cloud.callFunction({
+        name: CLOUD_FUNCTIONS.whoami,
+        data: {},
+        success: (res) => {
+          const r = res && res.result;
+          resolve(r && r.ok ? r : null);
+        },
+        fail: () => resolve(null)
+      });
+    } catch (e) { resolve(null); }
+  });
+}
+
+/**
+ * 管理员导出全表。event 可选传 { collections, since }。
+ * 返回 { ok, downloadURL, ... } 或 null（离线/失败）。60s 超时保护。
+ */
+function exportData(payload) {
+  return new Promise((resolve) => {
+    if (!cloudReady()) return resolve(null);
+    let settled = false;
+    const done = (r) => { if (!settled) { settled = true; resolve(r); } };
+    const timer = setTimeout(() => done(null), 60000);
+    try {
+      wx.cloud.callFunction({
+        name: CLOUD_FUNCTIONS.exportData,
+        data: payload || {},
+        success: (res) => { clearTimeout(timer); done((res && res.result) || null); },
+        fail: () => { clearTimeout(timer); done(null); }
+      });
+    } catch (e) { clearTimeout(timer); done(null); }
+  });
+}
+
+module.exports = { reportProfile, reportExam, reportInterview, flushPending, cloudReady, whoami, exportData };

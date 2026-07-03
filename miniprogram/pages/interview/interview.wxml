@@ -11,7 +11,7 @@
     <view class="t ink" style="margin-top:8rpx;">{{q.stem}}</view>
     <view class="muted" style="margin:16rpx 0 8rpx;">你的排序（最理想 → 最不理想）</view>
     <view wx:for="{{rankRows}}" wx:key="opt" class="opt" style="margin-bottom:12rpx;">
-      <view class="b">{{item.pos}}</view>
+      <view class="b">{{item.opt}}</view>
       <view class="x">{{item.text}}</view>
     </view>
   </view>

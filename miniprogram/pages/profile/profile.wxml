@@ -1,4 +1,4 @@
-<view class="bd bd-pad-btn">
+<view class="bd">
   <view class="card form-card">
     <view class="li">
       <text class="t">姓名<text class="req">*</text></text>
@@ -31,12 +31,33 @@
       <input class="fld" placeholder="如 GS-2026-07" value="{{form.paperCode}}" data-k="paperCode" bindinput="onInput" />
     </view>
   </view>
-  <view class="tip-line">
-    <text class="tip-ic">ⓘ</text>
-    <text class="tip-txt">姓名需与测验平台绑定的统一教师姓名一致，否则无法同步作答结果。</text>
-  </view>
-</view>
+  <!-- 保存按钮：紧跟个人信息模块 -->
+  <button class="btn save-inline" bindtap="onSave">{{isFirst ? '保存并开始答题' : '保存修改'}}</button>
 
-<view class="foot">
-  <button class="btn" bindtap="onSave">{{isFirst ? '保存并开始答题' : '保存修改'}}</button>
+  <!-- 账号信息（openid + 管理员标记） -->
+  <view class="sect">账号</view>
+  <view class="card form-card">
+    <view class="li" bindtap="onCopyOpenid" hover-class="li-hover">
+      <text class="t">OpenID</text>
+      <text class="fld openid-txt">{{openid || '获取中…'}}</text>
+    </view>
+    <view class="li">
+      <text class="t">角色</text>
+      <text class="fld">
+        <text wx:if="{{isAdmin}}" class="pill on">管理员</text>
+        <text wx:else class="muted">普通用户</text>
+      </text>
+    </view>
+  </view>
+
+  <!-- 管理员：数据导出 -->
+  <block wx:if="{{isAdmin}}">
+    <view class="sect">管理员</view>
+    <view class="card form-card">
+      <view class="li" bindtap="onExport" hover-class="li-hover">
+        <text class="t">导出全部数据</text>
+        <text class="fld muted">JSON · 复制下载链接 ›</text>
+      </view>
+    </view>
+  </block>
 </view>
