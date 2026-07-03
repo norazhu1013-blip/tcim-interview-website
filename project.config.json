@@ -28,7 +28,18 @@
   "compileType": "miniprogram",
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      { "type": "file", "value": "README.md" },
+      { "type": "regexp", "value": "\\.md$" },
+      { "type": "regexp", "value": "\\.DS_Store$" },
+      { "type": "folder", "value": "node_modules" },
+      { "type": "regexp", "value": "\\.map$" },
+      { "type": "regexp", "value": "^\\.git" },
+      { "type": "regexp", "value": "\\.psd$|\\.sketch$|\\.fig$|\\.ai$|\\.xd$" },
+      { "type": "regexp", "value": "^tools/" },
+      { "type": "regexp", "value": "^demo/" },
+      { "type": "regexp", "value": "^DOC/" }
+    ],
     "include": []
   },
   "appid": "wxb3835ca53ec166c8",
