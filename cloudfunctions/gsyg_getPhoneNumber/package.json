@@ -1,0 +1,9 @@
+{
+  "name": "gsyg_getPhoneNumber",
+  "version": "1.0.0",
+  "description": "用 getPhoneNumber code 换取教师真实手机号",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -3,6 +3,7 @@
 | 云函数 | 触发方 | 集合 | 作用 |
 |---|---|---|---|
 | `gsyg_initDb` | 管理端一次性 | 三个集合 | 幂等建集合 + 建唯一/复合索引 |
+| `gsyg_getPhoneNumber` | 登录页手机号授权 | —— | 用 getPhoneNumber `code` 换真实手机号（`cloud.openapi.phonenumber.getPhoneNumber`） |
 | `gsyg_reportTeacher` | 客户端保存 profile | `gsyg_teachers` | 按 `openid` upsert（isAdmin 不接受客户端写入） |
 | `gsyg_reportSession` | 客户端提交答题 | `gsyg_sessions` | 按 `sessionId` upsert |
 | `gsyg_reportInterview` | 客户端提交访谈 | `gsyg_interviews` | 按 `sessionId` upsert |
@@ -26,6 +27,23 @@
 1. 微信开发者工具打开仓库根，云开发环境已选好。
 2. 右键各云函数 → 上传并部署（云端安装依赖）。
 3. 打开 `gsyg_initDb` → 云端测试 → event 空 `{}` → 触发，返回的 `collections/indexes` 都 ok 即完成。
-4. 集合权限建议设「仅创建者可读写」，客户端只走上述 5 个业务云函数。
+4. 集合权限建议设「仅创建者可读写」，客户端只走上述业务云函数。
 
 索引细节见 `gsyg_initDb/README.md`。
+
+## 手机号授权（`gsyg_getPhoneNumber`）
+
+登录页按钮 `open-type="getPhoneNumber"` 回调返回手机号 `code`，客户端 `api.getPhoneNumber(code)` 调本云函数，云端用 `cloud.openapi.phonenumber.getPhoneNumber({ code })` 换取真实手机号。
+
+本函数两用：
+- **换号**：传 `{ code }`（getPhoneNumber 返回的手机号 code）→ `cloud.openapi.phonenumber.getPhoneNumber` 换真实手机号。
+- **探测权限**：传 `{ probe:true }`（无真实 code，用占位 code 强制走到 openapi）→ 返回 `noPermission`（据 `-604101 function has no permission` 判定）。客户端 `api.checkPhonePermission()` 用它决定登录门槛，**不加人工开关**。
+
+**登录页手机号授权按钮常驻**（单个 `open-type="getPhoneNumber"`，`miniprogram/pages/login/login.js`）：
+- **授权成功** → 换号：有权限存真实号；无权限(`-604101`)/失败则空号，已授权仍放行。
+- **拒绝授权** → 据探测结果决定：**有权限 → 强制授权(停留登录页)**；**无权限/云不可用 → 免授权放行**。探测即 `checkPhonePermission()` 调本函数 `{probe:true}`。
+
+**前置约束**：新版 `getPhoneNumber` 走 `code → cloud.openapi` 换号，需小程序**主体具备「手机号快速验证/实时验证组件」权限与额度**（**个人主体不支持**，企业/政府/其他组织主体在 mp 后台开通）。未开通时返回 `-604101`——探测据此走免授权登录。**在 mp 后台开通该组件后，探测自动转为强制授权，无需改任何代码**。
+
+手机号（有权限时拿到）存本地，`profile` 保存时随 `gsyg_reportTeacher` 一并上报。所有非登录页在 onShow/onLoad 用 `store.requireLogin()` 守卫，未登录即 `reLaunch` 登录页。
+

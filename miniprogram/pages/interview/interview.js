@@ -34,6 +34,7 @@ Page({
   _timeUpNotified: false,
 
   onLoad(query) {
+    if (!store.requireLogin()) return;
     const sid = query.sid;
     const itemId = query.item;
     const isReview = query.mode === 'review';

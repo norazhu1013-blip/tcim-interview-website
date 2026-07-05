@@ -6,6 +6,7 @@ Page({
   data: { sid: '', pages: [], swiperIdx: 0, cur: {} },
 
   onLoad(q) {
+    if (!store.requireLogin()) return;
     const s = store.getSession(q.sid);
     if (!s) {
       wx.showToast({ title: '记录不存在', icon: 'none' });

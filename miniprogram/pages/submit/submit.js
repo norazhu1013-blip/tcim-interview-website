@@ -5,6 +5,7 @@ Page({
   data: { sid: '', planned: 3, timeout: false },
 
   onLoad(q) {
+    if (!store.requireLogin()) return;
     const s = store.getSession(q.sid) || {};
     const planned = (s.selection && s.selection.final && s.selection.final.length) || 3;
     this.setData({ sid: q.sid, planned, timeout: s.status === 'timeout_submitted' });

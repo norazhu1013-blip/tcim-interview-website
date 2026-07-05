@@ -9,6 +9,7 @@ Page({
   data: { sid: '', list: [], allDone: false },
 
   onShow() {
+    if (!store.requireLogin()) return;
     if (this.data.sid) this.refresh(this.data.sid);
   },
   onLoad(q) {

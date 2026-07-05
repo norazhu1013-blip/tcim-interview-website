@@ -170,4 +170,50 @@ function exportData(payload) {
   });
 }
 
-module.exports = { reportProfile, reportExam, reportInterview, flushPending, cloudReady, whoami, exportData };
+/**
+ * 手机号授权换号：用 getPhoneNumber 返回的 code 调 gsyg_getPhoneNumber 换真实手机号。
+ * 始终 resolve { ok, phone, openId, noPermission }；不进 pendingReports（登录 code 一次性、过期重传无意义）。
+ */
+function getPhoneNumber(code) {
+  return new Promise((resolve) => {
+    if (!code || !cloudReady()) return resolve({ ok: false, phone: '', noPermission: false });
+    try {
+      wx.cloud.callFunction({
+        name: CLOUD_FUNCTIONS.getPhoneNumber,
+        data: { code: code },
+        success: (res) => {
+          const r = res && res.result;
+          if (r && r.ok) resolve({ ok: true, phone: r.phone || '', openId: r.openid || '' });
+          else resolve({ ok: false, phone: '', noPermission: !!(r && r.noPermission) });
+        },
+        fail: () => resolve({ ok: false, phone: '', noPermission: false })
+      });
+    } catch (e) { resolve({ ok: false, phone: '', noPermission: false }); }
+  });
+}
+
+/**
+ * 探测主体是否具备「手机号快速验证组件」权限。据云函数返回值判断，不加人工开关。
+ * resolve true=有权限（登录页应强制手机号授权）；false=无权限/云不可用（登录页免授权）。
+ */
+function checkPhonePermission() {
+  return new Promise((resolve) => {
+    if (!cloudReady()) return resolve(false); // 无云能力也无法换号 → 免授权
+    try {
+      wx.cloud.callFunction({
+        name: CLOUD_FUNCTIONS.getPhoneNumber,
+        data: { probe: true },
+        success: (res) => {
+          const r = res && res.result;
+          if (!r) return resolve(false);
+          if (r.ok) return resolve(true); // 占位 code 竟然成功 → 显然有权限
+          // 明确 -604101 无权限 → false；其它错误（占位/无效 code）说明权限在 → true
+          resolve(!r.noPermission);
+        },
+        fail: () => resolve(false)
+      });
+    } catch (e) { resolve(false); }
+  });
+}
+
+module.exports = { reportProfile, reportExam, reportInterview, flushPending, cloudReady, whoami, exportData, getPhoneNumber, checkPhonePermission };

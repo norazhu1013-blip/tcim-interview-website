@@ -1,7 +1,7 @@
 // P0b/P1b 「我的」个人信息 —— 双重身份：
 //  ① 首次登录无 profile → 引导填写，保存后 switchTab 进「答题」
 //  ② 作为「我的」Tab 常驻，可随时查看/修改，保存后调 gsyg_reportTeacher 更新
-const { saveProfile, getProfile } = require('../../utils/store.js');
+const { saveProfile, getProfile, isLoggedIn, getLogin } = require('../../utils/store.js');
 const api = require('../../utils/api.js');
 
 Page({
@@ -17,6 +17,8 @@ Page({
   },
 
   onShow() {
+    // 未通过手机号授权 → 回登录页
+    if (!isLoggedIn()) { wx.reLaunch({ url: '/pages/login/login' }); return; }
     // 每次进入 Tab 都同步最新（不在编辑途中，故不会覆盖输入）
     const existing = getProfile();
     if (existing && existing.name) {
@@ -107,6 +109,7 @@ Page({
       grade: f.grade,
       teachAge: f.teachAge,
       paperCode: (f.paperCode || '').trim(),
+      phone: (getLogin() && getLogin().phone) || '',
       wxCode: (function () { try { return wx.getStorageSync('wx_login_code') || ''; } catch (e) { return ''; } })()
     };
     saveProfile(profile);

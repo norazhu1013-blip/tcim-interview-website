@@ -29,6 +29,7 @@ Page({
   _timer: null,
 
   onLoad(query) {
+    if (!store.requireLogin()) return;
     const sid = query.sid;
     let session = store.getSession(sid);
     if (!session) {

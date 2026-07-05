@@ -1,5 +1,5 @@
 // P1 首页（含记录）
-const { getProfile, listSessions, deleteSession, createSession } = require('../../utils/store.js');
+const { getProfile, listSessions, deleteSession, createSession, isLoggedIn } = require('../../utils/store.js');
 const { uuid } = require('../../utils/uuid.js');
 const { ITEMS } = require('../../data/questions.js');
 
@@ -13,6 +13,8 @@ Page({
   },
 
   onShow() {
+    // 未通过手机号授权 → 回登录页
+    if (!isLoggedIn()) { wx.reLaunch({ url: '/pages/login/login' }); return; }
     this.refresh();
   },
 
