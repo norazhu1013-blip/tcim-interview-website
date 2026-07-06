@@ -5,7 +5,7 @@
   <view class="t desc">登录后可：完成情境测评并自动评分、进行 AI 访谈、查看记录与报告。</view>
 
   <view class="foot-area">
-    <button class="btn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhone" loading="{{logging}}">微信登录</button>
+    <button class="btn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhone" loading="{{logging}}">手机号快捷登录</button>
     <view class="muted agree">登录即同意《用户协议》《隐私政策》</view>
   </view>
 </view>
