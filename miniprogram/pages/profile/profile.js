@@ -1,7 +1,7 @@
 // P0b/P1b 「我的」个人信息 —— 双重身份：
 //  ① 首次登录无 profile → 引导填写，保存后 switchTab 进「答题」
 //  ② 作为「我的」Tab 常驻，可随时查看/修改，保存后调 gsyg_reportTeacher 更新
-const { saveProfile, getProfile, isLoggedIn, getLogin } = require('../../utils/store.js');
+const { saveProfile, getProfile, getLogin, requireLoginWithPrompt } = require('../../utils/store.js');
 const api = require('../../utils/api.js');
 
 Page({
@@ -17,8 +17,7 @@ Page({
   },
 
   onShow() {
-    // 未通过手机号授权 → 回登录页
-    if (!isLoggedIn()) { wx.reLaunch({ url: '/pages/login/login' }); return; }
+    // 「我的」允许未登录浏览（表单为空、无 openid）；保存时按需触发登录
     // 每次进入 Tab 都同步最新（不在编辑途中，故不会覆盖输入）
     const existing = getProfile();
     if (existing && existing.name) {
@@ -101,6 +100,7 @@ Page({
       wx.showToast({ title: '请填写姓名', icon: 'none' });
       return;
     }
+    if (!requireLoginWithPrompt('保存个人信息需要先完成微信手机号授权登录')) return;
     const wasFirst = this.data.isFirst;
     // 本地优先：先写本地
     const profile = {

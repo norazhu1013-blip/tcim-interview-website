@@ -6,6 +6,6 @@
 
   <view class="foot-area">
     <button class="btn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhone" loading="{{logging}}">手机号快捷登录</button>
-    <view class="muted agree">登录即同意《用户协议》《隐私政策》</view>
+    <button class="btn g skip" bindtap="onSkip">跳过登录</button>
   </view>
 </view>

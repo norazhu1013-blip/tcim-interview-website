@@ -34,7 +34,11 @@ Page({
   _timeUpNotified: false,
 
   onLoad(query) {
-    if (!store.requireLogin()) return;
+    // 访谈会调用云端 AI 追问，必须先登录；未登录 → 弹窗 + 回上一页
+    if (!store.requireLoginWithPrompt('AI 访谈需要先完成微信手机号授权登录')) {
+      setTimeout(() => wx.navigateBack(), 300);
+      return;
+    }
     const sid = query.sid;
     const itemId = query.item;
     const isReview = query.mode === 'review';

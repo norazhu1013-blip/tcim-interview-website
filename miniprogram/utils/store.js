@@ -62,6 +62,25 @@ function requireLogin() {
   wx.reLaunch({ url: '/pages/login/login' });
   return false;
 }
+/**
+ * 交互式登录守卫：未登录时弹窗提示，用户点「去登录」再跳登录页；点取消原地不动。
+ * 用于按钮点击等触发型场景（开始答题、提交等）。
+ * @param {string} hint 弹窗正文提示，说明为什么需要登录
+ * @returns {boolean} 已登录返回 true；未登录返回 false 且弹窗已发起
+ */
+function requireLoginWithPrompt(hint) {
+  if (isLoggedIn()) return true;
+  wx.showModal({
+    title: '需要登录',
+    content: hint || '该操作需要先完成微信手机号授权登录',
+    confirmText: '去登录',
+    cancelText: '取消',
+    success: (r) => {
+      if (r.confirm) wx.reLaunch({ url: '/pages/login/login' });
+    }
+  });
+  return false;
+}
 
 /* ---------------- 会话（答题记录） ---------------- */
 /**
@@ -147,6 +166,7 @@ module.exports = {
   getPhone,
   isLoggedIn,
   requireLogin,
+  requireLoginWithPrompt,
   createSession,
   saveSession,
   getSession,

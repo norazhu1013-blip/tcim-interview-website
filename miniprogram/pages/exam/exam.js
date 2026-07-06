@@ -29,7 +29,6 @@ Page({
   _timer: null,
 
   onLoad(query) {
-    if (!store.requireLogin()) return;
     const sid = query.sid;
     let session = store.getSession(sid);
     if (!session) {
@@ -211,6 +210,8 @@ Page({
   /* -------- 提交：本地评分 + 筛选 + 保存 + 上报 -------- */
   doSubmit(isTimeout) {
     if (this._submitting) return;
+    // 超时自动提交跳过登录守卫（避免用户没登录时卡在超时循环）；手动提交需要登录
+    if (!isTimeout && !store.requireLoginWithPrompt('提交答卷需要先完成微信手机号授权登录')) return;
     this._submitting = true;
     this.stopTimer();
     this.persistCurrent();

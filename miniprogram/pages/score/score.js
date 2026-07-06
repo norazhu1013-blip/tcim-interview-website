@@ -20,7 +20,6 @@ Page({
   },
 
   onLoad(q) {
-    if (!store.requireLogin()) return;
     const s = store.getSession(q.sid);
     if (!s || !s.scores) {
       wx.showToast({ title: '暂无评分', icon: 'none' });

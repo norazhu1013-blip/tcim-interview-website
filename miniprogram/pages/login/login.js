@@ -24,6 +24,11 @@ Page({
     wx.login({ complete: (r) => { try { if (r && r.code) wx.setStorageSync('wx_login_code', r.code); } catch (err) {} } });
   },
 
+  // 跳过登录 → 直接进「答题」Tab（未登录浏览态，需要登录的操作会自行弹窗）
+  onSkip() {
+    wx.switchTab({ url: '/pages/home/home' });
+  },
+
   // 手机号授权按钮回调（open-type="getPhoneNumber"）
   onGetPhone(e) {
     if (this.data.logging) return;

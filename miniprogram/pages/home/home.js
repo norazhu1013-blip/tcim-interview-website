@@ -1,5 +1,5 @@
 // P1 首页（含记录）
-const { getProfile, listSessions, deleteSession, createSession, isLoggedIn } = require('../../utils/store.js');
+const { getProfile, listSessions, deleteSession, createSession, requireLoginWithPrompt } = require('../../utils/store.js');
 const { uuid } = require('../../utils/uuid.js');
 const { ITEMS } = require('../../data/questions.js');
 
@@ -13,8 +13,7 @@ Page({
   },
 
   onShow() {
-    // 未通过手机号授权 → 回登录页
-    if (!isLoggedIn()) { wx.reLaunch({ url: '/pages/login/login' }); return; }
+    // 首页允许未登录浏览；开始答题 / 继续 / 提交 等动作会按需触发登录
     this.refresh();
   },
 
@@ -57,12 +56,14 @@ Page({
   },
 
   onStart() {
+    if (!requireLoginWithPrompt('开始答题需要先完成微信手机号授权登录')) return;
     const id = uuid();
     createSession(id, { paperCode: (getProfile() || {}).paperCode || '' });
     wx.navigateTo({ url: '/pages/exam/exam?sid=' + id });
   },
 
   onContinue(e) {
+    if (!requireLoginWithPrompt('继续答题需要先完成微信手机号授权登录')) return;
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({ url: '/pages/exam/exam?sid=' + id });
   },

@@ -51,7 +51,7 @@
 
 | 页面 | 原型 | 说明 |
 |---|---|---|
-| login | P0 | **手机号授权按钮常驻**(单个 `open-type="getPhoneNumber"`)：授权成功→换号(有权限存真实号、无权限-604101/失败空号仍放行);拒绝授权→据探测(`checkPhonePermission`)决定:有权限强制授权停留、无权限免授权放行。登录态 `login_state.phoneAuthed`;手机号存本地、profile 保存时随 `gsyg_reportTeacher` 一并上报。**所有非登录页 onShow/onLoad 用 `store.requireLogin()` 守卫**。详见 `cloudfunctions/README.md` |
+| login | P0 | **手机号授权按钮常驻**(单个 `open-type="getPhoneNumber"`)：授权成功→换号(有权限存真实号、无权限-604101/失败空号仍放行);拒绝授权→据探测(`checkPhonePermission`)决定:有权限强制授权停留、无权限免授权放行。登录态 `login_state.phoneAuthed`;手机号存本地、profile 保存时随 `gsyg_reportTeacher` 一并上报。**未登录允许浏览所有页面;开始答题 / 提交答卷 / 保存资料 / 进入 AI 访谈时才用 `store.requireLoginWithPrompt(hint)` 弹窗要求登录**。详见 `cloudfunctions/README.md` |
 | profile | P0b/P1b | **「我的」Tab**（tabBar）：双重身份 —— 首次无 profile 引导填写→保存进「答题」；常驻可随时查看/修改，保存调 `gsyg_reportTeacher` 更新 |
 | home | P1 | **「答题」Tab**（tabBar，默认选中）：开始测评 CTA + 历次记录；每条记录卡「看答题/看评分/去访谈或回看」 |
 | exam | P2 | 情境排序（**长按拖动重排 + 拖动震动**），限时 20 分钟；每次拖动提交成功追加一条 move_log（option/from_pos/to_pos/ts），供过程指标计算 |
