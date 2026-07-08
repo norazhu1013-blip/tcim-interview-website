@@ -651,14 +651,30 @@ function extractProcessFeatures(results, logEvents) {
  * 六、P-IVI 分数 + 过程标签
  * ========================================================================= */
 
-function addPScores(processRows) {
+/**
+ * @param {Array} processRows 过程明细行
+ * @param {object} [norms] 可选常模表 { Q: { [q]: { metric: [...] } } }。传入则用常模算百分位,
+ *   否则用 processRows 同批次内(经典 Python advisor 研究场景)算。端上单教师场景必传 norms。
+ */
+function addPScores(processRows, norms) {
   const byQ = new Map();
   for (const r of processRows) {
     if (!byQ.has(r.questionIndex)) byQ.set(r.questionIndex, []);
     byQ.get(r.questionIndex).push(r);
   }
-  for (const rows of byQ.values()) {
-    const vals = {
+  const useNorms = norms && norms.Q;
+  for (const [q, rows] of byQ) {
+    const qNorm = useNorms ? norms.Q[q] : null;
+    const vals = qNorm ? {
+      first: qNorm.effective_first_response_time_sec,
+      post: qNorm.effective_post_first_time_sec,
+      revision: qNorm.revision_count,
+      action: qNorm.action_count,
+      unique: qNorm.unique_state_count,
+      repeat: qNorm.repeated_state_count,
+      back: qNorm.backtracking_count,
+      osc: qNorm.oscillation_count
+    } : {
       first: rows.map((r) => r.effective_first_response_time_sec),
       post: rows.map((r) => r.effective_post_first_time_sec),
       revision: rows.map((r) => r.revision_count),
@@ -1450,7 +1466,7 @@ function calculate(resultsRows, logRows, options) {
   const { grouped: logEvents, note: logBaseNote } = groupLogEvents(logRows, logQuestionBase);
 
   let pDetail = extractProcessFeatures(results, logEvents);
-  pDetail = addPScores(pDetail);
+  pDetail = addPScores(pDetail, options.norms);
   const pByKey = new Map();
   for (const r of pDetail) pByKey.set(r.userOpenid + '|' + r.questionIndex, r);
 
