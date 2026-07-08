@@ -31,16 +31,22 @@ function ensureFinalThen(sessionId, onOk, opts) {
   api.flushPending().catch(() => {}).then(() => api.selectFinal(sessionId))
     .then((r) => {
       wx.hideLoading();
-      if (r && r.ok && r.selection && r.selection.final && r.selection.final.length) {
-        const s = store.saveSelection(sessionId, r.selection);
+      // callCloud 成功时返回 { ok:true, data:<云函数结果> };云函数结果本身也是 {ok, selection}
+      const cf = r && r.ok && r.data ? r.data : null;
+      if (cf && cf.ok && cf.selection && cf.selection.final && cf.selection.final.length) {
+        const s = store.saveSelection(sessionId, cf.selection);
         onOk(s);
         return;
       }
-      const err = (r && (r.error || r.message)) || 'unknown';
+      // 优先取云函数业务错误码,其次 callCloud 层错误(如 cloud_unavailable/callFunction_fail)
+      const err = (cf && cf.error) || (r && r.error) || 'unknown';
+      const detail = (cf && cf.message) || '';
+      console.warn('[interviewGate] selectFinal failed', { err, detail, raw: r });
       showRetry(sessionId, err, onOk, opts);
     })
     .catch((e) => {
       wx.hideLoading();
+      console.warn('[interviewGate] selectFinal threw', e);
       showRetry(sessionId, (e && e.message) || 'network', onOk, opts);
     });
 }
@@ -52,9 +58,15 @@ function showRetry(sessionId, err, onOk, opts) {
     incomplete_answers: '答卷有题目未完成,无法生成访谈情境。',
     algo_failed: '遴选服务临时异常,请重试。',
     algo_incomplete: '遴选服务返回结果异常,请重试。',
-    db_read_failed: '云端读取答卷失败,请重试。'
+    db_read_failed: '云端读取答卷失败,请重试。',
+    // callCloud 层错误(云函数未部署 / 网络不通 / 权限)
+    cloud_unavailable: '云开发环境未就绪,请检查网络或稍后重试。',
+    cf_fail: '遴选服务调用失败,请稍后重试或联系管理员。',
+    callFunction_fail: '网络不稳定,请检查后重试。',
+    exception: '客户端异常,请重启小程序后重试。'
   };
-  const content = map[err] || ('遴选暂不可用(' + err + '),请稍后重试。');
+  // 兜底加上原始错误码方便截图给管理员
+  const content = map[err] || ('遴选服务暂时不可用(错误码:' + err + '),请稍后重试或截图给管理员。');
   wx.showModal({
     title: '暂时无法开始访谈',
     content,
