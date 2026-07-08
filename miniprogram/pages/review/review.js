@@ -20,7 +20,7 @@ Page({
         text: it.options[opt]
       }));
       const score = s.scores && s.scores.perItem[it.item_id] != null ? s.scores.perItem[it.item_id] : '-';
-      return { id: it.item_id, title: it.title, rows, score };
+      return { id: it.item_id, title: it.title, stem: it.stem, rows, score };
     });
     this.setData({ sid: q.sid, pages, cur: { id: pages[0].id, title: pages[0].title } });
   },
