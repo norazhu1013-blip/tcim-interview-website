@@ -173,3 +173,15 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - triggers.result_cond 为文本,`interview.js` 运行时**通用正则判定**(首/末位、靠前≤2、靠后≥3、X/Y前两位),按 prio 取最高、无命中回退首条;已用流水线验证(Q1 D首→T1、A/C前二→T4;Q5/Q8/Q10 均正确出脚本)。真实 LLM 访谈由 `interview.js` 的 `llmNextQuestion` → `gsyg_interviewChat` 云函数完成(见上方 wxai 说明)。
   - ⚠️ 曾出现竞态:我(lead)一度用一份精简版 knowledge.js 覆盖了 worker 富版;已用 `tools/build_knowledge.js` 重新生成富版并验证兼容,精简版及其 build_knowledge.py 已删。**knowledge.js 以 `tools/build_knowledge.js` 为唯一生成源。**
   - 报告页(设计文档第 8 节)本期未做。
+- **2026-07-08 首页/界面优化(据 DOC 两份《首页(等)+界面优化建议》整合,后者为超集)**:
+  - **home**:①顶部身份区改「来自:园所」,未填园所显示「去完善」按钮(→profile);②主卡标题改「开始"游戏支持与引导"情境判断测评」+ 新副文案;③流程说明由 3 步→**2 步**(删「自动评分与情境挑选」,不给教师看):1 情境作答｜20 分钟以内、2 AI 交流｜30 分钟以内;底部小字改「请您根据自己的真实想法作答…」;④空记录文案改「暂无记录。完成测评后…」;⑤记录卡**去掉「看评分」**,只留「看答题」+「去访谈/回看」;⑥**答题/访谈互斥**:存在「已提交但访谈未全部完成」的记录时,`blockStart=true` 禁用「开始答题」(答完只能访谈,访谈完才能开新测评)。
+  - **submit**:去掉「查看评分」,只留「去 AI 访谈」+「回到首页」;文案改「感谢作答!接下来请进入 AI 访谈。」(onScore 已删)。
+  - **exam / interview 自绘导航栏**(`navigationStyle:custom`):左上**不放系统返回键**。原因:小程序无法隐藏系统返回箭头,只能走 custom nav。导航尺寸 JS `initNavBar()` 用 `getWindowInfo().statusBarHeight`+`getMenuButtonBoundingClientRect()` 算 navBarH/bodyTop(px),`.navbar`/`.exam-top`/`.iv-top` 改 `position:fixed`,body 用内联 `top:{{bodyTop}}px` 覆盖 wxss。右上仍是微信胶囊(不可去)。
+  - **答题/访谈进行中禁止退出**(2026-07-08 追加):exam 导航栏**无任何退出按钮**(退答只能靠提交/超时自动提交离开;`onExit` 已删);interview **进行中(isReview=false)也无退出按钮**,仅**回看模式(isReview=true)**显示左上「返回」(`onExit`,confirm 后 navigateBack)。exam 内「上一题」保留(题内导航,非退出)。
+  - **interviewList**:每情境下的「考察内容(interview_focus)」改为**该情境原文(题干 stem)**。
+  - **interview**:①「你的排序」四选项加 `.iv-rank` 缩小字体(b 40rpx/x 23rpx)+ 收紧内外边距,凸显对话(方案甲);②时间到(remain≤0)不强制中断,教师**再答一次**后 finalize 并弹「本情境访谈已结束→返回列表」modal。
+- **2026-07-08 赋分表核查 + 更新为最新(据 `DOC/calculate_advisor_rpg_final(1).py` 的 `SCORE_CSV`,最新方案)**:
+  - **打分流程已验证正确**:`scoring.js` 用 `final_ranking.join('>')`(排序串,左=最理想)查 `SCORES[Qx][key]`,与 Python `SCORE_CSV` 的键语义完全一致。
+  - ⚠️ **题号错位(重要)**:该 Python 程序自身的题号(其 `QUESTION_CONTENT`/`ABILITY_MAP`)与小程序题号**不同**,`SCORE_CSV` 的 01-10 列按 **Python 题号**排。必须按**情境正文/选项内容**映射,切勿按列号直接套:`mpQ1→py列1, Q2→4, Q3→6, Q4→2, Q5→5, Q6→3, Q7→9, Q8→10, Q9→7, Q10→8`(A/B/C/D 选项顺序两边逐字一致,已核对)。
+  - **结果**:10 题中 9 题分数原本已与最新方案一致;仅 **Q5(消防员/阳阳)8 格**为旧值,已更新。生成/对拍脚本:`tools/build_scoreTable_from_py.py`(dry-run 打印 diff,`--write` 落盘;重跑 diff=0)。若日后 Python 方案再更新,改该脚本的 `MAP` 或重跑即可。
+  - FYI(非本次范围):mp 的 R/P/G 三题**遴选**(`scoring.js selectThree`)是简化版,与 Python advisor 的 P-IVI/IIV/覆盖修正完整算法不同;但**赋分(scoring)**本身正确、已对齐最新。
