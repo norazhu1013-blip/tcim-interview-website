@@ -113,6 +113,16 @@ function reportInterview(payload) {
   });
 }
 
+/**
+ * 触发服务端 R/P/G 遴选(gsyg_selectFinal)。
+ * 前置:session 已经通过 reportExam 写进 gsyg_sessions(云函数按 sessionId 读)。
+ * 返回:{ ok:true, selection:{final,routes,algo,normsVersion,generatedAt}, cached } | { ok:false, error, message }
+ * 不进 pendingReports(必须实时结果,不做离线降级)。
+ */
+function selectFinal(sessionId) {
+  return callCloud(CLOUD_FUNCTIONS.selectFinal, { sessionId });
+}
+
 /* ---------------- 重传（app.onShow 调用） ---------------- */
 function flushPending() {
   const q = wx.getStorageSync(PENDING_KEY) || [];
@@ -216,4 +226,4 @@ function checkPhonePermission() {
   });
 }
 
-module.exports = { reportProfile, reportExam, reportInterview, flushPending, cloudReady, whoami, exportData, getPhoneNumber, checkPhonePermission };
+module.exports = { reportProfile, reportExam, reportInterview, selectFinal, flushPending, cloudReady, whoami, exportData, getPhoneNumber, checkPhonePermission };

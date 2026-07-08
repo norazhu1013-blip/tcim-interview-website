@@ -13,6 +13,15 @@ Page({
   },
   onLoad(q) {
     this.setData({ sid: q.sid });
+    const s = store.getSession(q.sid);
+    if (s && !store.hasFinalSelection(s)) {
+      // 边角:被直接跳进来但云端遴选还没落地,主动触发一次;失败会弹窗
+      const gate = require('../../utils/interviewGate.js');
+      gate.ensureFinalThen(q.sid, () => this.refresh(q.sid), {
+        onCancel: () => wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/home/home' }) })
+      });
+      return;
+    }
     this.refresh(q.sid);
   },
 

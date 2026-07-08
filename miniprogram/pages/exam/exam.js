@@ -1,7 +1,7 @@
 // P2 答题（排序 + 过程埋点）
 const store = require('../../utils/store.js');
 const { ITEMS } = require('../../data/questions.js');
-const { computeScores, selectThree } = require('../../utils/scoring.js');
+const { computeScores } = require('../../utils/scoring.js');
 const api = require('../../utils/api.js');
 
 const LIMIT_MS = 20 * 60 * 1000; // 20 分钟
@@ -241,28 +241,23 @@ Page({
     const session = this._session;
     const itemIds = ITEMS.map((q) => q.item_id);
     const scores = computeScores(session.answers, itemIds);
-    const selection = selectThree(scores, session.answers, itemIds);
 
     session.scores = scores;
-    session.selection = selection;
+    // R/P/G 遴选改为服务端(gsyg_selectFinal)在用户点「去 AI 访谈」时触发,
+    // 不在提交时本地跑;selection 保持空,交由 saveSelection 落地。
     session.status = isTimeout ? 'timeout_submitted' : 'submitted';
     session.submittedAt = Date.now();
     session.examSubmitTs = session.submittedAt;
     session.totalExamMs = session.examSubmitTs - session.examStartTs; // 整卷总用时
-    // 初始化访谈占位
-    session.interview = session.interview || {};
-    selection.final.forEach((f) => {
-      if (!session.interview[f.id]) session.interview[f.id] = { status: 'pending' };
-    });
     store.saveSession(session);
 
-    // 异步上报（本地已成功；失败不阻塞）
+    // 异步上报答卷(本地已成功;失败不阻塞,进 pendingReports)
     api.reportExam({
       sessionId: session.sessionId,
       profile: session.profileSnapshot,
       answers: session.answers,
       scores: scores,
-      selection: selection,
+      selection: null, // 服务端稍后写入
       submitStatus: session.status,
       examStartTs: session.examStartTs,
       examSubmitTs: session.examSubmitTs,

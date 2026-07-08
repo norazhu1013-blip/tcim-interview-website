@@ -24,7 +24,8 @@ const CLOUD_FUNCTIONS = {
   getPhoneNumber: PREFIX + 'getPhoneNumber', // gsyg_getPhoneNumber（手机号授权换号）
   initDb: PREFIX + 'initDb', // gsyg_initDb（一次性建集合与索引，管理端调用）
   whoami: PREFIX + 'whoami', // gsyg_whoami（拉 openid + isAdmin）
-  exportData: PREFIX + 'exportData' // gsyg_exportData（管理员导出全表 → 云存储 → 下载链接）
+  exportData: PREFIX + 'exportData', // gsyg_exportData（管理员导出全表 → 云存储 → 下载链接）
+  selectFinal: PREFIX + 'selectFinal' // gsyg_selectFinal（R/P/G 遴选 3 题,advisor_port + 常模）
 };
 
 module.exports = { CLOUD_ENV, PREFIX, COLLECTIONS, CLOUD_FUNCTIONS };

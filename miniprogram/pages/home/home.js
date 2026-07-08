@@ -85,7 +85,11 @@ Page({
     wx.navigateTo({ url: '/pages/score/score?sid=' + e.currentTarget.dataset.id });
   },
   onInterview(e) {
-    wx.navigateTo({ url: '/pages/interviewList/interviewList?sid=' + e.currentTarget.dataset.id });
+    const id = e.currentTarget.dataset.id;
+    const gate = require('../../utils/interviewGate.js');
+    gate.ensureFinalThen(id, () => {
+      wx.navigateTo({ url: '/pages/interviewList/interviewList?sid=' + id });
+    });
   },
 
   onDelete(e) {

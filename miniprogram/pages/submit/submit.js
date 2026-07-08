@@ -11,7 +11,10 @@ Page({
   },
 
   onSelect() {
-    wx.redirectTo({ url: '/pages/interviewList/interviewList?sid=' + this.data.sid });
+    const gate = require('../../utils/interviewGate.js');
+    gate.ensureFinalThen(this.data.sid, () => {
+      wx.redirectTo({ url: '/pages/interviewList/interviewList?sid=' + this.data.sid });
+    });
   },
   onHome() {
     wx.switchTab({ url: '/pages/home/home' });

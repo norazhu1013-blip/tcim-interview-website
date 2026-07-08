@@ -141,6 +141,30 @@ function deleteSession(sessionId) {
   wx.setStorageSync(KEY_SESSION_IDS, ids);
 }
 
+/* ---------------- 遴选(服务端 advisor 返回后落地) ---------------- */
+/**
+ * 把云函数 gsyg_selectFinal 返回的 selection 存到本地 session,并按 final 初始化 interview 占位。
+ * 已有相同 algo/normsVersion 的 selection 时不覆盖。
+ */
+function saveSelection(sessionId, selection) {
+  const s = getSession(sessionId);
+  if (!s || !selection) return null;
+  const cur = s.selection;
+  const same = cur && cur.algo === selection.algo && cur.normsVersion === selection.normsVersion;
+  if (!same) s.selection = selection;
+  s.interview = s.interview || {};
+  (selection.final || []).forEach((f) => {
+    if (!s.interview[f.id]) s.interview[f.id] = { status: 'pending' };
+  });
+  saveSession(s);
+  return s;
+}
+
+/** session 是否已经完成服务端遴选(有 advisor_v1 结果)。 */
+function hasFinalSelection(session) {
+  return !!(session && session.selection && session.selection.algo === 'advisor_v1' && session.selection.final && session.selection.final.length);
+}
+
 /* ---------------- 访谈 ---------------- */
 function saveInterview(sessionId, itemId, interviewObj) {
   const s = getSession(sessionId);
@@ -174,5 +198,7 @@ module.exports = {
   listSessions,
   deleteSession,
   saveInterview,
+  saveSelection,
+  hasFinalSelection,
   formatDate
 };

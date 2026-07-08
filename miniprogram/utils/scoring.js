@@ -57,7 +57,13 @@ function computeScores(answers, itemIds) {
 }
 
 /**
- * R/P/G 自动筛选（最终 3 题，非最低分题）。
+ * R/P/G 自动筛选(最终 3 题,非最低分题)。
+ *
+ * @deprecated 从 2026-07-08 起,遴选改由云函数 gsyg_selectFinal(advisor_port + 常模)完成。
+ * 本函数已不在提交流程中使用(exam.js doSubmit 已移除调用),保留仅供:
+ *   ①单元测试参考;②未来极端离线场景兜底(尚未启用)。
+ * 端上单教师用此简化版:P 只按阈值触发计数(非跨教师百分位),口径与研究版不一致。
+ *
  * @param {object} scores computeScores 结果
  * @param {object} answers itemId -> 过程埋点
  * @param {string[]} itemIds 候选题号
