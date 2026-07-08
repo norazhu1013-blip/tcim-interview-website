@@ -1,0 +1,212 @@
+// 云函数 gsyg_selectFinal —— R/P/G 遴选:从 gsyg_sessions 拉答卷 → 跑 Python advisor 端口 → 写回 selection。
+//
+// 入参: { sessionId }
+// 出参:
+//   { ok: true, selection: {final:[{id,...}], routes, algo:'advisor_v1', normsVersion} }
+//   { ok: false, error: 'code', message: '' }
+//
+// 幂等:同一 sessionId 若 selection.algo === 'advisor_v1' 且 selection.normsVersion 匹配当前 norms,直接返回缓存。
+//
+// 硬约束:
+// 1) 权限:调用者 openid 必须与 session.openid 一致(否则 forbidden)。
+// 2) 数据齐:session.answers 必须包含 10 题的 final_ranking;否则返回 incomplete_answers。
+// 3) 分数不参与 AI:算法为确定性程序(advisor_port),仅使用 answers + 过程埋点 + 常模。
+'use strict';
+
+const cloud = require('wx-server-sdk');
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+
+const advisor = require('./advisor_port.js');
+const norms = require('./advisor_norms.js');
+const db = cloud.database();
+const SESSIONS = 'gsyg_sessions';
+const ALGO_VERSION = 'advisor_v1';
+
+// mp 题号 <-> Python 题号(见 CLAUDE.md 情境映射;此映射是自对合,双向同表)。
+const MP_TO_PY = { 1: 1, 2: 4, 3: 6, 4: 2, 5: 5, 6: 3, 7: 9, 8: 10, 9: 7, 10: 8 };
+const PY_TO_MP = MP_TO_PY;
+
+const LETTER = ['A', 'B', 'C', 'D'];
+function letterToIdx(l) { return LETTER.indexOf(l); }
+function mpIdToNum(id) { return parseInt(String(id).replace(/^Q/i, ''), 10); }
+function mpQ(pyQ) { return 'Q' + PY_TO_MP[pyQ]; }
+
+/* ---------- 把 mp session 的 answers/埋点合成 advisor.calculate 的入参 ---------- */
+
+/**
+ * 把 mp 存的 first_ranking + move_log 回放成 advisor 期望的 change_sorting_option 事件。
+ * 用「按 option 定位、忽略 from_pos」的鲁棒版(与 mp utils/process.js 一致),对埋点漂移容错。
+ */
+function replayTrajectory(firstRanking, moveLog) {
+  const cur = (firstRanking && firstRanking.slice()) || LETTER.slice();
+  const events = [];
+  for (const m of (moveLog || [])) {
+    if (!m || !m.option) continue;
+    const prev = cur.join('');
+    const idx = cur.indexOf(m.option);
+    if (idx >= 0) cur.splice(idx, 1);
+    const to = Math.min(cur.length, Math.max(0, (m.to_pos || 1) - 1));
+    cur.splice(to, 0, m.option);
+    events.push({
+      ts: Number(m.ts) || 0,
+      previousValue: prev,
+      currentValue: cur.join(''),
+      answer: m.option
+    });
+  }
+  return events;
+}
+
+/**
+ * session -> { resultsRow, syntheticLogs }
+ * resultsRow.answers 键为 Python 题号-1(即 "0".."9"),值为 [0-3] 的 4 位排列。
+ * syntheticLogs 每条含 userOpenid / questionIndex(py) / timestamp / action。
+ */
+function buildAdvisorInput(session) {
+  const openid = session.openid;
+  const participant = (session.profile && (session.profile.name || session.profile.participantName)) || '';
+  const answers = session.answers || {};
+  const outAnswers = {};
+  const syntheticLogs = [];
+
+  const missing = [];
+  for (let mpNum = 1; mpNum <= 10; mpNum++) {
+    const mpItemId = 'Q' + mpNum;
+    const a = answers[mpItemId];
+    if (!a || !Array.isArray(a.final_ranking) || a.final_ranking.length !== 4) {
+      missing.push(mpItemId);
+      continue;
+    }
+    const pyQ = MP_TO_PY[mpNum];
+    // final_ranking (['A','C','D','B']) -> [0,2,3,1]
+    outAnswers[String(pyQ - 1)] = a.final_ranking.map(letterToIdx);
+
+    // 合成日志:enter + 逐条 change_sorting_option + leave
+    const enterTs = Number(a.enter_ts) || 0;
+    const submitTs = Number(a.submit_ts) || (enterTs + (Number(a.duration_ms) || 0));
+    syntheticLogs.push({
+      userOpenid: openid, questionIndex: String(pyQ),
+      timestamp: String(enterTs), action: 'enter_question'
+    });
+    const drags = replayTrajectory(a.first_ranking, a.move_log);
+    for (const d of drags) {
+      syntheticLogs.push({
+        userOpenid: openid, questionIndex: String(pyQ),
+        timestamp: String(d.ts), action: 'change_sorting_option',
+        previousValue: d.previousValue, currentValue: d.currentValue, answer: d.answer
+      });
+    }
+    syntheticLogs.push({
+      userOpenid: openid, questionIndex: String(pyQ),
+      timestamp: String(submitTs), action: 'leave_question'
+    });
+  }
+
+  if (missing.length) {
+    return { missing };
+  }
+  const resultsRow = { participantName: participant, userOpenid: openid, answers: outAnswers };
+  return { resultsRow, syntheticLogs };
+}
+
+/* ---------- advisor 输出 → mp 端 session.selection 兼容结构 ---------- */
+
+function toMpSelection(advisorOut) {
+  const finalMp = advisorOut.finalSelected.map((f) => {
+    const pyQ = Number(f.questionIndex);
+    const mpId = mpQ(pyQ);
+    // sources: "R/P/G" -> ["R分·结果偏离", "P分·过程异常", "G分·结果×过程"]
+    const srcNames = [];
+    const raw = (f.source_summary || '').split('/');
+    if (raw.includes('R')) srcNames.push('R分·结果偏离');
+    if (raw.includes('P')) srcNames.push('P分·过程异常');
+    if (raw.includes('G')) srcNames.push('G分·结果×过程');
+    if (!srcNames.length) srcNames.push('覆盖增补');
+    return {
+      id: mpId, // mp Q1..Q10
+      py_item_id: f.final_item_id,
+      final_rank: f.final_rank,
+      sources: srcNames,
+      source_summary: f.source_summary,
+      source_count: f.source_count,
+      primary_ability_type: f.primary_ability_type,
+      secondary_ability_type: f.secondary_ability_type,
+      FES: f.FES, RS: f.RS,
+      R_rank: f.R_rank, P_rank: f.P_rank, G_rank: f.G_rank,
+      IIV_classic: f.IIV_classic, IIV_hybrid: f.IIV_hybrid,
+      priorityOption: f.priorityOption, priorityPair: f.priorityPair,
+      interview_focus: f.interview_focus,
+      selection_reason: f.selection_reason,
+      coverage_role: f.coverage_role
+    };
+  });
+  const routes = {
+    R: (advisorOut.rSelected || []).map((x) => mpQ(x.questionIndex)),
+    P: (advisorOut.pSelected || []).map((x) => mpQ(x.questionIndex)),
+    G: (advisorOut.gSelected || []).map((x) => mpQ(x.questionIndex))
+  };
+  return {
+    final: finalMp,
+    routes,
+    algo: ALGO_VERSION,
+    normsVersion: norms.version,
+    generatedAt: Date.now()
+  };
+}
+
+/* ---------- 主入口 ---------- */
+
+exports.main = async (event) => {
+  const { OPENID } = cloud.getWXContext();
+  const sessionId = event && event.sessionId;
+  if (!sessionId) return { ok: false, error: 'missing_sessionId' };
+
+  let sessionDoc;
+  try {
+    const q = await db.collection(SESSIONS).where({ sessionId }).limit(1).get();
+    if (!q.data || !q.data.length) return { ok: false, error: 'session_not_found' };
+    sessionDoc = q.data[0];
+  } catch (e) {
+    return { ok: false, error: 'db_read_failed', message: e && e.message };
+  }
+
+  // 权限:必须本人
+  if (sessionDoc.openid !== OPENID) return { ok: false, error: 'forbidden' };
+
+  // 幂等缓存
+  const cached = sessionDoc.selection;
+  if (cached && cached.algo === ALGO_VERSION && cached.normsVersion === norms.version) {
+    return { ok: true, selection: cached, cached: true };
+  }
+
+  // 组装 advisor 入参
+  const built = buildAdvisorInput(sessionDoc);
+  if (built.missing) {
+    return { ok: false, error: 'incomplete_answers', message: '缺少题目:' + built.missing.join(',') };
+  }
+
+  // 跑算法
+  let advisorOut;
+  try {
+    advisorOut = advisor.calculate([built.resultsRow], built.syntheticLogs, { logQuestionBase: 1, norms });
+  } catch (e) {
+    return { ok: false, error: 'algo_failed', message: e && e.message };
+  }
+  if (!advisorOut.finalSelected || advisorOut.finalSelected.length !== 3) {
+    return { ok: false, error: 'algo_incomplete', message: `final=${(advisorOut.finalSelected || []).length}` };
+  }
+
+  const selection = toMpSelection(advisorOut);
+
+  // 写回 gsyg_sessions.selection(不覆盖其他字段)
+  try {
+    await db.collection(SESSIONS).doc(sessionDoc._id).update({
+      data: { selection, selectionUpdatedAt: Date.now() }
+    });
+  } catch (e) {
+    // 写库失败不阻塞返回结果(前端拿到后自会用),但记日志
+    console.warn('write selection back failed:', e && e.message);
+  }
+
+  return { ok: true, selection, cached: false };
+};
