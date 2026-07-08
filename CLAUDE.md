@@ -203,3 +203,17 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
     - `store.saveSelection` 落地云函数返回并初始化 interview 占位;`store.hasFinalSelection` 判 `selection.algo === 'advisor_v1'`。
   - **失效条件与刷新**:换常模必须换 `norms.version` 字符串(否则老 session 缓存不重跑)。刷新流程见 `cloudfunctions/gsyg_selectFinal/README.md`。
   - **`scoring.js selectThree` 已 deprecated**:保留代码供离线兜底与参考,不在提交流程中调用。评分/查表仍在端上(`scoring.js scoreOne/computeScores`),红线不变(AI 不参与打分)。
+- **2026-07-08 上线后修复三则 + 看答题页 + 情境配图**:
+  - **`-502001` 写回失败**(方案 A 上线首次调用暴露):`gsyg_selectFinal` 用 `update({data:{selection:{...}}})` 会被 CloudBase 拍平成 sub-path 操作(`selection.algo` / `selection.final`...),而上游 `gsyg_reportSession` 每次都写 `selection: event.selection || null`,使字段值为 `null`,MongoDB 底层拒绝在 `null` 上创建子字段。修复:①`gsyg_selectFinal` 用 `db.command.set(selection)` 强制**替换整个字段**,不拍平;②`gsyg_reportSession` 未传 selection 时**不写此字段**(而非写 null),未来新 session 干净;老 session `set()` 也能覆盖。**幂等缓存这才真正生效**——之前每次都在重跑 advisor 是因为写回失败,缓存永远没落地。
+  - **`interviewGate` 读错层级**:`callCloud` 成功返回 `{ok:true, data:<云函数结果>}`,真正的 selection 在 `r.data.selection` 里。之前直接读 `r.selection` 永远 undefined,即使云函数成功也走进"重试"分支,弹窗成"遴选服务不可用(undefined)"。修复:改读 `r.data.selection` + `console.warn` 打印原始错误 + 加 callCloud 层错误码文案(`cloud_unavailable` / `cf_fail` / `callFunction_fail` / `exception`)。
+  - **导出增补 selection 统计**:`gsyg_exportData` 本来就 dump 整个 sessions 集合(`selection` 字段随文档一起导出)。追加 `stats.sessions.{selected_advisor_v1, missing_selection, other_algo}` 到返回值与 bundle,一眼看出遴选覆盖率,方便管理员判断还有几条 session 未走 gsyg_selectFinal。
+  - **看答题页 `review` 补题干 + 选项缩小**:①原页只显示 title 和排序,没题干,用户对不上情境 → 补 `<view class="t ink">{{item.stem}}</view>`,风格与 exam/interview 一致(主色标题 + 正文);②新增 `.rv-opt` 覆盖全局 `.opt` 尺寸(b 40rpx × 22rpx 字 / x 23rpx / padding 10-14rpx / margin-bottom 8rpx),与 interview `.iv-rank` 尺寸对齐,一屏容量更好。
+  - **情境配图(10 张,答题页专用)**:据 DOC《十张图.zip》,答题环节题干**上方**加情境图,访谈/看答题/提交/评分**不加**。原图 26MB PNG 用 `tools/build_scenario_images.py`(Pillow)压到 750px 宽 progressive JPEG q82,10 张合计 **640KB**,主包内置(mp 主包上限 2MB)。命名 `Q1..Q10.jpg` 与 mp 题号一致(原文件名 001..010 自然对应,无需映射)。`exam.wxml` 加 `<image src="/images/scenarios/{{q.item_id}}.jpg" mode="widthFix" lazy-load>`;`exam.wxss` 加 `.scenario-img`(full width / 圆角 14rpx / 占位色 soft)。DOC/images_ten/ 原始 PNG 归档,方便日后重新压缩。**注意**:图片在包体里,换图需要发新版 mp,非热更新;频繁换图应迁云存储。
+- **部署清单(2026-07-08 方案 A 全部落地后)**:三个云函数需要上传并部署:
+  1. `gsyg_selectFinal`(核心遴选) — 每次 `advisor_port.js`/`advisor_norms.js` 改动前跑 `node tools/sync_cf.js` 再传
+  2. `gsyg_reportSession`(不再写 null selection)
+  3. `gsyg_exportData`(stats 增强)
+  三份对拍脚本改动 advisor 后必跑,全 exit 0 才能部署:
+  - `node tools/verify_align.js` — 批量模式 vs Python 6 张 CSV
+  - `node tools/verify_norms_mode.js` — 单教师+常模模式 vs Python
+  - `node tools/verify_cf_pipeline.js` — mp session → 翻译层 → advisor vs Python
