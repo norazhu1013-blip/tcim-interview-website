@@ -199,9 +199,12 @@ exports.main = async (event) => {
   const selection = toMpSelection(advisorOut);
 
   // 写回 gsyg_sessions.selection(不覆盖其他字段)
+  // 用 db.command.set() 强制**替换整个 selection 字段**,而非拍平成 sub-path 操作
+  // (否则当当前 selection === null 时 MongoDB 报 "Cannot create field 'algo' in element {selection: null}")。
   try {
+    const _ = db.command;
     await db.collection(SESSIONS).doc(sessionDoc._id).update({
-      data: { selection, selectionUpdatedAt: Date.now() }
+      data: { selection: _.set(selection), selectionUpdatedAt: Date.now() }
     });
   } catch (e) {
     // 写库失败不阻塞返回结果(前端拿到后自会用),但记日志
