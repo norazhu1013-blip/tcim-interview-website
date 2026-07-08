@@ -16,6 +16,7 @@
 <scroll-view scroll-y="{{!isDragging}}" class="exam-body {{isDragging ? 'no-scroll' : ''}}" style="top:{{bodyTop}}px;">
   <view class="card">
     <view class="muted" style="color:var(--pri);font-weight:600;">情境 · {{q.title}}</view>
+    <image class="scenario-img" src="/images/scenarios/{{q.item_id}}.jpg" mode="widthFix" lazy-load="{{true}}" />
     <view class="t ink" style="margin-top:10rpx;">{{q.stem}}</view>
   </view>
 

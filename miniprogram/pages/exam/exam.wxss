@@ -109,3 +109,11 @@
   border-color: var(--pri);
   background: #eef2fd;
 }
+/* 情境配图:仅答题页展示,题干上方,与整卡视觉对齐 */
+.scenario-img {
+  display: block;
+  width: 100%;
+  margin-top: 14rpx;
+  border-radius: 14rpx;
+  background: var(--soft);
+}
