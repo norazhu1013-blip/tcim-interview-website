@@ -185,3 +185,21 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - ⚠️ **题号错位(重要)**:该 Python 程序自身的题号(其 `QUESTION_CONTENT`/`ABILITY_MAP`)与小程序题号**不同**,`SCORE_CSV` 的 01-10 列按 **Python 题号**排。必须按**情境正文/选项内容**映射,切勿按列号直接套:`mpQ1→py列1, Q2→4, Q3→6, Q4→2, Q5→5, Q6→3, Q7→9, Q8→10, Q9→7, Q10→8`(A/B/C/D 选项顺序两边逐字一致,已核对)。
   - **结果**:10 题中 9 题分数原本已与最新方案一致;仅 **Q5(消防员/阳阳)8 格**为旧值,已更新。生成/对拍脚本:`tools/build_scoreTable_from_py.py`(dry-run 打印 diff,`--write` 落盘;重跑 diff=0)。若日后 Python 方案再更新,改该脚本的 `MAP` 或重跑即可。
   - FYI(非本次范围):mp 的 R/P/G 三题**遴选**(`scoring.js selectThree`)是简化版,与 Python advisor 的 P-IVI/IIV/覆盖修正完整算法不同;但**赋分(scoring)**本身正确、已对齐最新。
+- **2026-07-08 R/P/G 遴选切服务端(方案 A,完整版 advisor + 常模化)**:替代原 `scoring.js selectThree` 简化版,与 Python advisor 逐位对齐。
+  - **`tools/advisor_port.js`** — Python `calculate_advisor_rpg_final.py` 的 1:1 Node.js 端口(~950 行,无外部依赖)。移植内容:过程特征(8 项含 >120s 中断剔除)/ F/M/B/O + P-IVI / R 分档 / G 4 象限 / IIV_classic+hybrid / FES 整合 + RS 备用综合 + 能力覆盖修正 / safeInterviewPrompt。**题号约定与 Python 一致**(内部 1..10 = Python 编号,与 mp 题号错位,见上表)。
+  - **常模化(阶段 4 关键)**:`addPScores(rows, norms)` 加 norms 开关。批量模式(不传 norms)用同批次跨教师算百分位(研究场景);单教师模式**必须传** norms,否则单人百分位恒 50、算法退化。`tools/build_norms.js` 从 45 位模拟教师提取 8 个指标的分布数组 → `tools/advisor_norms.js`(56KB,`version:'2026-07-08-45sim'`)。
+  - **对拍(硬门槛)**:三个脚本必须 exit 0 才能改动/部署 advisor:
+    - `tools/verify_align.js` — 批量模式 vs Python 参考输出 6 张 CSV 逐位一致
+    - `tools/verify_norms_mode.js` — 45 位逐位单教师+常模模式 vs Python(45/45 完美匹配,1.1ms/位)
+    - `tools/verify_cf_pipeline.js` — mp session → cf 翻译层 → advisor 输出 vs Python(45/45 完美匹配)
+    参考输出 `tools/advisor_ref_output/`(Python advisor 首次生成,入库便于未来复跑)。
+  - **云函数 `cloudfunctions/gsyg_selectFinal/`**:
+    - `index.js` wx-server-sdk 包装 + mp↔py 题号翻译(MP_TO_PY 自对合表)+ mp session 埋点合成为 advisor 期望的 enter/change/leave 事件(按 option 定位、忽略 from_pos,与 mp `utils/process.js` 一致,对埋点漂移容错)+ 幂等缓存(algo=`advisor_v1` + normsVersion 匹配则复用)+ 落库到 `gsyg_sessions.selection`。
+    - `advisor_port.js` / `advisor_norms.js` 从 tools/ 物理拷贝,由 `tools/sync_cf.js` 单命令同步(云函数目录须自包含,不能相对 require)。改动 advisor 后必须 sync 再上传。
+  - **前端阻塞式流水线**:
+    - `utils/interviewGate.js` 守卫:点「去 AI 访谈」时 `ensureFinalThen(sid, onOk)` — 已有 advisor_v1 selection 直进;缺失则 `wx.showLoading + flushPending + api.selectFinal` 阻塞式拉;失败弹「暂时无法开始访谈 · 重试 / 取消」,错误码文案本地化。
+    - `exam.js doSubmit` **不再调 `selectThree`**,不再本地初始化 selection/interview 占位;上报 reportExam 传 `selection:null`,交云函数落地。
+    - `submit.js onSelect` / `home.js onInterview` / `interviewList.js onLoad` 三处入口统一走守卫。方案乙:submit 页立刻显示成功,点访谈按钮才阻塞。
+    - `store.saveSelection` 落地云函数返回并初始化 interview 占位;`store.hasFinalSelection` 判 `selection.algo === 'advisor_v1'`。
+  - **失效条件与刷新**:换常模必须换 `norms.version` 字符串(否则老 session 缓存不重跑)。刷新流程见 `cloudfunctions/gsyg_selectFinal/README.md`。
+  - **`scoring.js selectThree` 已 deprecated**:保留代码供离线兜底与参考,不在提交流程中调用。评分/查表仍在端上(`scoring.js scoreOne/computeScores`),红线不变(AI 不参与打分)。

@@ -125,7 +125,7 @@
   - **排列顺序口径**：xlsx 首列「选项组合」（ABCD…DCBA，恰为字典序）**显式**给出每行对应排列，行号↔排列 **来自原表、非假设**；排列串语义 = 最理想→最不理想。若研究团队确认口径不同，只改 `tools/build_scoreTable.js` 的 `permToKey` 一处。
 - **时间埋点**（`exam.js`）：记录每题 `duration_ms`、`enter_ts/submit_ts`、`move_log` 时间戳，及整卷 `examStartTs/examSubmitTs/totalExamMs`；本地存 session，并随 sessions 上报（`items[].durationMs`、`totalDurationMs`、`examStartTs`、`examSubmitTs`）。时间用于 P-IVI/筛选与后续分析，**评分不依赖时间**（时间长≠能力弱）。
 - **过程指标**（`process.js`）：**必须回放 move_log**（从 `first_ranking` 起「移除选项→插入到 to_pos」重建每步排序）。首/末位摇摆按各步序列变更次数（≥2 强摇摆），**不用「首≠尾」简化**；路径振荡 = 位次方向反转；合成 P-IVI。评分不依赖过程指标。
-- **R/P/G 筛选**（`scoring.js selectThree`）：R 按 |RD|、P 按 P-IVI、G 按结果×过程，合并去重 + 覆盖校验（尽量不选 3 道同主二级指标）。
+- **R/P/G 筛选（服务端遴选,advisor 完整版）**：由云函数 `gsyg_selectFinal`(`cloudfunctions/gsyg_selectFinal/`) 完成,基于 Node.js 端口的 Python advisor 完整算法(`tools/advisor_port.js`)+ 45 位教师冷启动常模(`tools/advisor_norms.js`)。用户点「去 AI 访谈」时经 `utils/interviewGate.js` 阻塞式调用,失败弹「重试 / 取消」。**`scoring.js selectThree` 已 deprecated 但保留代码**,不在提交流程中使用(仅供离线兜底与参考;端上单教师简化版口径与研究版不一致)。
 - **访谈**（`interview.js`）：教师排序命中最高优先级触发规则(T)→取脚本序列(Q)→逐轮提问→采集证据点(E)→依锚点编码水平。不暴露专家排序/得分/标准答案。
 
 > 已用 demo 的 Q1 过程埋点验证 `process.js` 回放与 demo.html 完全一致（首位强摇摆 D→A→C / 路径振荡 / 高修正投入）。
