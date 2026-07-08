@@ -89,6 +89,7 @@ async function callWxAI(system, user) {
     { role: 'system', content: system },
     { role: 'user', content: user }
   ];
+  console.log('[wxai] call', JSON.stringify({ model: DEFAULT_MODEL, provider: DEFAULT_PROVIDER, timeoutMs: LLM_TIMEOUT_MS }));
 
   // wxai 在不同 wx-server-sdk 版本下暴露路径不同：
   //   4.x 稳定路径优先 cloud.extend.AI；老版本或某些运行时只注入 cloud.ai。两者 API 形状一致。
@@ -114,25 +115,38 @@ async function callWxAI(system, user) {
     catch (e2) { throw new Error('createModel 失败：' + ((e && e.message) || e) + ' / 回退亦失败：' + ((e2 && e2.message) || e2)); }
   }
 
+  console.log('[wxai] model created', JSON.stringify({ providerUsed, model: DEFAULT_MODEL, hasGenerateText: typeof model.generateText === 'function', hasStreamText: typeof model.streamText === 'function' }));
+
+  const t0 = Date.now();
   // 优先非流式，失败回落 streamText
   if (typeof model.generateText === 'function') {
     try {
       const res = await model.generateText({ model: DEFAULT_MODEL, messages: messages, data: { model: DEFAULT_MODEL, messages: messages } });
       const t = extractText(res);
-      if (t) return t;
+      if (t) {
+        console.log('[wxai] ok generateText', JSON.stringify({ model: DEFAULT_MODEL, providerUsed, ms: Date.now() - t0, chars: t.length }));
+        return t;
+      }
     } catch (e) {
       // 若是"model not found"意味着 createModel 传的应该就是 model_id 而非 provider，做二次尝试
       const msg = (e && (e.errMsg || e.message)) || '';
+      console.warn('[wxai] generateText failed', JSON.stringify({ providerUsed, model: DEFAULT_MODEL, err: msg }));
       if (/MODEL_NOT_FOUND|not found/i.test(msg) && providerUsed !== DEFAULT_MODEL) {
         try {
           const m2 = ai.createModel(DEFAULT_MODEL);
+          console.log('[wxai] retry with createModel(modelId)', JSON.stringify({ model: DEFAULT_MODEL }));
           if (typeof m2.generateText === 'function') {
             const r2 = await m2.generateText({ model: DEFAULT_MODEL, messages: messages, data: { model: DEFAULT_MODEL, messages: messages } });
             const t2 = extractText(r2);
-            if (t2) return t2;
+            if (t2) {
+              console.log('[wxai] ok generateText retry', JSON.stringify({ model: DEFAULT_MODEL, ms: Date.now() - t0, chars: t2.length }));
+              return t2;
+            }
           }
           if (typeof m2.streamText === 'function') {
-            return await drainStream(await m2.streamText({ model: DEFAULT_MODEL, messages: messages, data: { model: DEFAULT_MODEL, messages: messages } }));
+            const out = await drainStream(await m2.streamText({ model: DEFAULT_MODEL, messages: messages, data: { model: DEFAULT_MODEL, messages: messages } }));
+            console.log('[wxai] ok streamText retry', JSON.stringify({ model: DEFAULT_MODEL, ms: Date.now() - t0, chars: out.length }));
+            return out;
           }
         } catch (e3) { /* 交给下面 streamText 兜底或最终抛错 */ }
       }
@@ -143,7 +157,9 @@ async function callWxAI(system, user) {
     throw new Error('模型 ' + DEFAULT_MODEL + '(provider=' + providerUsed + ') 未提供 streamText/generateText');
   }
   const res = await model.streamText({ model: DEFAULT_MODEL, messages: messages, data: { model: DEFAULT_MODEL, messages: messages } });
-  return await drainStream(res);
+  const out = await drainStream(res);
+  console.log('[wxai] ok streamText', JSON.stringify({ model: DEFAULT_MODEL, providerUsed, ms: Date.now() - t0, chars: out.length }));
+  return out;
 }
 
 // 兼容多种返回形态：dataStream/eventStream/textStream/AsyncIterable
