@@ -21,7 +21,28 @@ Page({
     dragOverIndex: -1,
     isDragging: false,
     touchStartY: 0,
-    itemHeight: 0
+    itemHeight: 0,
+    // 自绘导航栏尺寸（px）
+    statusBarHeight: 20,
+    navContentH: 44,
+    navBarH: 64,
+    bodyTop: 112
+  },
+
+  initNavBar() {
+    let info = {};
+    try { info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync(); } catch (e) {}
+    const statusBarHeight = info.statusBarHeight || 20;
+    let navContentH = 44;
+    try {
+      const m = wx.getMenuButtonBoundingClientRect();
+      if (m && m.height) navContentH = (m.top - statusBarHeight) * 2 + m.height;
+    } catch (e) {}
+    const navBarH = statusBarHeight + navContentH;
+    // exam-top 自然高度约 96rpx，换算为 px
+    const sw = info.windowWidth || 375;
+    const examTopPx = Math.round((96 * sw) / 750);
+    this.setData({ statusBarHeight, navContentH, navBarH, bodyTop: navBarH + examTopPx });
   },
 
   // 当前题的过程埋点（非渲染字段）
@@ -29,6 +50,7 @@ Page({
   _timer: null,
 
   onLoad(query) {
+    this.initNavBar();
     const sid = query.sid;
     let session = store.getSession(sid);
     if (!session) {

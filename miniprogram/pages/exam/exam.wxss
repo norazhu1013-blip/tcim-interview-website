@@ -1,4 +1,36 @@
+/* 自绘导航栏 */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #fff;
+  border-bottom: 1rpx solid var(--line);
+}
+.nav-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+.nav-exit {
+  position: absolute;
+  left: 24rpx;
+  font-size: 28rpx;
+  color: var(--ink2);
+  padding: 6rpx 8rpx;
+}
 .exam-top {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 99;
   background: #fff;
   padding: 14rpx 32rpx 12rpx;
   border-bottom: 1rpx solid var(--line);

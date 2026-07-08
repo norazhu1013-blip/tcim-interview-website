@@ -1,16 +1,24 @@
-<view class="iv-top">
+<!-- 自绘导航栏：无系统返回键，退出走此处「退出」 -->
+<view class="navbar" style="height:{{navBarH}}px;padding-top:{{statusBarHeight}}px;">
+  <view class="nav-content" style="height:{{navContentH}}px;">
+    <view wx:if="{{isReview}}" class="nav-exit" bindtap="onExit">返回</view>
+    <view class="nav-title">AI 访谈</view>
+  </view>
+</view>
+
+<view class="iv-top" style="top:{{navBarH}}px;">
   <text class="h" style="font-size:27rpx;">{{q.title}}</text>
   <text wx:if="{{!isReview}}" class="timer {{timeLow ? 'low' : ''}}" style="margin-left:auto;">{{countdown}}</text>
   <text wx:else class="muted" style="margin-left:auto;">回看</text>
 </view>
 
-<scroll-view scroll-y class="iv-body" scroll-into-view="{{scrollTo}}" scroll-with-animation>
+<scroll-view scroll-y class="iv-body" style="top:{{bodyTop}}px;" scroll-into-view="{{scrollTo}}" scroll-with-animation>
   <!-- 案例卡：完整案例 + 四选项 + 本人排序 -->
   <view class="card" id="case">
     <view class="muted" style="color:var(--pri);font-weight:600;">情境 · {{q.title}}</view>
     <view class="t ink" style="margin-top:8rpx;">{{q.stem}}</view>
-    <view class="muted" style="margin:16rpx 0 8rpx;">你的排序（最理想 → 最不理想）</view>
-    <view wx:for="{{rankRows}}" wx:key="opt" class="opt" style="margin-bottom:12rpx;">
+    <view class="muted" style="margin:12rpx 0 6rpx;">你的排序（最理想 → 最不理想）</view>
+    <view wx:for="{{rankRows}}" wx:key="opt" class="opt iv-rank">
       <view class="b">{{item.opt}}</view>
       <view class="x">{{item.text}}</view>
     </view>

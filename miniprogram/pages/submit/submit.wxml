@@ -1,12 +1,11 @@
 <view class="bd center-col" style="padding-top:120rpx;">
   <view class="ok-ring">✓</view>
   <view class="h-lg" style="margin-top:32rpx;">答题已提交</view>
-  <view class="t" style="margin-top:14rpx;padding:0 32rpx;">系统已自动评分，并挑选 {{planned}} 个情境用于 AI 访谈。</view>
+  <view class="t" style="margin-top:14rpx;padding:0 32rpx;">感谢作答！接下来请进入 AI 访谈。</view>
   <view wx:if="{{timeout}}" class="muted" style="margin-top:12rpx;">（本次为超时自动提交）</view>
 
   <view style="width:100%;margin-top:52rpx;display:flex;flex-direction:column;gap:22rpx;">
-    <button class="btn" bindtap="onScore">查看评分</button>
-    <button class="btn o" bindtap="onSelect">去 AI 访谈</button>
+    <button class="btn" bindtap="onSelect">去 AI 访谈</button>
     <button class="btn g" bindtap="onHome">回到首页</button>
   </view>
 </view>

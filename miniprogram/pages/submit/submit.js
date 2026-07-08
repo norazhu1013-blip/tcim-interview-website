@@ -10,9 +10,6 @@ Page({
     this.setData({ sid: q.sid, planned, timeout: s.status === 'timeout_submitted' });
   },
 
-  onScore() {
-    wx.redirectTo({ url: '/pages/score/score?sid=' + this.data.sid });
-  },
   onSelect() {
     wx.redirectTo({ url: '/pages/interviewList/interviewList?sid=' + this.data.sid });
   },

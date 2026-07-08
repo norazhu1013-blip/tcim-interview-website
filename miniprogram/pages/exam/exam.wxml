@@ -1,4 +1,11 @@
-<view class="exam-top">
+<!-- 自绘导航栏：无系统返回键，退出走此处「退出」 -->
+<view class="navbar" style="height:{{navBarH}}px;padding-top:{{statusBarHeight}}px;">
+  <view class="nav-content" style="height:{{navContentH}}px;">
+    <view class="nav-title">情境测评</view>
+  </view>
+</view>
+
+<view class="exam-top" style="top:{{navBarH}}px;">
   <view class="row">
     <text class="muted">第 {{idx + 1}} / {{total}} 题</text>
     <text class="timer {{timeLow ? 'low' : ''}}" style="margin-left:auto;">剩余 {{countdown}}</text>
@@ -6,7 +13,7 @@
   <view class="bar" style="margin-top:12rpx;"><i style="width:{{progress}}%;"></i></view>
 </view>
 
-<scroll-view scroll-y="{{!isDragging}}" class="exam-body {{isDragging ? 'no-scroll' : ''}}">
+<scroll-view scroll-y="{{!isDragging}}" class="exam-body {{isDragging ? 'no-scroll' : ''}}" style="top:{{bodyTop}}px;">
   <view class="card">
     <view class="muted" style="color:var(--pri);font-weight:600;">情境 · {{q.title}}</view>
     <view class="t ink" style="margin-top:10rpx;">{{q.stem}}</view>

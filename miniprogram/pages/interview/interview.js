@@ -21,7 +21,39 @@ Page({
     timeLow: false,
     scrollTo: '',
     submittedText: '',
-    allDone: false
+    allDone: false,
+    // 自绘导航栏尺寸（px）
+    statusBarHeight: 20,
+    navContentH: 44,
+    navBarH: 64,
+    bodyTop: 109
+  },
+
+  initNavBar() {
+    let info = {};
+    try { info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync(); } catch (e) {}
+    const statusBarHeight = info.statusBarHeight || 20;
+    let navContentH = 44;
+    try {
+      const m = wx.getMenuButtonBoundingClientRect();
+      if (m && m.height) navContentH = (m.top - statusBarHeight) * 2 + m.height;
+    } catch (e) {}
+    const navBarH = statusBarHeight + navContentH;
+    const sw = info.windowWidth || 375;
+    const ivTopPx = Math.round((90 * sw) / 750); // iv-top 约 90rpx
+    this.setData({ statusBarHeight, navContentH, navBarH, bodyTop: navBarH + ivTopPx });
+  },
+
+  onExit() {
+    const isReview = this.data.isReview;
+    wx.showModal({
+      title: isReview ? '退出回看' : '退出访谈',
+      content: isReview ? '确定退出回看？' : '确定退出本情境访谈？当前对话已保存，可稍后回到情境列表继续。',
+      confirmText: '退出',
+      success: (r) => {
+        if (r.confirm) wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/home/home' }) });
+      }
+    });
   },
 
   // 非渲染状态
@@ -34,6 +66,7 @@ Page({
   _timeUpNotified: false,
 
   onLoad(query) {
+    this.initNavBar();
     // 访谈会调用云端 AI 追问，必须先登录；未登录 → 弹窗 + 回上一页
     if (!store.requireLoginWithPrompt('AI 访谈需要先完成微信手机号授权登录')) {
       setTimeout(() => wx.navigateBack(), 300);
@@ -149,9 +182,20 @@ Page({
     this.persist(false);
 
     const remain = LIMIT_MS - (Date.now() - this._startTs);
+    const timeUp = remain <= 0;
     // 剩余 <1 分钟：不再生成新问，直接收束保存
     if (remain <= 60 * 1000 || this._noNew) {
       this.finalize();
+      // 时间已到且教师完成了这一次回答 → 提示返回
+      if (timeUp) {
+        wx.showModal({
+          title: '本情境访谈已结束',
+          content: '感谢作答，本情境时间已到，请返回情境列表。',
+          showCancel: false,
+          confirmText: '返回列表',
+          success: () => this.onBack()
+        });
+      }
     } else {
       await this.askNext();
     }

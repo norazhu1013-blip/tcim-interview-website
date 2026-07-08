@@ -2,49 +2,46 @@
   <!-- 顶部 -->
   <view class="header">
     <view class="h-lg">{{profile.name || '老师'}}</view>
-    <view class="muted" style="margin-top:6rpx;">{{profile.kindergarten || '未填园所'}} · {{profile.grade || ''}}</view>
+    <view class="muted row" style="margin-top:6rpx;align-items:center;">
+      <text>来自：{{profile.kindergarten || ''}}</text>
+      <text wx:if="{{!profile.kindergarten}}" class="link-btn" bindtap="onGoProfile">去完善</text>
+    </view>
   </view>
 
   <!-- 开始测评 -->
   <view class="card">
-    <view class="h">开始新测评</view>
+    <view class="h">开始“游戏支持与引导”情境判断测评</view>
     <view class="muted intro-line" style="margin-top:14rpx;">
-      面向幼儿园教师的「游戏支持与引导能力」评估，通过真实情境判断了解你在观察、介入、支持儿童游戏中的偏向与优势。
+      本测评将通过幼儿游戏情境，了解您在观察儿童、理解游戏、适时支持与引导中的专业判断。请根据真实工作中的想法作答。
     </view>
 
     <view class="intro-steps">
       <view class="intro-step">
         <text class="intro-num">1</text>
         <view class="intro-body">
-          <text class="intro-title">情境判断（约 20 分钟）</text>
-          <text class="intro-sub">{{examCount}} 道真实幼儿园情境，把 4 种做法从「最理想」拖到「最不理想」排序</text>
+          <text class="intro-title">情境作答 ｜ 20 分钟以内</text>
+          <text class="intro-sub">阅读 {{examCount}} 个幼儿园游戏活动情境，每个情境呈现 4 种教师的做法，请按您的专业判断，从「最理想」到「最不理想」依次拖动排序。</text>
         </view>
       </view>
       <view class="intro-step">
         <text class="intro-num">2</text>
         <view class="intro-body">
-          <text class="intro-title">自动评分与情境挑选</text>
-          <text class="intro-sub">依固定赋分表算分（不泄露标准答案），自动挑 3 个最值得深入交流的情境</text>
-        </view>
-      </view>
-      <view class="intro-step">
-        <text class="intro-num">3</text>
-        <view class="intro-body">
-          <text class="intro-title">AI 一对一访谈</text>
-          <text class="intro-sub">围绕你的真实排序追问，单情境约 10 分钟，采集判断依据与介入策略</text>
+          <text class="intro-title">AI 交流 ｜ 30 分钟以内</text>
+          <text class="intro-sub">完成作答后，AI 会围绕若干情境与您进行简短交流，进一步了解您的判断理由和实践思路。</text>
         </view>
       </view>
     </view>
 
-    <view class="muted intro-hint">*非评判、可回溯；结果仅用于本人能力画像与成长建议。</view>
+    <view class="muted intro-hint">请您根据自己的真实想法作答，您的经验和思考非常宝贵。</view>
 
-    <button class="btn" style="margin-top:24rpx;" bindtap="onStart">开始答题</button>
+    <button class="btn" style="margin-top:24rpx;" bindtap="onStart" disabled="{{blockStart}}">开始答题</button>
+    <view wx:if="{{blockStart}}" class="muted" style="text-align:center;margin-top:12rpx;font-size:24rpx;">您有未完成的 AI 访谈，完成后才能开始新的测评。</view>
   </view>
 
   <view class="sect">我的记录</view>
 
   <view wx:if="{{records.length === 0}}" class="card">
-    <view class="muted" style="text-align:center;padding:20rpx 0;">还没有测评记录，点上方「开始答题」开始吧。</view>
+    <view class="muted" style="text-align:center;padding:20rpx 0;">暂无记录。完成测评后，您可以在此查看历史记录。</view>
   </view>
 
   <view wx:for="{{records}}" wx:key="sessionId" class="card">
@@ -63,7 +60,6 @@
     <!-- 已提交：三入口 -->
     <view wx:else class="row" style="margin-top:20rpx;gap:12rpx;">
       <button class="btn g sm" style="flex:1;" data-id="{{item.sessionId}}" bindtap="onReview">看答题</button>
-      <button class="btn g sm" style="flex:1;" data-id="{{item.sessionId}}" bindtap="onScore">看评分</button>
       <button class="btn {{item.interviewDone ? 'g' : 'o'}} sm" style="flex:1;" data-id="{{item.sessionId}}" bindtap="onInterview">{{item.interviewDone ? '回看' : '去访谈'}}</button>
     </view>
   </view>

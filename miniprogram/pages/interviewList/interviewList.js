@@ -23,7 +23,8 @@ Page({
       return;
     }
     const titleOf = {};
-    ITEMS.forEach((it) => (titleOf[it.item_id] = it.title));
+    const stemOf = {};
+    ITEMS.forEach((it) => { titleOf[it.item_id] = it.title; stemOf[it.item_id] = it.stem; });
     const interview = s.interview || {};
     const list = s.selection.final.map((f) => {
       const num = parseInt(String(f.id).replace(/\D/g, ''), 10);
@@ -32,7 +33,8 @@ Page({
         id: f.id,
         no: (CIRCLE[num - 1] || ('#' + num)) + ' ',
         title: titleOf[f.id] || '',
-        focus: (MAP[f.id] && MAP[f.id].interview_focus) || '',
+        // 展示情境原文（题干），替代原“考察内容”
+        focus: stemOf[f.id] || (MAP[f.id] && MAP[f.id].interview_focus) || '',
         done: iv.status === 'done'
       };
     });

@@ -21,7 +21,13 @@ Page({
     const profile = getProfile() || {};
     const sessions = listSessions();
     const records = sessions.map((s) => this.toRecord(s));
-    this.setData({ profile, records });
+    // 答题/访谈互斥：存在「已提交但访谈未全部完成」的记录时，禁止开始新测评
+    const blockStart = records.some((r) => r.status !== 'in_progress' && !r.interviewDone);
+    this.setData({ profile, records, blockStart });
+  },
+
+  onGoProfile() {
+    wx.switchTab({ url: '/pages/profile/profile' });
   },
 
   toRecord(s) {
@@ -56,6 +62,10 @@ Page({
   },
 
   onStart() {
+    if (this.data.blockStart) {
+      wx.showToast({ title: '请先完成未结束的 AI 访谈', icon: 'none' });
+      return;
+    }
     if (!requireLoginWithPrompt('开始答题需要先完成微信手机号授权登录')) return;
     const id = uuid();
     createSession(id, { paperCode: (getProfile() || {}).paperCode || '' });

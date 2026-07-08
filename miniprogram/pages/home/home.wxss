@@ -54,3 +54,12 @@
   font-size: 21rpx;
   color: var(--ink3);
 }
+.link-btn {
+  margin-left: 12rpx;
+  color: var(--pri);
+  font-weight: 600;
+  border: 1rpx solid var(--pri);
+  border-radius: 999rpx;
+  padding: 2rpx 16rpx;
+  font-size: 22rpx;
+}
