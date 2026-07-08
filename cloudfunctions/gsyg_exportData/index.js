@@ -62,12 +62,25 @@ exports.main = async (event) => {
   try {
     const bundle = { exportedAt: Date.now(), since: since, operator: OPENID, data: {} };
     const count = {};
+    const stats = {}; // 各集合的分类统计,便于导出后 QA
     for (const k of which) {
       if (!COLL[k]) continue;
       const rows = await fetchAll(COLL[k], since);
       bundle.data[k] = rows;
       count[k] = rows.length;
+      // sessions:统计已遴选/待遴选,方便管理员判断是否还有 session 未走 gsyg_selectFinal
+      if (k === 'sessions') {
+        let selected = 0, pending = 0, otherAlgo = 0;
+        for (const r of rows) {
+          const s = r.selection;
+          if (s && s.algo === 'advisor_v1' && Array.isArray(s.final) && s.final.length) selected++;
+          else if (s && s.algo) otherAlgo++;
+          else pending++;
+        }
+        stats.sessions = { selected_advisor_v1: selected, missing_selection: pending, other_algo: otherAlgo };
+      }
     }
+    bundle.stats = stats;
 
     // 写云存储
     const cloudPath = 'gsyg-exports/' + stamp() + (since ? '-since' + since : '-full') + '.json';
@@ -87,6 +100,7 @@ exports.main = async (event) => {
       cloudPath: cloudPath,
       bytes: buf.length,
       count: count,
+      stats: stats, // 例如 { sessions: { selected_advisor_v1, missing_selection, other_algo } }
       expireAt: Date.now() + 2 * 3600 * 1000, // 名义 2 小时，具体以 downloadURL 为准
       exportedAt: bundle.exportedAt
     };
