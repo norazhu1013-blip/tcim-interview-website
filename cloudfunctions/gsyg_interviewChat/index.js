@@ -1,34 +1,167 @@
-// 云函数 gsyg_interviewChat —— AI 访谈动态追问（微信云开发 AI 版）
-// 入参：{ sessionId, itemId, itemContext:{stem,options,title}, teacherRanking, processTags,
-//        kbSlice:{core_orientation, observation_points, triggers, evidence_points}, history, remainingMs }
-// 返回：{ ok, question, done, evidenceHint }
+// 云函数 gsyg_interviewChat —— AI 访谈动态追问(v2 MVP:任务卡 + 16 表知识库 + 阶段化)
+// 入参:
+//   { sessionId, itemId, itemContext:{stem,options,title},
+//     teacherRanking,               // 最终排序数组 ['B','D','A','C']
+//     taskCardSeed:{                // 由 mp 从 session.selection.final[i] 组装
+//       teacherFinalOrder, teacherInitialOrder, orderChanged, orderChangeSummary,
+//       priorityOption, priorityPair, sources[],
+//       primary_ability_type, secondary_ability_type },
+//     stage,                        // 'S1_CONTEXT' | 'S2_COMPARE' | 'S3_STRATEGY' | 'S4_SUMMARY'
+//     processTags[], history[], remainingMs,
+//     kbSlice? }                    // v1 老字段,v2 不再需要,由云函数从 knowledge.json 装载
+// 返回:{ ok, question, done, evidenceHint[], nextStage, taskCardHash? }
 //
-// 硬约束（system prompt 内已声明）：
-//   1) 不透露标准排序 / 得分 / 对错
-//   2) 每轮只问一个问题；先接住上一轮教师回答，再追缺失证据
-//   3) 语气专业但通俗、非评判、不诱导
+// 硬约束(system prompt 内已声明):
+//   1) 不透露标准排序 / 得分 / 对错;2) 每轮只问一个问题;3) 语气专业但通俗、非评判、不诱导
 //
-// 与规则版的关键差异：evidenceHint 由模型基于教师"上一轮原话"判定，而非"问过即算"
-// —— 这是 CLAUDE.md 中上线前必须修的硬缺口。
-//
-// 环境变量（在云开发控制台云函数配置里设）：
-//   WXAI_MODEL     可选，默认 deepseek-v3；wxai 已开通的任意模型 id
-//   SEC_CHECK      可选，1 则对 AI 输出走 openapi security.msgSecCheck（推荐上线开）
-//   LLM_TIMEOUT_MS 可选，默认 12000
+// 环境变量:
+//   WXAI_MODEL/WXAI_PROVIDER/LLM_TIMEOUT_MS/SEC_CHECK 见 README
 
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const DEFAULT_MODEL = process.env.WXAI_MODEL || 'hy3-preview';
-// createModel 收的是「供应商」(如 hunyuan / deepseek)，data.model 才是真正的 model_id
 const DEFAULT_PROVIDER = process.env.WXAI_PROVIDER || 'cloudbase';
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 12000);
 const SEC_CHECK_ON = String(process.env.SEC_CHECK || '') === '1';
 
+// 16 表新知识库(2026-07-09 更新版);冷启动加载一次,后续请求共享内存
+let KB = null;
+try { KB = require('./knowledge.json'); } catch (e) { console.warn('[kb] knowledge.json 加载失败,将退化为无知识库模式:', e && e.message); KB = { items: {} }; }
+
+/* ------------------------------ 阶段/规则筛选 ------------------------------ */
+const STAGES = ['S1_CONTEXT', 'S2_COMPARE', 'S3_STRATEGY', 'S4_SUMMARY'];
+const STAGE_LABEL = {
+  S1_CONTEXT: '情境理解(教师如何解读儿童行为与情境冲突)',
+  S2_COMPARE: '选项比较与判断依据(教师如何权衡不同做法)',
+  S3_STRATEGY: '现场策略生成(教师能否给出具体话术/行动)',
+  S4_SUMMARY: '中性小结与确认(收束访谈)'
+};
+
+/** 触发条件匹配:支持 all / A_first / B_first / A_last / priorityOption_C / priorityPair_BC / order_changed / process_complex 等。
+ *  条件字符串可能是自然语言或多条件 OR/AND,MVP 只按关键词粗匹配,足以覆盖 15 表大多数规则。 */
+function matchTrigger(cond, ctx) {
+  if (!cond) return true;
+  const c = String(cond).trim();
+  if (!c || c === 'all' || c === '默认') return true;
+  const finalOrder = ctx.teacherFinalOrder || '';
+  const first = finalOrder[0] || '';
+  const last = finalOrder[finalOrder.length - 1] || '';
+  const pOpt = ctx.priorityOption || '';
+  const pPair = ctx.priorityPair || '';
+  const orderChanged = !!ctx.orderChanged;
+  const tags = ctx.processTags || [];
+
+  // OR / AND 拆分
+  const orParts = c.split(/\bOR\b|或/i).map((s) => s.trim()).filter(Boolean);
+  const matches = orParts.some((part) => {
+    const andParts = part.split(/\bAND\b|且|与/i).map((s) => s.trim()).filter(Boolean);
+    return andParts.every((p) => matchAtom(p, { first, last, pOpt, pPair, orderChanged, tags, finalOrder }));
+  });
+  return matches;
+}
+
+function matchAtom(p, ctx) {
+  const s = String(p);
+  // 简单原子匹配
+  if (/首位.*[A-D]|[A-D].*首位|[A-D]_first/i.test(s)) {
+    const m = s.match(/[A-D]/);
+    return m ? ctx.first === m[0] : false;
+  }
+  if (/末位.*[A-D]|[A-D].*末位|[A-D]_last/i.test(s)) {
+    const m = s.match(/[A-D]/);
+    return m ? ctx.last === m[0] : false;
+  }
+  if (/priorityOption[非_]*空|priorityOption[_= ]*[A-D]|重点选项/i.test(s)) {
+    const m = s.match(/[A-D]/);
+    if (m) return ctx.pOpt === m[0];
+    return !!ctx.pOpt;
+  }
+  if (/priorityPair[非_]*空|priorityPair[_= ]*[A-D]\/?[A-D]|重点比较/i.test(s)) {
+    const mm = s.match(/[A-D]\/[A-D]|[A-D][A-D]/);
+    if (mm) return ctx.pPair === mm[0] || ctx.pPair === mm[0].split('').join('/');
+    return !!ctx.pPair;
+  }
+  if (/order_?changed|排序.*变化|发生调整/i.test(s)) return ctx.orderChanged;
+  if (/process_?complex|过程复杂|摇摆|振荡|高修正/i.test(s)) {
+    return ctx.tags.some((t) => /摇摆|振荡|高修正|多次调整/.test(t));
+  }
+  if (/process_?stable|过程稳定|极快/i.test(s)) {
+    return ctx.tags.some((t) => /稳定|极快/.test(t));
+  }
+  // fallback:未识别的条件视为 all(不过滤)
+  return true;
+}
+
+/** 从 15 表 ai_rules 里筛出对当前教师+题目适用的规则,按 rule_type 分组。 */
+function buildTaskCard(itemId, seed, stage) {
+  const item = KB.items && KB.items[itemId];
+  if (!item) return null;
+  const rules = item.ai_rules || [];
+  const ctx = {
+    teacherFinalOrder: seed.teacherFinalOrder || '',
+    priorityOption: seed.priorityOption || '',
+    priorityPair: seed.priorityPair || '',
+    orderChanged: !!seed.orderChanged,
+    processTags: seed.processTags || []
+  };
+  const matched = rules.filter((r) => (r.usable_by_ai !== 'no') && matchTrigger(r.trigger_condition, ctx));
+  const byType = {};
+  for (const r of matched) {
+    const t = r.rule_type || 'other';
+    (byType[t] = byType[t] || []).push(r);
+  }
+  const first = (arr) => (arr && arr[0] && arr[0].rule_content) || '';
+  const contents = (arr, n) => (arr || []).slice(0, n || 6).map((r) => r.rule_content).filter(Boolean);
+  return {
+    item_id: itemId,
+    item_title: item.title,
+    ability_focus: {
+      primary_ability_type: seed.primary_ability_type || '',
+      secondary_ability_type: seed.secondary_ability_type || '',
+      interview_main_focus: first(byType.main_focus),
+      interview_secondary_focus: first(byType.secondary_focus)
+    },
+    teacher_answer_profile: {
+      teacherFinalOrder: seed.teacherFinalOrder || '',
+      teacherInitialOrder: seed.teacherInitialOrder || '',
+      orderChanged: !!seed.orderChanged,
+      orderChangeSummary: seed.orderChangeSummary || '',
+      priorityOption: seed.priorityOption || '',
+      priorityPair: seed.priorityPair || '',
+      sources: seed.sources || [],
+      processTags: seed.processTags || []
+    },
+    interview_hypotheses: contents(byType.hypothesis, 5),
+    must_obtain_evidence: contents(byType.evidence, 6),
+    recommended_probes: contents(byType.probe, 8),
+    interview_flow: contents(byType.flow, 6),
+    process_hints: contents(byType.process_hint, 4),
+    forbidden_disclosure: contents(byType.forbidden, 8),
+    current_stage: stage || 'S1_CONTEXT',
+    current_stage_focus: STAGE_LABEL[stage || 'S1_CONTEXT']
+  };
+}
+
+/** 根据教师最后一轮回答里覆盖的证据点数,决定下一阶段。MVP 用"轮次 + LLM 覆盖判定"混合。 */
+function decideNextStage(currentStage, coveredEvidence, turnCount) {
+  const covered = new Set(coveredEvidence || []);
+  const idx = STAGES.indexOf(currentStage);
+  if (idx < 0) return 'S1_CONTEXT';
+  // 收束态就保持
+  if (currentStage === 'S4_SUMMARY') return 'S4_SUMMARY';
+  // 至少 1 条覆盖 + 2 轮以上推进;或超过 3 轮直接推进
+  const advance = (covered.size >= 1 && turnCount >= 2) || turnCount >= 3;
+  if (!advance) return currentStage;
+  return STAGES[Math.min(idx + 1, STAGES.length - 1)];
+}
+
 /* ------------------------------ prompt 构造 ------------------------------ */
 
-function buildSystemPrompt(ev) {
+function buildSystemPrompt(ev, taskCard) {
+  // v2:优先用 task_card;task_card 缺时降级到 v1 kbSlice
   const kb = ev.kbSlice || {};
+  const useTaskCard = !!taskCard;
   const obs = (kb.observation_points || []).join('、');
   const trig = (kb.triggers || [])
     .map((t) => '- ' + (t.code || '') + ':' + (t.result_cond || '') + (t.target ? '(目标:' + t.target + ')' : ''))
@@ -40,6 +173,36 @@ function buildSystemPrompt(ev) {
   const scripts = (kb.scripts || [])
     .map((s) => '- ' + (s.code || '') + ':' + (s.q || '') + (s.E && s.E.length ? '(触及证据:' + s.E.join(',') + ')' : ''))
     .join('\n');
+
+  // 任务卡块(v2)
+  const taskCardBlock = useTaskCard ? [
+    '',
+    '【当前教师任务卡(核心访谈依据,只给你看,不能读给教师)】',
+    '- 题目:' + taskCard.item_id + ' · ' + taskCard.item_title,
+    '- 能力主方向:' + (taskCard.ability_focus.interview_main_focus || taskCard.ability_focus.primary_ability_type),
+    '- 能力次方向:' + (taskCard.ability_focus.interview_secondary_focus || taskCard.ability_focus.secondary_ability_type),
+    '- 教师最终排序:' + taskCard.teacher_answer_profile.teacherFinalOrder + '(左=最理想,右=最不理想)',
+    '- 教师初始排序:' + taskCard.teacher_answer_profile.teacherInitialOrder + '(' + taskCard.teacher_answer_profile.orderChangeSummary + ')',
+    '- 重点选项:' + (taskCard.teacher_answer_profile.priorityOption || '(无)') + ';重点比较对:' + (taskCard.teacher_answer_profile.priorityPair || '(无)'),
+    '- 过程标签:' + ((taskCard.teacher_answer_profile.processTags || []).join('、') || '(无异常标签)'),
+    '- 遴选来源:' + ((taskCard.teacher_answer_profile.sources || []).join('/')),
+    '',
+    '【本次访谈必须验证的假设(选性追问,不要机械问完)】',
+    ...(taskCard.interview_hypotheses || []).map((h, i) => '  H' + (i + 1) + '. ' + h),
+    '',
+    '【必须采集的证据(至少覆盖 3 条即可推进阶段;缺证据时优先追问)】',
+    ...(taskCard.must_obtain_evidence || []).map((e, i) => '  E' + (i + 1) + '. ' + e),
+    '',
+    '【本题可用的专业追问(参考深度,不要机械照搬,须按教师原话改写)】',
+    ...(taskCard.recommended_probes || []).slice(0, 6).map((p, i) => '  P' + (i + 1) + '. ' + p),
+    '',
+    '【当前访谈阶段】' + taskCard.current_stage + ' · ' + taskCard.current_stage_focus,
+    '  · S1_CONTEXT:先弄清教师如何解读儿童行为与情境冲突(不要一上来问"为什么这么排")',
+    '  · S2_COMPARE:围绕教师排序里最耐人寻味的一对做法,追问判断依据与价值权衡',
+    '  · S3_STRATEGY:请教师说出具体的现场话术或后续策略;避免抽象',
+    '  · S4_SUMMARY:中性小结教师观点并请其确认,准备收束',
+    '  · 当前处于 ' + taskCard.current_stage + ',请围绕这一阶段的目标提问;不要跳阶段。'
+  ].join('\n') : '';
 
   return [
     '你是一名幼儿园教师专业能力测评的资深研究者,不是普通聊天机器人。你要围绕教师对某道游戏情境题的"最理想→最不理想"排序进行深度访谈,采集其判断依据、现场语言和后续支持策略。',
@@ -62,12 +225,14 @@ function buildSystemPrompt(ev) {
     '  · **揭短式反问**:如果教师给出貌似标准的答案,要**反向探测**其实际操作可能性、时间/精力预算、与真实幼儿反应的匹配度。例如"你说会先陪伴他到专注,现场如果这个孩子 20 分钟都不专注、其他孩子又需要你,你会怎么办?"',
     '  · **对比性追问**:两个选项排序邻近但方向不同时,不是问"为什么排 A 高于 B",而是问"A 和 B 都在你的排序前半,是不是意味着你更看重 XX 而不是 YY? 具体在什么条件下你会倒过来排?"',
     '',
-    '【本题专业底层信息(仅供你构思提问,绝不能读给教师)】',
-    '核心测评指向:' + (kb.core_orientation || '(无)'),
-    obs ? '观察维度:' + obs : '',
-    evPoints ? '期望采集的能力证据点:' + evPoints : '',
-    trig ? '触发规则(何时该往哪个方向追问):\n' + trig : '',
-    scripts ? '研究团队为本题预设的专业追问模板(你可参考其深度,但不要机械照搬,要根据教师原话改写):\n' + scripts : '',
+    // task_card 块(v2 主路径),缺失时退到 v1 kbSlice
+    taskCardBlock,
+    !useTaskCard ? '【本题专业底层信息(仅供你构思提问,绝不能读给教师)】' : '',
+    !useTaskCard && kb.core_orientation ? '核心测评指向:' + kb.core_orientation : '',
+    !useTaskCard && obs ? '观察维度:' + obs : '',
+    !useTaskCard && evPoints ? '期望采集的能力证据点:' + evPoints : '',
+    !useTaskCard && trig ? '触发规则(何时该往哪个方向追问):\n' + trig : '',
+    !useTaskCard && scripts ? '研究团队为本题预设的专业追问模板(你可参考其深度,但不要机械照搬,要根据教师原话改写):\n' + scripts : '',
     '',
     '【问答节奏】',
     '- 首轮:选一个最能引出教师专业判断动机的具体切入点(参考上方触发规则和脚本)。不要用"你怎么排的""为什么"起手。',
@@ -326,7 +491,13 @@ exports.main = async (event) => {
   }
 
   try {
-    const system = buildSystemPrompt(event);
+    // v2:根据 taskCardSeed + stage 从 knowledge.json 组装完整 task_card
+    const stage = STAGES.indexOf(event.stage) >= 0 ? event.stage : 'S1_CONTEXT';
+    const seed = event.taskCardSeed || null;
+    const taskCard = seed ? buildTaskCard(event.itemId, seed, stage) : null;
+    if (taskCard) console.log('[task_card] built', JSON.stringify({ itemId: taskCard.item_id, stage, hypotheses: taskCard.interview_hypotheses.length, evidence: taskCard.must_obtain_evidence.length, probes: taskCard.recommended_probes.length }));
+
+    const system = buildSystemPrompt(event, taskCard);
     const user = buildUserPrompt(event);
     const raw = await withTimeout(callWxAI(system, user), LLM_TIMEOUT_MS);
     if (!raw) throw new Error('LLM 空响应');
@@ -335,11 +506,13 @@ exports.main = async (event) => {
     const norm = normalizeResult(obj, raw);
     if (!norm.question) throw new Error('LLM 未返回可用 next_question');
 
-    // 收束兜底：模型不主动置 done 时，历史轮次过多也强制收束
+    // 收束兜底:模型不主动置 done 时,轮次过多强制收束
     const rounds = (event.history || []).filter((h) => h.role === 'ai' || h.role === 'assistant').length;
     const done = norm.done || rounds >= 6;
+    // 阶段推进(基于本轮 covered_evidence + 轮数)
+    const nextStage = decideNextStage(stage, norm.evidenceHint, rounds + 1);
 
-    // 内容安全（可通过 SEC_CHECK=1 开启；未通过则视为失败，客户端回退规则版）
+    // 内容安全
     const sec = await secCheck(norm.question);
     if (!sec.pass) return { ok: false, error: 'msgSecCheck_failed: ' + (sec.error || '') };
 
@@ -347,7 +520,9 @@ exports.main = async (event) => {
       ok: true,
       question: norm.question,
       done: done,
-      evidenceHint: norm.evidenceHint // ← 由 LLM 判定教师上一轮回答覆盖了哪些 E
+      evidenceHint: norm.evidenceHint,
+      stage: stage,           // 本轮实际使用的 stage
+      nextStage: nextStage    // 下一轮建议的 stage
     };
   } catch (e) {
     return { ok: false, error: (e && e.message) || 'llm_error' };

@@ -118,10 +118,28 @@ Page({
     this._pendingE = []; // 教师回答当前问题时应计入的证据点
     this._ranking = ranking.slice();
     this._mode = null; // 'llm' | 'rule'，首轮探测决定
+    this._stage = 'S1_CONTEXT'; // v2 阶段:S1→S2→S3→S4
     try {
       const proc = require('../../utils/process.js').computeProcess((this._session.answers || {})[itemId]);
       this._procTags = proc.tags || [];
     } catch (e) { this._procTags = []; }
+    // 从 session.selection.final 拿出本题的 task card seed
+    try {
+      const sel = (this._session.selection && this._session.selection.final) || [];
+      const seedFull = sel.find((f) => f && f.id === itemId);
+      this._taskCardSeed = seedFull ? {
+        teacherFinalOrder: seedFull.teacherFinalOrder || ranking.join(''),
+        teacherInitialOrder: seedFull.teacherInitialOrder || '',
+        orderChanged: !!seedFull.orderChanged,
+        orderChangeSummary: seedFull.orderChangeSummary || '',
+        priorityOption: seedFull.priorityOption || '',
+        priorityPair: seedFull.priorityPair || '',
+        sources: seedFull.sources || [],
+        primary_ability_type: seedFull.primary_ability_type || '',
+        secondary_ability_type: seedFull.secondary_ability_type || '',
+        processTags: this._procTags || []
+      } : null;
+    } catch (e) { this._taskCardSeed = null; }
     this._startTs = Date.now();
     this.startTimer();
     this.askNext();
@@ -141,6 +159,10 @@ Page({
         itemContext: { stem: this.data.q.stem, options: this.data.q.options, title: this.data.q.title },
         teacherRanking: this._ranking,
         processTags: this._procTags,
+        // v2:任务卡种子 + 阶段。云函数用 knowledge.json 展开完整 task_card。
+        taskCardSeed: this._taskCardSeed || null,
+        stage: this._stage || 'S1_CONTEXT',
+        // v1 老字段(taskCardSeed 缺失时云函数回退用),保留一段时间兼容
         kbSlice: interview.kbSlice(this.data.itemId),
         history: this.data.messages.map((m) => ({ role: m.role, text: m.text })),
         remainingMs: remain
@@ -151,6 +173,7 @@ Page({
       if (r) {
         this._mode = 'llm';
         this._pendingE = r.evidenceHint || [];
+        if (r.nextStage) this._stage = r.nextStage;
         if (r.done) { if (r.question) this.pushMsg('ai', r.question); this.finalize(true); return; }
         this.pushMsg('ai', r.question);
         return;

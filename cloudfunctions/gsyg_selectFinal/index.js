@@ -20,7 +20,7 @@ const advisor = require('./advisor_port.js');
 const norms = require('./advisor_norms.js');
 const db = cloud.database();
 const SESSIONS = 'gsyg_sessions';
-const ALGO_VERSION = 'advisor_v1';
+const ALGO_VERSION = 'advisor_v1.1'; // v1.1: 补 teacherFinalOrder / InitialOrder / orderChanged / orderChangeSummary(task_card 需要),会让老 session 强制重跑一次
 
 // mp 题号 <-> Python 题号(见 CLAUDE.md 情境映射;此映射是自对合,双向同表)。
 const MP_TO_PY = { 1: 1, 2: 4, 3: 6, 4: 2, 5: 5, 6: 3, 7: 9, 8: 10, 9: 7, 10: 8 };
@@ -111,7 +111,8 @@ function buildAdvisorInput(session) {
 
 /* ---------- advisor 输出 → mp 端 session.selection 兼容结构 ---------- */
 
-function toMpSelection(advisorOut) {
+function toMpSelection(advisorOut, sessionAnswers) {
+  const answers = sessionAnswers || {};
   const finalMp = advisorOut.finalSelected.map((f) => {
     const pyQ = Number(f.questionIndex);
     const mpId = mpQ(pyQ);
@@ -122,6 +123,17 @@ function toMpSelection(advisorOut) {
     if (raw.includes('P')) srcNames.push('P分·过程异常');
     if (raw.includes('G')) srcNames.push('G分·结果×过程');
     if (!srcNames.length) srcNames.push('覆盖增补');
+
+    // 补 task_card 需要的教师作答画像:teacherFinalOrder / teacherInitialOrder / orderChanged
+    // 来源:mp session.answers[mpId] 的 first_ranking(埋点持久,不受重进影响)与 final_ranking。
+    const ans = answers[mpId] || {};
+    const teacherFinalOrder = Array.isArray(ans.final_ranking) ? ans.final_ranking.join('') : '';
+    const teacherInitialOrder = Array.isArray(ans.first_ranking) ? ans.first_ranking.join('') : teacherFinalOrder;
+    const orderChanged = teacherInitialOrder && teacherFinalOrder && teacherInitialOrder !== teacherFinalOrder;
+    const orderChangeSummary = orderChanged
+      ? `初始排序${teacherInitialOrder},最终排序${teacherFinalOrder}`
+      : `排序相对稳定,最终排序${teacherFinalOrder}`;
+
     return {
       id: mpId, // mp Q1..Q10
       py_item_id: f.final_item_id,
@@ -137,7 +149,12 @@ function toMpSelection(advisorOut) {
       priorityOption: f.priorityOption, priorityPair: f.priorityPair,
       interview_focus: f.interview_focus,
       selection_reason: f.selection_reason,
-      coverage_role: f.coverage_role
+      coverage_role: f.coverage_role,
+      // task_card 教师作答画像
+      teacherFinalOrder,
+      teacherInitialOrder,
+      orderChanged,
+      orderChangeSummary
     };
   });
   const routes = {
@@ -196,7 +213,7 @@ exports.main = async (event) => {
     return { ok: false, error: 'algo_incomplete', message: `final=${(advisorOut.finalSelected || []).length}` };
   }
 
-  const selection = toMpSelection(advisorOut);
+  const selection = toMpSelection(advisorOut, sessionDoc.answers || {});
 
   // 写回 gsyg_sessions.selection(不覆盖其他字段)
   // 用 db.command.set() 强制**替换整个 selection 字段**,而非拍平成 sub-path 操作

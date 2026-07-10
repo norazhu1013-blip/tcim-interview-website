@@ -163,9 +163,15 @@ function saveSelection(sessionId, selection) {
   return s;
 }
 
-/** session 是否已经完成服务端遴选(有 advisor_v1 结果)。 */
+/** session 是否已经完成服务端遴选(algo 以 advisor_v 开头即可)。 */
 function hasFinalSelection(session) {
-  return !!(session && session.selection && session.selection.algo === 'advisor_v1' && session.selection.final && session.selection.final.length);
+  return !!(
+    session && session.selection
+    && typeof session.selection.algo === 'string' && session.selection.algo.indexOf('advisor_v') === 0
+    && session.selection.final && session.selection.final.length
+    // v1.1+ 必须有 teacherFinalOrder,老 v1 缺失会视为未完成 → 触发重拉
+    && session.selection.final[0] && session.selection.final[0].teacherFinalOrder
+  );
 }
 
 /* ---------------- 访谈 ---------------- */

@@ -152,7 +152,7 @@ function llmNextQuestion(ctx) {
           clearTimeout(timer);
           const r = res && res.result;
           if (r && r.ok && (r.question || r.done)) {
-            done({ question: r.question || '', done: !!r.done, evidenceHint: r.evidenceHint || [] });
+            done({ question: r.question || '', done: !!r.done, evidenceHint: r.evidenceHint || [], stage: r.stage || '', nextStage: r.nextStage || '' });
           } else {
             done(null); // ok:false（未配置/失败）→ 回退规则版
           }
