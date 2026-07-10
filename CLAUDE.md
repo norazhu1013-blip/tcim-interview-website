@@ -217,3 +217,8 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - `node tools/verify_align.js` — 批量模式 vs Python 6 张 CSV
   - `node tools/verify_norms_mode.js` — 单教师+常模模式 vs Python
   - `node tools/verify_cf_pipeline.js` — mp session → 翻译层 → advisor vs Python
+- **2026-07-09 按 DOC《界面及程序建议 0709》整合四条改动**:
+  - **登录去手机号**:`store.isLoggedIn` 改为「profile.name 已填即登录」(老用户 phoneAuthed=true 仍兼容);profile 页只保留**姓名/园所/教龄**三项(全必填),删任教班级、试卷码、账号信息卡(OpenID + 角色);`login` 页移除 `getPhoneNumber`,只做静默 `wx.login` 取 code + 一个「进入」按钮;`requireLoginWithPrompt` 弹窗改「请先完善个人信息」→ 跳「我的」Tab;home / exam / interview 提示文案同步。`home.onStart` 建 session 不再传 paperCode。
+  - **输入框「完成」遮挡 bug**:interview `<textarea>` 加 `show-confirm-bar="{{false}}" adjust-position="{{true}}" cursor-spacing="20" hold-keyboard="{{true}}"`,消除微信默认「完成」按钮遮挡输入的汉字。
+  - **访谈计时**:`finalize` 不再 `stopTimer`(时间 > 0 时倒计时持续走,直到用户离开或时间到);`tick` 剩余 ≤ 0 显示红色 `00:00` + `stopTimer`(不再每秒 setData);不强制中断,教师可继续回答直到主动 finalize 或 `onUnload`。toast 改「本情境访谈时间已到,可继续完成当前回答」。
+  - **AI 提问深度**:`gsyg_interviewChat` 系统提示词大改。加❌禁的浅层提问示例("为什么把 D 排最理想")+✅四种专业范式(抓具体细节 / 触专业边界 / 揭短式反问 / 对比性追问),每类举例;把知识库 09 表专业追问脚本(`kbSlice.scripts`)加进 prompt 作为"研究团队预设深度参考";加节奏指引(首轮不用"你怎么排的"起手,≥3 个 E 覆盖或 5 轮以上收束)。硬约束和 JSON 输出格式保持不变。改后需重部署 `gsyg_interviewChat`。
