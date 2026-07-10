@@ -2,10 +2,9 @@
   <view class="brand"></view>
   <view class="h-lg title">游戏支持与引导能力测评</view>
   <view class="muted sub">幼儿园教师保教能力测评</view>
-  <view class="t desc">登录后可：完成情境测评并自动评分、进行 AI 访谈、查看记录与报告。</view>
+  <view class="t desc">完善姓名、园所、教龄后即可开始情境测评与 AI 访谈,无需短信验证。</view>
 
   <view class="foot-area">
-    <button class="btn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhone" loading="{{logging}}">手机号快捷登录</button>
-    <button class="btn g skip" bindtap="onSkip">跳过登录</button>
+    <button class="btn" bindtap="onEnter">进入</button>
   </view>
 </view>

@@ -5,52 +5,23 @@
       <input class="fld" placeholder="请输入" value="{{form.name}}" data-k="name" bindinput="onInput" />
     </view>
     <view class="li">
-      <text class="t">园所</text>
+      <text class="t">园所<text class="req">*</text></text>
       <input class="fld" placeholder="请输入园所名称" value="{{form.kindergarten}}" data-k="kindergarten" bindinput="onInput" />
     </view>
-    <picker class="picker" mode="selector" range="{{grades}}" value="{{gradeIdx}}" bindchange="onGrade">
-      <view class="li picker-row">
-        <text class="t">任教班级</text>
-        <view class="pick-val {{form.grade ? '' : 'placeholder'}}">
-          <text class="pick-text">{{form.grade || '请选择'}}</text>
-          <text class="chev">›</text>
-        </view>
-      </view>
-    </picker>
     <picker class="picker" mode="selector" range="{{teachAges}}" value="{{teachAgeIdx}}" bindchange="onTeachAge">
       <view class="li picker-row">
-        <text class="t">教龄</text>
+        <text class="t">教龄<text class="req">*</text></text>
         <view class="pick-val {{form.teachAge ? '' : 'placeholder'}}">
           <text class="pick-text">{{form.teachAge || '请选择'}}</text>
           <text class="chev">›</text>
         </view>
       </view>
     </picker>
-    <view class="li">
-      <text class="t">试卷码<text class="opt-tag">选填</text></text>
-      <input class="fld" placeholder="如 GS-2026-07" value="{{form.paperCode}}" data-k="paperCode" bindinput="onInput" />
-    </view>
   </view>
   <!-- 保存按钮：紧跟个人信息模块 -->
   <button class="btn save-inline" bindtap="onSave">{{isFirst ? '保存并开始答题' : '保存修改'}}</button>
 
-  <!-- 账号信息（openid + 管理员标记） -->
-  <view class="sect">账号</view>
-  <view class="card form-card">
-    <view class="li" bindtap="onCopyOpenid" hover-class="li-hover">
-      <text class="t">OpenID</text>
-      <text class="fld openid-txt">{{openid || '获取中…'}}</text>
-    </view>
-    <view class="li">
-      <text class="t">角色</text>
-      <text class="fld">
-        <text wx:if="{{isAdmin}}" class="pill on">管理员</text>
-        <text wx:else class="muted">普通用户</text>
-      </text>
-    </view>
-  </view>
-
-  <!-- 管理员：数据导出 -->
+  <!-- 管理员:数据导出(仅管理员可见;账号/OpenID/试卷码/任教班级已移除) -->
   <block wx:if="{{isAdmin}}">
     <view class="sect">管理员</view>
     <view class="card form-card">

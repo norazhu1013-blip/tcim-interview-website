@@ -41,7 +41,10 @@
 
 <!-- 输入区（回看模式隐藏） -->
 <view wx:if="{{!isReview && !done}}" class="foot iv-foot">
-  <textarea class="iv-input" placeholder="说说你的想法…" value="{{input}}" bindinput="onInput" auto-height maxlength="500" disabled="{{sending}}"></textarea>
+  <textarea class="iv-input" placeholder="说说你的想法…" value="{{input}}" bindinput="onInput"
+    auto-height maxlength="500" disabled="{{sending}}"
+    show-confirm-bar="{{false}}" adjust-position="{{true}}" cursor-spacing="20"
+    hold-keyboard="{{true}}"></textarea>
   <button class="btn sm send" bindtap="onSend" disabled="{{sending || !input}}">发送</button>
 </view>
 

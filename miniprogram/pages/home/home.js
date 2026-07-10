@@ -66,14 +66,14 @@ Page({
       wx.showToast({ title: '请先完成未结束的 AI 访谈', icon: 'none' });
       return;
     }
-    if (!requireLoginWithPrompt('开始答题需要先完成微信手机号授权登录')) return;
+    if (!requireLoginWithPrompt('开始答题前请先填写姓名、园所、教龄')) return;
     const id = uuid();
-    createSession(id, { paperCode: (getProfile() || {}).paperCode || '' });
+    createSession(id, {});
     wx.navigateTo({ url: '/pages/exam/exam?sid=' + id });
   },
 
   onContinue(e) {
-    if (!requireLoginWithPrompt('继续答题需要先完成微信手机号授权登录')) return;
+    if (!requireLoginWithPrompt('继续答题前请先填写姓名、园所、教龄')) return;
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({ url: '/pages/exam/exam?sid=' + id });
   },

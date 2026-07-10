@@ -68,7 +68,7 @@ Page({
   onLoad(query) {
     this.initNavBar();
     // 访谈会调用云端 AI 追问，必须先登录；未登录 → 弹窗 + 回上一页
-    if (!store.requireLoginWithPrompt('AI 访谈需要先完成微信手机号授权登录')) {
+    if (!store.requireLoginWithPrompt('AI 访谈前请先在「我的」填写姓名、园所、教龄')) {
       setTimeout(() => wx.navigateBack(), 300);
       return;
     }
@@ -224,7 +224,8 @@ Page({
     // 是否全部完成
     const all = s && s.selection && s.selection.final.every((f) => (s.interview[f.id] || {}).status === 'done');
     this.setData({ allDone: !!all });
-    this.stopTimer();
+    // 注:finalize 不再 stopTimer——按用户要求,时间 > 0 时倒计时继续走
+    // 到用户主动离开(onUnload)或时间到 0 时才停在 00:00 红色不再跳数。
   },
 
   /* -------- 持久化 -------- */
@@ -252,16 +253,17 @@ Page({
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
   },
   tick() {
-    if (this.data.done) { this.stopTimer(); return; }
     const remain = LIMIT_MS - (Date.now() - this._startTs);
     if (remain <= 0) {
+      // 时间到:显示红色 00:00 保持不动,停止后续 tick(避免每秒 setData);
+      // 用户可继续答完并提交(finalize),或直接离开。
       this.setData({ countdown: '00:00', timeLow: true });
       this._noNew = true;
       if (!this._timeUpNotified) {
         this._timeUpNotified = true;
-        // 正在回答不强制中断，仅提示
-        wx.showToast({ title: '本情境访谈时间已到，请尽快提交当前回答', icon: 'none', duration: 2500 });
+        wx.showToast({ title: '本情境访谈时间已到,可继续完成当前回答', icon: 'none', duration: 2500 });
       }
+      this.stopTimer();
       return;
     }
     if (remain <= 60 * 1000) this._noNew = true;

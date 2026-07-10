@@ -1,48 +1,42 @@
 // P0b/P1b 「我的」个人信息 —— 双重身份：
 //  ① 首次登录无 profile → 引导填写，保存后 switchTab 进「答题」
 //  ② 作为「我的」Tab 常驻，可随时查看/修改，保存后调 gsyg_reportTeacher 更新
-const { saveProfile, getProfile, getLogin, requireLoginWithPrompt } = require('../../utils/store.js');
+const { saveProfile, getProfile } = require('../../utils/store.js');
 const api = require('../../utils/api.js');
 
 Page({
   data: {
-    grades: ['小班', '中班', '大班', '混龄班'],
     teachAges: ['1 年以下', '1–3 年', '3–5 年', '5–10 年', '10 年以上'],
-    gradeIdx: 1,
     teachAgeIdx: 2,
     isFirst: true,
-    openid: '',
     isAdmin: false,
-    form: { name: '', kindergarten: '', grade: '中班', teachAge: '3–5 年', paperCode: '' }
+    // grade / paperCode / openid 已按 2026-07-09 建议移除。姓名/园所/教龄 三项即可完成信息填写。
+    form: { name: '', kindergarten: '', teachAge: '3–5 年' }
   },
 
   onShow() {
-    // 「我的」允许未登录浏览（表单为空、无 openid）；保存时按需触发登录
-    // 每次进入 Tab 都同步最新（不在编辑途中，故不会覆盖输入）
+    // 「我的」允许未登录浏览。保存时校验必填即可,不再走手机号授权。
     const existing = getProfile();
     if (existing && existing.name) {
-      const gi = Math.max(0, this.data.grades.indexOf(existing.grade));
       const ti = Math.max(0, this.data.teachAges.indexOf(existing.teachAge));
       this.setData({
-        form: Object.assign({}, this.data.form, existing),
-        gradeIdx: gi,
+        form: Object.assign({}, this.data.form, {
+          name: existing.name || '',
+          kindergarten: existing.kindergarten || '',
+          teachAge: existing.teachAge || this.data.form.teachAge
+        }),
         teachAgeIdx: ti,
         isFirst: false
       });
-      wx.setNavigationBarTitle({ title: this.data.isFirst ? '完善信息' : '我的' });
+      wx.setNavigationBarTitle({ title: '我的' });
     } else {
       this.setData({ isFirst: true });
-      wx.setNavigationBarTitle({ title: this.data.isFirst ? '完善信息' : '我的' });
+      wx.setNavigationBarTitle({ title: '完善信息' });
     }
-    // 拉云端身份（openid + isAdmin），失败静默
+    // 管理员标记仍需拉云端(用于显示导出入口)
     api.whoami().then((who) => {
-      if (who) this.setData({ openid: who.openid || '', isAdmin: !!who.isAdmin });
+      if (who) this.setData({ isAdmin: !!who.isAdmin });
     });
-  },
-
-  onCopyOpenid() {
-    if (!this.data.openid) return;
-    wx.setClipboardData({ data: this.data.openid, success: () => wx.showToast({ title: '已复制', icon: 'none' }) });
   },
 
   onExport() {
@@ -85,10 +79,6 @@ Page({
     const patch = { ['form.' + k]: e.detail.value };
     this.setData(patch);
   },
-  onGrade(e) {
-    const i = Number(e.detail.value);
-    this.setData({ gradeIdx: i, 'form.grade': this.data.grades[i] });
-  },
   onTeachAge(e) {
     const i = Number(e.detail.value);
     this.setData({ teachAgeIdx: i, 'form.teachAge': this.data.teachAges[i] });
@@ -96,36 +86,29 @@ Page({
 
   onSave() {
     const f = this.data.form;
-    if (!f.name || !f.name.trim()) {
-      wx.showToast({ title: '请填写姓名', icon: 'none' });
-      return;
-    }
-    if (!requireLoginWithPrompt('保存个人信息需要先完成微信手机号授权登录')) return;
+    if (!f.name || !f.name.trim()) { wx.showToast({ title: '请填写姓名', icon: 'none' }); return; }
+    if (!f.kindergarten || !f.kindergarten.trim()) { wx.showToast({ title: '请填写园所', icon: 'none' }); return; }
+    if (!f.teachAge) { wx.showToast({ title: '请选择教龄', icon: 'none' }); return; }
+
     const wasFirst = this.data.isFirst;
-    // 本地优先：先写本地
     const profile = {
       name: f.name.trim(),
-      kindergarten: (f.kindergarten || '').trim(),
-      grade: f.grade,
+      kindergarten: f.kindergarten.trim(),
       teachAge: f.teachAge,
-      paperCode: (f.paperCode || '').trim(),
-      phone: (getLogin() && getLogin().phone) || '',
       wxCode: (function () { try { return wx.getStorageSync('wx_login_code') || ''; } catch (e) { return ''; } })()
     };
     saveProfile(profile);
     const app = getApp();
     if (app && app.globalData) app.globalData.profile = profile;
 
-    // 异步上报（gsyg_reportTeacher），不阻塞
+    // 上报教师信息(gsyg_reportTeacher),不阻塞
     api.reportProfile(profile);
 
     if (wasFirst) {
-      // 首次：进入「答题」Tab
       wx.switchTab({ url: '/pages/home/home' });
     } else {
-      // 编辑：留在本页，刷新头部
       this.setData({ isFirst: false });
-      wx.setNavigationBarTitle({ title: this.data.isFirst ? '完善信息' : '我的' });
+      wx.setNavigationBarTitle({ title: '我的' });
       wx.showToast({ title: '已保存', icon: 'success' });
     }
   },

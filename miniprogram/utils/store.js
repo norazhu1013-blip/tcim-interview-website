@@ -48,8 +48,11 @@ function getPhone() {
   const p = getProfile();
   return (p && p.phone) || '';
 }
-// 登录判断 = 本地已有登录态(用户已授权)。有换号权限则 phone 非空;无权限(如 -604101)则忽略手机号仍算登录。
+// 登录 = profile 已填(至少有姓名)。不再依赖手机号授权(据 2026-07-09 建议改)。
+// 兼容存量:老用户 phoneAuthed=true 也视为已登录。
 function isLoggedIn() {
+  const p = getProfile();
+  if (p && p.name && String(p.name).trim()) return true;
   const s = getLogin();
   return !!(s && s.phoneAuthed);
 }
@@ -63,20 +66,20 @@ function requireLogin() {
   return false;
 }
 /**
- * 交互式登录守卫：未登录时弹窗提示，用户点「去登录」再跳登录页；点取消原地不动。
- * 用于按钮点击等触发型场景（开始答题、提交等）。
- * @param {string} hint 弹窗正文提示，说明为什么需要登录
- * @returns {boolean} 已登录返回 true；未登录返回 false 且弹窗已发起
+ * 交互式登录守卫:未填 profile 时弹窗提示,用户点「去完善」跳「我的」;取消原地不动。
+ * 用于按钮点击(开始答题、提交、访谈)。
+ * @param {string} hint 弹窗正文提示,说明为什么需要个人信息
+ * @returns {boolean} 已填 profile 返回 true;未填返回 false 且弹窗已发起
  */
 function requireLoginWithPrompt(hint) {
   if (isLoggedIn()) return true;
   wx.showModal({
-    title: '需要登录',
-    content: hint || '该操作需要先完成微信手机号授权登录',
-    confirmText: '去登录',
+    title: '请先完善个人信息',
+    content: hint || '需要先在「我的」填写姓名、园所、教龄后才能开始测评',
+    confirmText: '去完善',
     cancelText: '取消',
     success: (r) => {
-      if (r.confirm) wx.reLaunch({ url: '/pages/login/login' });
+      if (r.confirm) wx.switchTab({ url: '/pages/profile/profile' });
     }
   });
   return false;

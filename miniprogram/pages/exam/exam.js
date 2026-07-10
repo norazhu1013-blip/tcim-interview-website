@@ -233,7 +233,7 @@ Page({
   doSubmit(isTimeout) {
     if (this._submitting) return;
     // 超时自动提交跳过登录守卫（避免用户没登录时卡在超时循环）；手动提交需要登录
-    if (!isTimeout && !store.requireLoginWithPrompt('提交答卷需要先完成微信手机号授权登录')) return;
+    if (!isTimeout && !store.requireLoginWithPrompt('提交答卷前请先在「我的」填写姓名、园所、教龄')) return;
     this._submitting = true;
     this.stopTimer();
     this.persistCurrent();
