@@ -16,12 +16,14 @@
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
-const advisor = require('./advisor_port.js');
-const norms = require('./advisor_norms.js');
-// 任务卡预生成(v1.2 新增,与 gsyg_interviewChat 共享 tools/task_card_builder.js)
-const taskCardBuilder = require('./task_card_builder.js');
+// ⚠️ 以下 4 个文件的 canonical 源在 tools/,由 `node tools/sync_cf.js` 物理拷入本目录。
+//    改这几个文件前先改 tools/ 里的原文件,再跑 sync,不要直接改本目录里的副本(会被覆盖)。
+const advisor = require('./advisor_port.js');           // canonical: tools/advisor_port.js
+const norms = require('./advisor_norms.js');            // canonical: tools/advisor_norms.js
+const taskCardBuilder = require('./task_card_builder.js'); // canonical: tools/task_card_builder.js
 let KB = null;
 try { KB = require('./knowledge.json'); } catch (e) { console.warn('[kb] knowledge.json 加载失败:', e && e.message); KB = { items: {} }; }
+// canonical: tools/knowledge.json (由 tools/build_knowledge_v16.js 从 16 表 xlsx 生成)
 taskCardBuilder.setKnowledge(KB);
 
 const db = cloud.database();

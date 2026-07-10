@@ -22,11 +22,12 @@ const DEFAULT_PROVIDER = process.env.WXAI_PROVIDER || 'cloudbase';
 const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 30000); // 2026-07-09 提到 30s:hy3-preview 生成 200-400 字 + 网络往返常需 15-25s,12s 频繁超时导致回退规则版
 const SEC_CHECK_ON = String(process.env.SEC_CHECK || '') === '1';
 
-// 16 表新知识库(2026-07-09 更新版);冷启动加载一次,后续请求共享内存
+// ⚠️ 以下两个文件的 canonical 源在 tools/,由 `node tools/sync_cf.js` 物理拷入本目录。
+//    改这些前先改 tools/ 里的原文件,再跑 sync,不要直接改本目录副本(会被覆盖)。
+// canonical: tools/knowledge.json (由 tools/build_knowledge_v16.js 从 DOC/inbox_0709/_kb16/*.xlsx 生成)
 let KB = null;
 try { KB = require('./knowledge.json'); } catch (e) { console.warn('[kb] knowledge.json 加载失败:', e && e.message); KB = { items: {} }; }
-
-// 任务卡构建器(共享模块,由 tools/sync_cf.js 拷入)
+// canonical: tools/task_card_builder.js (与 gsyg_selectFinal 共用同一份实现)
 const taskCardBuilder = require('./task_card_builder.js');
 taskCardBuilder.setKnowledge(KB);
 const { STAGES, STAGE_LABEL, buildTaskCard, decideNextStage } = taskCardBuilder;

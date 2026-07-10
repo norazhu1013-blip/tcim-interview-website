@@ -13,17 +13,28 @@
 
 ## 部署
 
-1. 微信开发者工具 → 云开发 → 云函数 → `gsyg_interviewChat` → 右键「上传并部署（云端安装依赖）」。
-2. 云开发控制台 → 「AI+」→ 开通目标模型（默认 `deepseek-v3`；也可换 `hunyuan-turbo`/`hunyuan-lite`/其它已开通模型）。
-3. 云函数配置 → 环境变量：
+1. **本机先跑 `node tools/sync_cf.js`**(把 `tools/task_card_builder.js` + `tools/knowledge.json` 拷进本目录;每次 tools/ 改动后都要跑)。
+2. 微信开发者工具 → 云开发 → 云函数 → `gsyg_interviewChat` → 右键「上传并部署（云端安装依赖）」。上传时确认这几个文件在列表里:`index.js` / `package.json` / `task_card_builder.js` / `knowledge.json`。
+3. 云开发控制台 → 「AI+」→ 开通目标模型（默认 `hy3-preview`;也可换 `deepseek-v3` / `hunyuan-turbo` 等已开通模型）。
+4. 云函数配置 → 环境变量:
 
 | 变量 | 说明 | 默认 |
 |---|---|---|
-| `WXAI_MODEL` | wxai 已开通的模型 id | `deepseek-v3` |
-| `LLM_TIMEOUT_MS` | 单次 LLM 超时 ms | `12000` |
+| `WXAI_MODEL` | wxai 已开通的模型 id | `hy3-preview` |
+| `LLM_TIMEOUT_MS` | 单次 LLM 超时 ms | `30000` |
 | `SEC_CHECK` | `1` 开启对 AI 输出的 `security.msgSecCheck` 机审（上线建议开） | 不开 |
 
-4. 若开启 `SEC_CHECK=1`，需在小程序 openapi 权限里勾选 `security.msgSecCheck`（云开发环境默认可用；不需要小程序 appsecret）。
+5. 云函数配置 → **执行超时时间** ≥ 45s(推荐 60s),否则平台会先杀函数,`LLM_TIMEOUT_MS` 白设。
+6. 若开启 `SEC_CHECK=1`,需在小程序 openapi 权限里勾选 `security.msgSecCheck`(云开发环境默认可用)。
+
+## canonical 源文件(不要直接改本目录副本 —— sync_cf 会覆盖)
+
+| 本目录文件 | canonical 位置 | 生成方式 |
+|---|---|---|
+| `task_card_builder.js` | `tools/task_card_builder.js` | 手写(与 gsyg_selectFinal 共用) |
+| `knowledge.json` | `tools/knowledge.json` | `node tools/build_knowledge_v16.js` 从 `DOC/inbox_0709/_kb16/*.xlsx` 生成 |
+
+改这两个文件的流程:改 `tools/` 里的原文件 → 跑 `node tools/sync_cf.js` → 本目录副本会被覆盖 → 微信开发者工具重传本云函数。
 
 ## event 结构（客户端 `interview.js` askNext 已构造好）
 

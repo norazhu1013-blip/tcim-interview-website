@@ -189,6 +189,8 @@ function main() {
   fs.writeFileSync(OUT, JSON.stringify(knowledge, null, 0), 'utf8');
   const kb = fs.statSync(OUT).size / 1024;
   console.log(`\n已写入 ${OUT} (${kb.toFixed(1)} KB)`);
+  console.log(`下一步:node tools/sync_cf.js  # 拷到 gsyg_selectFinal / gsyg_interviewChat 两个云函数目录`);
+  console.log(`然后:在微信开发者工具重新部署这两个云函数`);
 }
 
 main();
