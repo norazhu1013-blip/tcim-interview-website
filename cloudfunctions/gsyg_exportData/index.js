@@ -68,16 +68,51 @@ exports.main = async (event) => {
       const rows = await fetchAll(COLL[k], since);
       bundle.data[k] = rows;
       count[k] = rows.length;
-      // sessions:统计已遴选/待遴选,方便管理员判断是否还有 session 未走 gsyg_selectFinal
+      // sessions:统计已遴选/待遴选;展平 task_card 索引方便研究者审阅
       if (k === 'sessions') {
-        let selected = 0, pending = 0, otherAlgo = 0;
+        let withCard = 0, withoutCard = 0, pending = 0, otherAlgo = 0;
+        const taskCardIndex = []; // [{ participantName, userOpenid, sessionId, final_rank, item_id, item_title, hypotheses, evidence, probes, priorityOption, priorityPair, teacherFinalOrder }]
         for (const r of rows) {
           const s = r.selection;
-          if (s && s.algo === 'advisor_v1' && Array.isArray(s.final) && s.final.length) selected++;
-          else if (s && s.algo) otherAlgo++;
-          else pending++;
+          if (!s || !s.algo) { pending++; continue; }
+          const isAdvisor = typeof s.algo === 'string' && s.algo.indexOf('advisor_v') === 0;
+          if (!isAdvisor) { otherAlgo++; continue; }
+          if (!Array.isArray(s.final) || !s.final.length) { pending++; continue; }
+          const hasCard = !!(s.final[0] && s.final[0].task_card);
+          if (hasCard) {
+            withCard++;
+            const participant = (r.profile && r.profile.name) || '';
+            for (const f of s.final) {
+              const tc = f.task_card || {};
+              taskCardIndex.push({
+                participantName: participant,
+                userOpenid: r.openid || '',
+                sessionId: r.sessionId || '',
+                final_rank: f.final_rank,
+                item_id: f.id,
+                item_title: tc.item_title || '',
+                teacherFinalOrder: f.teacherFinalOrder || '',
+                teacherInitialOrder: f.teacherInitialOrder || '',
+                orderChanged: !!f.orderChanged,
+                priorityOption: f.priorityOption || '',
+                priorityPair: f.priorityPair || '',
+                sources: (f.sources || []).join('/'),
+                interview_main_focus: (tc.ability_focus && tc.ability_focus.interview_main_focus) || '',
+                hypotheses_count: (tc.interview_hypotheses || []).length,
+                must_evidence_count: (tc.must_obtain_evidence || []).length,
+                probes_count: (tc.recommended_probes || []).length
+              });
+            }
+          } else { withoutCard++; }
         }
-        stats.sessions = { selected_advisor_v1: selected, missing_selection: pending, other_algo: otherAlgo };
+        stats.sessions = {
+          selected_with_task_card: withCard,       // v1.2+ 完整任务卡
+          selected_no_task_card: withoutCard,      // v1/v1.1 老 session,建议重跑
+          missing_selection: pending,              // 未走 gsyg_selectFinal
+          other_algo: otherAlgo
+        };
+        bundle.task_card_index = taskCardIndex;
+        stats.task_card_index_size = taskCardIndex.length;
       }
     }
     bundle.stats = stats;

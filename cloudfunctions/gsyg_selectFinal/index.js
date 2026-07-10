@@ -18,9 +18,16 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const advisor = require('./advisor_port.js');
 const norms = require('./advisor_norms.js');
+// 任务卡预生成(v1.2 新增,与 gsyg_interviewChat 共享 tools/task_card_builder.js)
+const taskCardBuilder = require('./task_card_builder.js');
+let KB = null;
+try { KB = require('./knowledge.json'); } catch (e) { console.warn('[kb] knowledge.json 加载失败:', e && e.message); KB = { items: {} }; }
+taskCardBuilder.setKnowledge(KB);
+
 const db = cloud.database();
 const SESSIONS = 'gsyg_sessions';
-const ALGO_VERSION = 'advisor_v1.1'; // v1.1: 补 teacherFinalOrder / InitialOrder / orderChanged / orderChangeSummary(task_card 需要),会让老 session 强制重跑一次
+// v1.2: 每题预生成完整 task_card 并挂到 selection.final[i].task_card。老 session 强制重跑。
+const ALGO_VERSION = 'advisor_v1.2';
 
 // mp 题号 <-> Python 题号(见 CLAUDE.md 情境映射;此映射是自对合,双向同表)。
 const MP_TO_PY = { 1: 1, 2: 4, 3: 6, 4: 2, 5: 5, 6: 3, 7: 9, 8: 10, 9: 7, 10: 8 };
@@ -134,6 +141,19 @@ function toMpSelection(advisorOut, sessionAnswers) {
       ? `初始排序${teacherInitialOrder},最终排序${teacherFinalOrder}`
       : `排序相对稳定,最终排序${teacherFinalOrder}`;
 
+    // v1.2 预生成完整 task_card(002 doc 要求;供 gsyg_interviewChat 直接消费 + 导出)
+    // 用 15 表 ai_rules 匹配教师排序特征,拿 hypotheses/evidence/probes/flow 等
+    const seed = {
+      teacherFinalOrder, teacherInitialOrder, orderChanged, orderChangeSummary,
+      priorityOption: f.priorityOption || '',
+      priorityPair: f.priorityPair || '',
+      sources: srcNames.slice(),
+      primary_ability_type: f.primary_ability_type || '',
+      secondary_ability_type: f.secondary_ability_type || '',
+      processTags: [] // 遴选时不必固化 processTags,访谈云函数可按需覆盖
+    };
+    const task_card = taskCardBuilder.buildTaskCard(mpId, seed);
+
     return {
       id: mpId, // mp Q1..Q10
       py_item_id: f.final_item_id,
@@ -150,11 +170,13 @@ function toMpSelection(advisorOut, sessionAnswers) {
       interview_focus: f.interview_focus,
       selection_reason: f.selection_reason,
       coverage_role: f.coverage_role,
-      // task_card 教师作答画像
+      // task_card 教师作答画像(冗余,便于 mp 端读取)
       teacherFinalOrder,
       teacherInitialOrder,
       orderChanged,
-      orderChangeSummary
+      orderChangeSummary,
+      // v1.2 完整任务卡(002 doc 要求的 task_card_json 内容)
+      task_card
     };
   });
   const routes = {

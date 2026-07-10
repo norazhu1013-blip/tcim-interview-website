@@ -123,23 +123,37 @@ Page({
       const proc = require('../../utils/process.js').computeProcess((this._session.answers || {})[itemId]);
       this._procTags = proc.tags || [];
     } catch (e) { this._procTags = []; }
-    // 从 session.selection.final 拿出本题的 task card seed
+    // v1.2:从 session.selection.final 拿出本题的完整 task_card(gsyg_selectFinal 预生成)。
+    // 若为老 v1.1 会缺 task_card,降级发 seed(云函数会现场拼)。
     try {
       const sel = (this._session.selection && this._session.selection.final) || [];
       const seedFull = sel.find((f) => f && f.id === itemId);
-      this._taskCardSeed = seedFull ? {
-        teacherFinalOrder: seedFull.teacherFinalOrder || ranking.join(''),
-        teacherInitialOrder: seedFull.teacherInitialOrder || '',
-        orderChanged: !!seedFull.orderChanged,
-        orderChangeSummary: seedFull.orderChangeSummary || '',
-        priorityOption: seedFull.priorityOption || '',
-        priorityPair: seedFull.priorityPair || '',
-        sources: seedFull.sources || [],
-        primary_ability_type: seedFull.primary_ability_type || '',
-        secondary_ability_type: seedFull.secondary_ability_type || '',
-        processTags: this._procTags || []
-      } : null;
-    } catch (e) { this._taskCardSeed = null; }
+      if (seedFull && seedFull.task_card) {
+        // 已有完整任务卡,合入 processTags 后直接传(避免云函数重算)
+        this._taskCard = Object.assign({}, seedFull.task_card, {
+          teacher_answer_profile: Object.assign({}, seedFull.task_card.teacher_answer_profile || {}, {
+            processTags: this._procTags || []
+          })
+        });
+        this._taskCardSeed = null;
+      } else if (seedFull) {
+        this._taskCard = null;
+        this._taskCardSeed = {
+          teacherFinalOrder: seedFull.teacherFinalOrder || ranking.join(''),
+          teacherInitialOrder: seedFull.teacherInitialOrder || '',
+          orderChanged: !!seedFull.orderChanged,
+          orderChangeSummary: seedFull.orderChangeSummary || '',
+          priorityOption: seedFull.priorityOption || '',
+          priorityPair: seedFull.priorityPair || '',
+          sources: seedFull.sources || [],
+          primary_ability_type: seedFull.primary_ability_type || '',
+          secondary_ability_type: seedFull.secondary_ability_type || '',
+          processTags: this._procTags || []
+        };
+      } else {
+        this._taskCard = null; this._taskCardSeed = null;
+      }
+    } catch (e) { this._taskCard = null; this._taskCardSeed = null; }
     this._startTs = Date.now();
     this.startTimer();
     this.askNext();
@@ -159,7 +173,8 @@ Page({
         itemContext: { stem: this.data.q.stem, options: this.data.q.options, title: this.data.q.title },
         teacherRanking: this._ranking,
         processTags: this._procTags,
-        // v2:任务卡种子 + 阶段。云函数用 knowledge.json 展开完整 task_card。
+        // v1.2:优先发完整 taskCard(gsyg_selectFinal 预生成);缺失时发 seed 让云函数现场拼。
+        taskCard: this._taskCard || null,
         taskCardSeed: this._taskCardSeed || null,
         stage: this._stage || 'S1_CONTEXT',
         // v1 老字段(taskCardSeed 缺失时云函数回退用),保留一段时间兼容

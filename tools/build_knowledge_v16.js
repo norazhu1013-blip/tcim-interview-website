@@ -37,7 +37,8 @@ const os = require('os');
 const { execSync } = require('child_process');
 
 const SRC_DIR = path.join(__dirname, '..', 'DOC', 'inbox_0709', '_kb16');
-const OUT = path.join(__dirname, '..', 'cloudfunctions', 'gsyg_interviewChat', 'knowledge.json');
+// canonical 位置在 tools/;由 sync_cf.js 拷贝到需要它的云函数目录
+const OUT = path.join(__dirname, 'knowledge.json');
 
 // mp Q# → 知识库文件名前缀(1..10 与新 canonical 顺序完全一致)
 const ITEM_TITLES = {

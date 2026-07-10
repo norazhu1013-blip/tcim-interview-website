@@ -163,14 +163,15 @@ function saveSelection(sessionId, selection) {
   return s;
 }
 
-/** session 是否已经完成服务端遴选(algo 以 advisor_v 开头即可)。 */
+/** session 是否已经完成服务端遴选(algo 以 advisor_v 开头 + 有 task_card)。 */
 function hasFinalSelection(session) {
   return !!(
     session && session.selection
     && typeof session.selection.algo === 'string' && session.selection.algo.indexOf('advisor_v') === 0
     && session.selection.final && session.selection.final.length
-    // v1.1+ 必须有 teacherFinalOrder,老 v1 缺失会视为未完成 → 触发重拉
-    && session.selection.final[0] && session.selection.final[0].teacherFinalOrder
+    // v1.2+ 必须有 task_card(002 doc 要求预生成),老 v1/v1.1 缺失会重拉
+    && session.selection.final[0] && session.selection.final[0].task_card
+    && session.selection.final[0].task_card.interview_hypotheses
   );
 }
 
