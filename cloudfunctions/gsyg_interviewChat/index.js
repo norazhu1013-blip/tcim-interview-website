@@ -22,7 +22,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const DEFAULT_MODEL = process.env.WXAI_MODEL || 'hy3-preview';
 const DEFAULT_PROVIDER = process.env.WXAI_PROVIDER || 'cloudbase';
-const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 12000);
+const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 30000); // 2026-07-09 提到 30s:hy3-preview 生成 200-400 字 + 网络往返常需 15-25s,12s 频繁超时导致回退规则版
 const SEC_CHECK_ON = String(process.env.SEC_CHECK || '') === '1';
 
 // 16 表新知识库(2026-07-09 更新版);冷启动加载一次,后续请求共享内存

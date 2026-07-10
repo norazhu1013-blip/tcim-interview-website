@@ -142,8 +142,8 @@ function llmNextQuestion(ctx) {
     if (!wx.cloud || !ctx) return resolve(null);
     let settled = false;
     const done = (r) => { if (!settled) { settled = true; resolve(r); } };
-    // 兜底超时：云函数自身 12s，客户端 15s 保护
-    const timer = setTimeout(() => done(null), 15000);
+    // 兜底超时：云函数自身 30s（LLM_TIMEOUT_MS 默认），客户端 35s 保护（多 5s 缓冲留给 wxai/网络）
+    const timer = setTimeout(() => done(null), 35000);
     try {
       wx.cloud.callFunction({
         name: CLOUD_FUNCTIONS.interviewChat,
