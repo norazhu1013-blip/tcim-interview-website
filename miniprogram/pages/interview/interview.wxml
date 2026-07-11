@@ -12,7 +12,7 @@
   <text wx:else class="muted" style="margin-left:auto;">回看</text>
 </view>
 
-<scroll-view scroll-y class="iv-body" style="top:{{bodyTop}}px;" scroll-into-view="{{scrollTo}}" scroll-with-animation>
+<scroll-view scroll-y class="iv-body" style="top:{{bodyTop}}px;bottom:calc(130rpx + {{kbHeight}}px);" scroll-into-view="{{scrollTo}}" scroll-with-animation>
   <!-- 案例卡：完整案例 + 四选项 + 本人排序 -->
   <view class="card" id="case">
     <view class="muted" style="color:var(--pri);font-weight:600;">情境 · {{q.title}}</view>
@@ -40,11 +40,13 @@
 </scroll-view>
 
 <!-- 输入区（回看模式隐藏） -->
-<view wx:if="{{!isReview && !done}}" class="foot iv-foot">
-  <textarea class="iv-input" placeholder="说说你的想法…" value="{{input}}" bindinput="onInput"
+<view wx:if="{{!isReview && !done}}" class="foot iv-foot" style="bottom:{{kbHeight}}px;">
+  <textarea class="iv-input" placeholder="说说你的想法…" value="{{input}}"
+    bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur"
+    bindkeyboardheightchange="onKbHeightChange"
     auto-height maxlength="500" disabled="{{sending}}"
-    show-confirm-bar="{{false}}" adjust-position="{{true}}" cursor-spacing="20"
-    hold-keyboard="{{true}}"></textarea>
+    show-confirm-bar="{{false}}" adjust-position="{{false}}" cursor-spacing="8"
+    fixed="{{true}}" hold-keyboard="{{true}}"></textarea>
   <button class="btn sm send" bindtap="onSend" disabled="{{sending || !input}}">发送</button>
 </view>
 

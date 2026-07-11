@@ -26,7 +26,10 @@ Page({
     statusBarHeight: 20,
     navContentH: 44,
     navBarH: 64,
-    bodyTop: 109
+    bodyTop: 109,
+    // 键盘高度补偿(px)——跨机型统一处理键盘遮挡:关闭 textarea 的 adjust-position,
+    // 用 bindkeyboardheightchange 拿真实键盘高度,主动把 .iv-foot 和 .iv-body 底部上顶。
+    kbHeight: 0
   },
 
   initNavBar() {
@@ -205,6 +208,22 @@ Page({
   },
 
   onInput(e) { this.setData({ input: e.detail.value }); },
+
+  /* -------- 键盘遮挡处理(跨机型稳定) -------- */
+  // bindkeyboardheightchange:基础库 2.7.0+,弹起收起都会触发。detail.height 单位 px。
+  // 部分安卓机 detail.duration=0 直接跳变;iOS 有动画,duration ~250ms。
+  onKbHeightChange(e) {
+    const h = (e && e.detail && Number(e.detail.height)) || 0;
+    if (h === this.data.kbHeight) return;
+    this.setData({ kbHeight: h });
+    if (h > 0) this.scrollBottom(); // 键盘弹起时把消息区滚到最底
+  },
+  // focus/blur 作为兜底:某些机型 keyboardheightchange 不触发或延迟,先用 focus 把 body 滚到底,让用户看见输入区
+  onInputFocus() { this.scrollBottom(); },
+  onInputBlur() {
+    // 收键盘时立刻把 kbHeight 归零,避免遗留占位
+    if (this.data.kbHeight !== 0) this.setData({ kbHeight: 0 });
+  },
 
   async onSend() {
     const text = (this.data.input || '').trim();
