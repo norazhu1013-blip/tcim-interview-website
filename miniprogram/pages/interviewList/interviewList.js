@@ -6,7 +6,7 @@ const { MAP } = require('../../data/indicatorMap.js');
 const CIRCLE = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
 
 Page({
-  data: { sid: '', list: [], allDone: false },
+  data: { sid: '', list: [], allDone: false, feedbackDone: false },
 
   onShow() {
     if (this.data.sid) this.refresh(this.data.sid);
@@ -48,7 +48,12 @@ Page({
       };
     });
     const allDone = list.length > 0 && list.every((x) => x.done);
-    this.setData({ list, allDone });
+    const feedbackDone = !!(s.interviewFeedback && s.interviewFeedback.submittedAt);
+    this.setData({ list, allDone, feedbackDone });
+  },
+
+  onFeedback() {
+    wx.navigateTo({ url: '/pages/feedback/feedback?sid=' + this.data.sid });
   },
 
   onOpen(e) {

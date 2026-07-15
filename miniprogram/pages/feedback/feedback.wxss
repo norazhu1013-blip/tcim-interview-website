@@ -1,0 +1,13 @@
+.fb-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 16rpx;
+  border: 1rpx solid var(--line);
+  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  font-size: 26rpx;
+  line-height: 1.55;
+  min-height: 120rpx;
+  max-height: 400rpx;
+  background: #fff;
+}

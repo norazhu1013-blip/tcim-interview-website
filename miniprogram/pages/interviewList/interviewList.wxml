@@ -13,8 +13,9 @@
   </view>
 
   <view wx:if="{{allDone}}" class="card" style="text-align:center;">
-    <view class="h" style="font-size:28rpx;">访谈完成，感谢！</view>
-    <view class="t" style="margin-top:10rpx;">3 个情境都聊完了，可随时回看访谈内容。</view>
-    <button class="btn o" style="margin-top:18rpx;" bindtap="onHome">回到首页</button>
+    <view class="h" style="font-size:28rpx;">{{feedbackDone ? '访谈完成，感谢！' : '3 个情境都聊完啦'}}</view>
+    <view class="t" style="margin-top:10rpx;">{{feedbackDone ? '可随时回看访谈内容。' : '最后请留下你对本次 AI 访谈的反馈。'}}</view>
+    <button wx:if="{{!feedbackDone}}" class="btn" style="margin-top:18rpx;" bindtap="onFeedback">填写访谈反馈</button>
+    <button wx:else class="btn o" style="margin-top:18rpx;" bindtap="onHome">回到首页</button>
   </view>
 </view>

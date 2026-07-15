@@ -2,9 +2,20 @@
  * Node.js 端口 —— 严格 1:1 移植自 DOC/calculate_advisor_rpg_final(1).py。
  * 用途:①云函数 gsyg_selectFinal 的算法核心 ②对拍脚本 verify_align.js 的被测方。
  *
- * 题号约定:与 Python 一致(1..10 = Python 内部题号,SCORE_CSV 列 01..10 亦按此),
+ * 题号约定:与(旧)Python 一致(1..10 = Python 内部题号,SCORE_CSV 列 01..10 亦按此),
  * 与小程序题号存在错位(见 CLAUDE.md 情境映射)。集成到云函数时,输入按 Python
- * 题号,输出 final 时 item_id/questionIndex 直接沿用 Python 编号(如 Q1..Q10)。
+ * 题号,输出 final 时 item_id/questionIndex 直接沿用 Python 编号(如 Q1..Q10),
+ * 由 gsyg_selectFinal 的 MP_TO_PY / mpQ() 在边界处翻译回小程序题号。
+ *
+ * ★ 2026-07-15 更新:研究团队新参考程序
+ *   DOC/calculate_advisor_rpg_final_新题序新赋分.py 已把内部题号重排为「与小程序一致」
+ *   (py Qn == mp Qn),即 MP_TO_PY 变为恒等。经校验,新程序是旧程序的**保值重排**:
+ *     · SCORE_CSV:new[mpQ] === old[MP_TO_PY[mpQ]],全 24×10 = 0 处不一致(赋分值未变,仅换列);
+ *     · ABILITY_MAP:标题/主/次能力在 MP_TO_PY 下 10/10 一致(能力随情境一起迁移)。
+ *   因此本端口**刻意保留旧 Python 内部题号 + MP_TO_PY**(与 2026-07-09 决策一致),
+ *   以免作废 advisor_norms.js 常模与三份对拍参考(verify_align/norms_mode/cf_pipeline)。
+ *   最终遴选结果与新程序在小程序题号下**完全等价**,mp 端行为无需改动(三份对拍仍 45/45·0 diff)。
+ *   若日后要落地恒等题号,需同步重生成 norms + 三份 ref_output 并重跑对拍。
  *
  * 无外部依赖(不 require wx-server-sdk / xlsx / csv 库),Node ≥ 12 即可运行。
  */

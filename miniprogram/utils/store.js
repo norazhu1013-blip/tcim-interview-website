@@ -107,7 +107,8 @@ function createSession(sessionId, extra) {
       submittedAt: null,
       scores: null, // { perItem:{Q1:4}, total, mean, rd:{Q1:+0.3}, level }
       selection: null, // { final:[{id,sec,ter,rd,pivi,tags,sources}], routes }
-      interview: {} // itemId -> { status:'pending'|'done', startedAt, submittedAt, turns:[{role,text,ts,E?}], ledger:[E..], coding }
+      interview: {}, // itemId -> { status:'pending'|'done', startedAt, submittedAt, turns:[{role,text,ts,E?}], ledger:[E..], coding }
+      interviewFeedback: null // { q1,q2,q3,submittedAt } —— 三题访谈完成后、提交前收集的整体反馈
     },
     extra || {}
   );
@@ -185,6 +186,15 @@ function saveInterview(sessionId, itemId, interviewObj) {
   return s;
 }
 
+/** 三题访谈完成后、提交前的整体反馈(3 个问题)。 */
+function saveInterviewFeedback(sessionId, feedback) {
+  const s = getSession(sessionId);
+  if (!s) return null;
+  s.interviewFeedback = feedback;
+  saveSession(s);
+  return s;
+}
+
 /* ---------------- 工具 ---------------- */
 function formatDate(ts) {
   const d = new Date(ts);
@@ -208,6 +218,7 @@ module.exports = {
   listSessions,
   deleteSession,
   saveInterview,
+  saveInterviewFeedback,
   saveSelection,
   hasFinalSelection,
   formatDate

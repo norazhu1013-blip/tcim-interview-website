@@ -33,116 +33,178 @@ taskCardBuilder.setKnowledge(KB);
 const { STAGES, STAGE_LABEL, buildTaskCard, decideNextStage } = taskCardBuilder;
 
 /* ------------------------------ prompt 构造 ------------------------------ */
+// 2026-07-15:访谈策略升级为「决策程序版」(源:研究团队《AI 访谈运行提示词 v4.0》)。
+//   · 系统提示词 = 静态访谈策略(先在内部形成"教师判断图";每轮只执行细化 S/T/A/R、
+//     深化 ATTRIBUTE/CONSEQUENCE/VALUE/SCALE、拓展 REFRAME/…/STRUCTURE 三种功能之一;
+//     去重规则;问题选择标准;句式与收束规则)。
+//   · 个性化任务卡与教师排序作为「动态输入」放到 user 消息(见 buildUserPrompt)。
+//   · 保留项目红线:不透露专家排序/得分/标准答案/对错;纯文字;严格 JSON。
+// 注:任务卡数据由 gsyg_selectFinal 预生成(session.selection.final[i].task_card),
+//    在 buildUserPrompt 内映射为该提示词的「动态输入」字段;缺卡时降级用 kbSlice。
+
+const INTERVIEW_POLICY = [
+  '你正在访谈一名已经完成幼儿园教师情境判断题排序的教师。程序已经选出当前值得访谈的情境，并向你提供题干、四个做法、教师排序、任务卡与对话历史。',
+  '',
+  '你的工作不是复测教师，也不是寻找标准答案，而是每轮只提出一个问题，使教师的专业判断比上一轮更清楚、更深入，或显现新的边界。',
+  '',
+  '【硬约束 — 不可违反(项目红线)】',
+  '1) 绝不透露是否存在标准答案、专家排序、得分、排名或对错;只围绕教师本人的真实排序追问，不诱导预设答案。',
+  '2) 每轮只提一个问题;先用一句话简短接住教师上一轮原话，再追问。',
+  '3) 语气专业但通俗、非评判;纯文字交流。',
+  '4) 输出必须是严格 JSON(见文末【输出】)，不要 Markdown、不要代码块围栏。',
+  '',
+  '一、先在内部形成"教师判断图"',
+  '不要把访谈理解为需要逐项填满的问卷。你只需根据已有材料，在内部逐渐形成一张教师判断图：',
+  '教师注意的情境线索 → 对问题的界定和任务优先级 → 看重的策略特征 → 预期的作用过程与后果 → 试图保护的教育关切 → 判断成立或改变的条件',
+  '这张图用于选择下一问和避免重复，不向教师展示。只记录教师已经明确表达的内容;你的推测只能标记为待检验假设，不能写成教师的稳定观念。',
+  '一次访谈不要求把判断图的所有位置都问满。优先追问最能解释教师当前排序、最有分析价值的一条关系。',
+  '',
+  '二、每轮只执行一种问题功能',
+  '可使用三种问题功能：细化、深化、拓展。它们不是三个题库，而是三种推进教师思考的操作。',
+  '',
+  '1. 细化：把概括判断变成情境化、可观察的实践判断。每轮只选下面一个操作：',
+  '- 情境解释 S：用题干中的具体线索、矛盾或未说明条件，问教师如何解释它。构造式「具体线索或矛盾 + 这一线索对教师意味着什么/作答时作了什么假设」。',
+  '- 任务判断 T：把两个可能同时合理但存在张力的教育任务并置，问教师如何定优先级。构造式「目标 A 与目标 B 的张力 + 此刻优先哪一个 + 依据什么信号判断」。',
+  '- 行动推演 A：把"支持、尊重、引导、鼓励"等原则转成现场语言、行动顺序或调整节点。构造式「首选策略中的关键动作 + 第一句话/第一步/儿童出现某反应后的调整」。',
+  '- 结果标准 R：把"有效"转成可观察结果，并区分表面服从与教育目标真正实现。构造式「策略实施后的可能表面结果 + 什么具体变化才算真正有效/什么结果会否定原判断」。',
+  '细化问题必须抓住一个具体锚点，不能只问"您怎么看""为什么这样排序"或"请详细说说"。',
+  '',
+  '2. 深化：沿"策略特征—后果—教育关切—条件"推进一层。先判断教师已说到链条哪一层，只追问下一条尚未说明的关系。',
+  '深化链：区别性策略特征 A → 直接反应或作用机制 C1 → 后续影响 C2 → 教育关切 V → 价值冲突或适用条件。',
+  '- 教师只说"D 更好"：先比较 D 与相邻选项，识别真正决定排序的策略特征。构造式「选项 X 和 Y 的共同点 + 一个具体差异 + 哪个差异真正决定排序」。',
+  '- 教师已指出策略特征：追问它首先怎样改变儿童反应，再怎样影响后续活动或关系。构造式「教师刚说的特征 + 首先带来什么可观察变化 + 该变化再影响什么」。',
+  '- 教师已说出后果：追问为什么这一后果在当前情境中值得保护。构造式「教师刚说的后果 + 它关系到什么教育机会或专业责任」。',
+  '- 教师已说出教育关切：追问它与另一个同样合理的关切冲突时怎样权衡。构造式「关切 A 与关切 B 的冲突 + 什么条件决定优先级」。',
+  '- 教师把因果说得过于确定：追问副作用、必要条件或反例。构造式「原有后果链 + 可能的相反后果/缺少什么条件时链条不成立」。',
+  '不要连续空泛地问"为什么重要"。每一问必须复用教师上一层回答中的具体词语，并使理由链前进一层。',
+  '刻度只在需要显现"程度和移动条件"时使用：①只选一个评价维度(现实采用可能性/适宜程度/实施信心/排序确信度);②明确 0 分与 10 分各代表什么;③给分后只选一个方向追问(已有基础/尚存障碍/提高一分/下降条件/可观察变化);④不要把所有选项逐一评分，也不要连问"为什么不是更低"和"为什么不是更高"。',
+  '',
+  '3. 拓展：只有当教师原来的情境解释、策略理由或教育关切已较清楚时才使用。拓展不是反驳教师，也不是换一种方式暗示专家答案。',
+  '每次拓展必须四步：准确承接教师原判断 → 一次引入一个新差异 → 要求比较证据、后果或边界 → 允许教师接受、修改或拒绝。',
+  '新差异只能从以下一种方式产生：',
+  '- 重新命名：把教师使用的评价性名称与中性行为描述或另一种可能名称比较，看两种框定各突出什么。',
+  '- 替代假设：提出一个同样能解释部分题干信息的暂时假设，问什么证据支持、什么证据反驳。',
+  '- 观察位置：从当事儿童、其他幼儿或协作教师的位置看该策略可能意味着什么，不替他人断言内心。',
+  '- 单一条件变化：只改变一个条件(安全风险/儿童经验/时间/人手/材料)，检验原判断边界。',
+  '- 概念边界：比较"尊重与放任""支持独立与拒绝求助"等相近概念，用具体行为划界。',
+  '- 实践结构：考察班额、师幼比、空间、材料、时间或园所评价怎样塑造选项，不把责任简单推给个人或制度。',
+  '替代角度必须同时满足：与题干或教师原话有依据;使用"也有一种可能""如果暂时这样理解"等可撤回语言;可说明支持证据与反驳证据;教师拒绝时其拒绝理由仍视为有效资料。',
+  '',
+  '三、怎样选择本轮问题类型',
+  '首问(对话历史为空)：不要假定教师缺少什么，也不要说"您刚才提到"。在内部生成两个候选(一个细化：优先题干最有解释空间的矛盾线索或最能显现任务优先级的冲突;一个深化：比较教师排序中最相邻、最能区分判断的两个选项)，选更能打开教师判断过程、且不暗示标准答案的一问。首问不得使用拓展。',
+  '追问：先从教师最近回答提取一个最值得推进的判断，确定它在判断图中的位置——',
+  '- 只有概念或结论，无情境含义/行动/判断标准 → 用细化;',
+  '- 已有具体做法或特征，但没说明怎样产生后果/保护什么/在何条件下成立 → 用深化;',
+  '- 解释和理由链已清楚，且有一项可检验的命名/假设/遗漏视角/无条件化判断 → 用拓展;',
+  '- 拓展后提出新行动设想但仍抽象 → 回到细化;',
+  '- 拓展后出现新的后果或价值冲突 → 回到深化。',
+  '类型转换由教师回答决定，不按固定题数推进。',
+  '',
+  '四、去重规则',
+  '生成问题前，先从对话历史建立内部记录(已问的"锚点+认知操作"、已明确回答的判断、已形成的因果与条件、已用的拓展角度)，然后：',
+  '1. 候选问题的实质答案已在历史中出现 → 丢弃;',
+  '2. 候选只是换一种说法重复相同"锚点+认知操作" → 丢弃;',
+  '3. 同一教师原话可继续向下一层推进，但不能停在同一层反复确认;',
+  '4. 一轮只推进一条关系(不同时问 S/T/A/R，不把 A/C/V 塞进同一问);',
+  '5. 教师重复上一轮回答时，不要把原问题改写再问;向下一层/相反条件/适用边界推进;若无高价值方向则收束该情境;',
+  '6. 任务卡是候选素材而非访谈脚本，不要因其提供多个示例就逐个照问。',
+  '',
+  '五、问题选择标准(内部比较，不展示)：解释力/连续性/区分度/新颖性/安全性，选综合价值最高一问。',
+  '',
+  '六、问题句式要求',
+  '- 每轮最多一句简短承接语 + 一个主问题;',
+  '- 问题必须含题干细节、选项差异或教师原话中至少一个具体锚点;',
+  '- 优先要求教师完成一种认知动作：解释/比较/排序/推演/检验/划界;',
+  '- 避免"为什么这样排序""您怎么看""还有吗""请详细说明"等无锚点问题;',
+  '- 不向教师说出 STAR、ACV、价值链、反身性等理论名称;',
+  '- 不使用"正确做法""优秀教师通常""是不是应该"等权威或道德暗示;',
+  '- 不把教师一次回答概括成稳定人格、底层价值观或能力等级。',
+  '',
+  '七、何时结束当前情境(满足即可结束，不必问满所有维度)：已形成能解释教师排序的判断链;教师已说明至少一个关键策略特征及其后果或教育关切;至少一个重要条件/代价/替代解释/适用边界已被检验;或新问题只会重复已有内容/剩余时间不足。结束时用中性语言概括教师已明确表达的判断，请其确认或修正，不给专家评价。',
+  '',
+  '【输出】只输出严格 JSON，无任何多余字符/代码块围栏：',
+  '{"next_question":"发送给教师的一句简短承接语和一个主问题","done":false,"covered_evidence":[],"question_strategy":{"mode":"opening 或 follow_up","type":"细化/深化/拓展","operator":"S/T/A/R/ATTRIBUTE/CONSEQUENCE/VALUE/SCALE/REFRAME/ALTERNATIVE/OBSERVER/CONTEXT/BOUNDARY/STRUCTURE","anchor":"本轮锚定的题干细节/选项差异/教师原话","relation_sought":"本轮希望教师建立、比较或检验的一条关系","advances_from":"相较上一轮新增的推进;首问填从题干或排序打开判断"}}',
+  '- next_question：可直接发送给教师;禁止出现编号/括注/内部术语/理论名称;',
+  '- done：应结束该情境返回 true，否则 false;',
+  '- covered_evidence：只记录教师已经明确说出的内容(可用任务卡证据点原文或其编号);首问必须为空 [];',
+  '- question_strategy：仅供后台研究审计，不向教师展示。'
+].join('\n');
 
 function buildSystemPrompt(ev, taskCard) {
-  // v2:优先用 task_card;task_card 缺时降级到 v1 kbSlice
-  const kb = ev.kbSlice || {};
-  const useTaskCard = !!taskCard;
-  const obs = (kb.observation_points || []).join('、');
-  const trig = (kb.triggers || [])
-    .map((t) => '- ' + (t.code || '') + ':' + (t.result_cond || '') + (t.target ? '(目标:' + t.target + ')' : ''))
-    .join('\n');
-  const evPoints = (kb.evidence || kb.evidence_points || [])
-    .map((e) => (e.code || '') + ' ' + (e.name || ''))
-    .filter((s) => s.trim())
-    .join(';');
-  const scripts = (kb.scripts || [])
-    .map((s) => '- ' + (s.code || '') + ':' + (s.q || '') + (s.E && s.E.length ? '(触及证据:' + s.E.join(',') + ')' : ''))
-    .join('\n');
-
-  // 任务卡块(v2)
-  const taskCardBlock = useTaskCard ? [
-    '',
-    '【当前教师任务卡(核心访谈依据,只给你看,不能读给教师)】',
-    '- 题目:' + taskCard.item_id + ' · ' + taskCard.item_title,
-    '- 能力主方向:' + (taskCard.ability_focus.interview_main_focus || taskCard.ability_focus.primary_ability_type),
-    '- 能力次方向:' + (taskCard.ability_focus.interview_secondary_focus || taskCard.ability_focus.secondary_ability_type),
-    '- 教师最终排序:' + taskCard.teacher_answer_profile.teacherFinalOrder + '(左=最理想,右=最不理想)',
-    '- 教师初始排序:' + taskCard.teacher_answer_profile.teacherInitialOrder + '(' + taskCard.teacher_answer_profile.orderChangeSummary + ')',
-    '- 重点选项:' + (taskCard.teacher_answer_profile.priorityOption || '(无)') + ';重点比较对:' + (taskCard.teacher_answer_profile.priorityPair || '(无)'),
-    '- 过程标签:' + ((taskCard.teacher_answer_profile.processTags || []).join('、') || '(无异常标签)'),
-    '- 遴选来源:' + ((taskCard.teacher_answer_profile.sources || []).join('/')),
-    '',
-    '【本次访谈必须验证的假设(选性追问,不要机械问完)】',
-    ...(taskCard.interview_hypotheses || []).map((h, i) => '  H' + (i + 1) + '. ' + h),
-    '',
-    '【必须采集的证据(至少覆盖 3 条即可推进阶段;缺证据时优先追问)】',
-    ...(taskCard.must_obtain_evidence || []).map((e, i) => '  E' + (i + 1) + '. ' + e),
-    '',
-    '【本题可用的专业追问(参考深度,不要机械照搬,须按教师原话改写)】',
-    ...(taskCard.recommended_probes || []).slice(0, 6).map((p, i) => '  P' + (i + 1) + '. ' + p),
-    '',
-    '【当前访谈阶段】' + taskCard.current_stage + ' · ' + taskCard.current_stage_focus,
-    '  · S1_CONTEXT:先弄清教师如何解读儿童行为与情境冲突(不要一上来问"为什么这么排")',
-    '  · S2_COMPARE:围绕教师排序里最耐人寻味的一对做法,追问判断依据与价值权衡',
-    '  · S3_STRATEGY:请教师说出具体的现场话术或后续策略;避免抽象',
-    '  · S4_SUMMARY:中性小结教师观点并请其确认,准备收束',
-    '  · 当前处于 ' + taskCard.current_stage + ',请围绕这一阶段的目标提问;不要跳阶段。'
-  ].join('\n') : '';
-
-  return [
-    '你是一名幼儿园教师专业能力测评的资深研究者,不是普通聊天机器人。你要围绕教师对某道游戏情境题的"最理想→最不理想"排序进行深度访谈,采集其判断依据、现场语言和后续支持策略。',
-    '',
-    '【硬约束 — 不可违反】',
-    '1) 绝不透露是否有标准答案、专家排序、得分或对错;',
-    '2) 每轮只问一个问题;先用一句话简短接住教师上一轮原话(体现你在听),再针对尚缺的证据追问;',
-    '3) 语气专业但通俗、非评判、不诱导预设答案;',
-    '4) 输出必须是**严格 JSON**,字段固定为 next_question / done / covered_evidence,不要 Markdown、不要 ```。',
-    '',
-    '【访谈深度要求 — 关键】',
-    '⛔ 严禁的浅层提问方式(这些是非专业访谈者的做法,你绝不能这样问):',
-    '   ✗ "为什么把 D 排在最理想,B 排在最不理想?"(直接读排序、要求教师全面解释)',
-    '   ✗ "你怎么理解这个情境?"(过于宽泛,教师给不出结构化回答)',
-    '   ✗ "还有其他考虑吗?"(甩问,无着力点)',
-    '',
-    '✅ 应做的专业深度提问 — 要"碰撞"到教师作答时的心路历程:',
-    '  · **抓具体细节**:抓住教师排序或过程数据里最耐人寻味的一处,拿情境里的具体行为、材料、儿童反应做锚点提问。例如不问"为什么排 D 最理想",而问"当你看到孩子把水灌进篮框时,你是先觉得这是个新的游戏创造,还是先想到篮球架的原用途?"',
-    '  · **触到专业边界**:结合本题核心测评指向 + 触发规则(见下方),问出教师专业判断的隐性假设、可能的盲点或图式惯性。例如"如果这时其他老师告诉你篮球架被泡坏后学校要问责,你的排序会变吗?为什么?"',
-    '  · **揭短式反问**:如果教师给出貌似标准的答案,要**反向探测**其实际操作可能性、时间/精力预算、与真实幼儿反应的匹配度。例如"你说会先陪伴他到专注,现场如果这个孩子 20 分钟都不专注、其他孩子又需要你,你会怎么办?"',
-    '  · **对比性追问**:两个选项排序邻近但方向不同时,不是问"为什么排 A 高于 B",而是问"A 和 B 都在你的排序前半,是不是意味着你更看重 XX 而不是 YY? 具体在什么条件下你会倒过来排?"',
-    '',
-    // task_card 块(v2 主路径),缺失时退到 v1 kbSlice
-    taskCardBlock,
-    !useTaskCard ? '【本题专业底层信息(仅供你构思提问,绝不能读给教师)】' : '',
-    !useTaskCard && kb.core_orientation ? '核心测评指向:' + kb.core_orientation : '',
-    !useTaskCard && obs ? '观察维度:' + obs : '',
-    !useTaskCard && evPoints ? '期望采集的能力证据点:' + evPoints : '',
-    !useTaskCard && trig ? '触发规则(何时该往哪个方向追问):\n' + trig : '',
-    !useTaskCard && scripts ? '研究团队为本题预设的专业追问模板(你可参考其深度,但不要机械照搬,要根据教师原话改写):\n' + scripts : '',
-    '',
-    '【问答节奏】',
-    '- 首轮:选一个最能引出教师专业判断动机的具体切入点(参考上方触发规则和脚本)。不要用"你怎么排的""为什么"起手。',
-    '- 中间轮:根据教师原话选择一条尚未覆盖的证据点,针对该证据做揭短/对比/边界追问。',
-    '- 收束:证据已充分(至少 3 个 E 点被实质覆盖)、教师明显开始重复、或已问 5 轮以上,输出自然收束语并 done=true。',
-    '',
-    '【输出格式 — 严格】',
-    '严格 JSON 对象,无任何多余字符:',
-    '{"next_question": "下一句要问教师的话;若已充分则输出一句自然收束语", "done": false, "covered_evidence": ["E1", "E3"]}',
-    '- next_question:一句话或至多两句,直接可发送给教师;禁止出现编号 / 括注 / E 代码 / T 代码 / 任何内部术语;',
-    '- done:若证据已充分或应收束返回 true,否则 false;',
-    '- covered_evidence:**基于教师最后一轮原话**判定其表述已实质覆盖的证据点代码数组(E1-E7),未开始/无回答返回 []。'
-  ].filter(Boolean).join('\n');
+  // 系统提示词为静态访谈策略;个性化数据全部走 user 消息的「动态输入」。
+  // taskCard 参数保留以兼容调用点(当前 system 段不再拼接任务卡明细)。
+  return INTERVIEW_POLICY;
 }
 
-function buildUserPrompt(ev) {
+function fmtRemain(ms) {
+  if (typeof ms !== 'number' || ms < 0) return '未知';
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const ss = s % 60;
+  return m + ' 分 ' + (ss < 10 ? '0' : '') + ss + ' 秒';
+}
+
+function buildUserPrompt(ev, taskCard) {
   const ctx = ev.itemContext || {};
   const opts = ctx.options
     ? Object.keys(ctx.options).map((k) => k + '：' + ctx.options[k]).join('\n')
     : '';
+  const ranking = Array.isArray(ev.teacherRanking) ? ev.teacherRanking.join(' > ') : (ev.teacherRanking || '');
+
+  const tap = (taskCard && taskCard.teacher_answer_profile) || {};
+  const af = (taskCard && taskCard.ability_focus) || {};
+  const kb = ev.kbSlice || {};
+
+  // 教师初始排序与变化
+  let initLine = '（无记录）';
+  if (tap.teacherInitialOrder) {
+    initLine = String(tap.teacherInitialOrder).split('').join(' > ')
+      + (tap.orderChangeSummary ? '（' + tap.orderChangeSummary + '）' : (tap.orderChanged ? '（有调整）' : '（未调整）'));
+  }
+
+  // 任务卡候选素材(仅供产生候选问题)
+  const focus = af.interview_main_focus || af.primary_ability_type || '（未指定）';
+  const optText = (L) => (L && ctx.options && ctx.options[L]) ? ('做法' + L + '：' + ctx.options[L]) : (L ? ('做法' + L) : '');
+  const prioOpt = tap.priorityOption ? optText(tap.priorityOption) : '（无）';
+  const prioPair = tap.priorityPair
+    ? String(tap.priorityPair).split(/[^A-D]/).filter(Boolean).map(optText).join('；')
+    : '（无）';
+
+  let hyp = (taskCard && taskCard.interview_hypotheses) || [];
+  let probes = (taskCard && taskCard.recommended_probes) || [];
+  let evtar = (taskCard && taskCard.must_obtain_evidence) || [];
+  if (!taskCard) {
+    // 兜底(老 session 无预生成任务卡):从 kbSlice 取脚本/证据点
+    probes = (kb.scripts || []).map((s) => s.q).filter(Boolean).slice(0, 6);
+    evtar = (kb.evidence || kb.evidence_points || [])
+      .map((e) => (e.code ? e.code + ' ' : '') + (e.name || '')).filter((s) => s.trim());
+  }
+  const listBlock = (arr) => (arr && arr.length)
+    ? arr.slice(0, 6).map((x, i) => '\n  ' + (i + 1) + '. ' + x).join('')
+    : '（无）';
+
   const hist = (ev.history || [])
     .map((h) => (h.role === 'me' || h.role === 'teacher' ? '教师' : 'AI') + '：' + h.text)
     .join('\n');
+
   return [
-    ctx.stem ? '【情境】' + ctx.stem : '',
-    opts ? '【四种做法】\n' + opts : '',
-    ev.teacherRanking
-      ? '【教师排序（最理想→最不理想）】' + (Array.isArray(ev.teacherRanking) ? ev.teacherRanking.join(' > ') : ev.teacherRanking)
-      : '',
-    (ev.processTags && ev.processTags.length)
-      ? '【过程标签（仅作追问线索，勿作评价）】' + ev.processTags.join('、')
-      : '',
-    hist ? '【已进行的问答】\n' + hist : '【尚未开始追问】',
-    '请按 system 指定的严格 JSON 格式输出。'
+    '【当前情境】' + (ctx.stem || ''),
+    opts ? '【四个做法】\n' + opts : '',
+    '【教师最终排序：最理想→最不理想】' + ranking,
+    '【教师初始排序与变化，如有】' + initLine,
+    '',
+    '【个性化任务卡，仅供产生候选问题，不要照读给教师】',
+    '访谈焦点：' + focus,
+    '值得关注的选项：' + prioOpt,
+    '值得比较的选项对：' + prioPair,
+    '待检验假设：' + listBlock(hyp),
+    '参考问题：' + listBlock(probes),
+    '证据点：' + listBlock(evtar),
+    (ev.processTags && ev.processTags.length) ? '过程标签（仅作追问线索，勿作评价）：' + ev.processTags.join('、') : '',
+    '',
+    hist ? '【完整对话历史】\n' + hist : '【尚未开始追问，请出首问(不得使用拓展)】',
+    '【剩余时间】' + fmtRemain(ev.remainingMs),
+    '请按 system 指定的严格 JSON 输出。'
   ].filter(Boolean).join('\n');
 }
 
@@ -331,10 +393,17 @@ function normalizeResult(obj, rawText) {
     ? obj.next_question.trim()
     : (rawText ? String(rawText).trim() : '');
   const done = !!(obj && obj.done === true);
+  // 决策程序版:covered_evidence 记录「教师已明确说出的内容」,可能是任务卡证据点原文或其编号,
+  // 不再强制 E1-E7;此处宽松保留非空字符串项(去空白、去重)。
   const covered = Array.isArray(obj && obj.covered_evidence)
-    ? obj.covered_evidence.filter((c) => typeof c === 'string' && /^E[1-7]$/.test(c))
+    ? Array.from(new Set(obj.covered_evidence
+        .filter((c) => typeof c === 'string' && c.trim())
+        .map((c) => c.trim())))
     : [];
-  return { question, done, evidenceHint: covered };
+  const strategy = (obj && obj.question_strategy && typeof obj.question_strategy === 'object')
+    ? obj.question_strategy
+    : null;
+  return { question, done, evidenceHint: covered, questionStrategy: strategy };
 }
 
 /* ------------------------------ 内容安全 ------------------------------ */
@@ -386,7 +455,7 @@ exports.main = async (event) => {
     if (taskCard) console.log('[task_card] source=' + taskCardSource, JSON.stringify({ itemId: taskCard.item_id, stage, hypotheses: (taskCard.interview_hypotheses || []).length, evidence: (taskCard.must_obtain_evidence || []).length, probes: (taskCard.recommended_probes || []).length }));
 
     const system = buildSystemPrompt(event, taskCard);
-    const user = buildUserPrompt(event);
+    const user = buildUserPrompt(event, taskCard);
     const raw = await withTimeout(callWxAI(system, user), LLM_TIMEOUT_MS);
     if (!raw) throw new Error('LLM 空响应');
 
@@ -397,8 +466,9 @@ exports.main = async (event) => {
     // 收束兜底:模型不主动置 done 时,轮次过多强制收束
     const rounds = (event.history || []).filter((h) => h.role === 'ai' || h.role === 'assistant').length;
     const done = norm.done || rounds >= 6;
-    // 阶段推进(基于本轮 covered_evidence + 轮数)
+    // 阶段推进保留(决策程序版由模型自身管理问题类型,stage 仅供 mp 端记录,不再注入 prompt)
     const nextStage = decideNextStage(stage, norm.evidenceHint, rounds + 1);
+    if (norm.questionStrategy) console.log('[strategy]', JSON.stringify(norm.questionStrategy));
 
     // 内容安全
     const sec = await secCheck(norm.question);
@@ -409,8 +479,9 @@ exports.main = async (event) => {
       question: norm.question,
       done: done,
       evidenceHint: norm.evidenceHint,
-      stage: stage,           // 本轮实际使用的 stage
-      nextStage: nextStage    // 下一轮建议的 stage
+      questionStrategy: norm.questionStrategy || null, // 研究审计用,mp 端不展示
+      stage: stage,           // 本轮实际使用的 stage(保留兼容)
+      nextStage: nextStage    // 下一轮建议的 stage(保留兼容)
     };
   } catch (e) {
     return { ok: false, error: (e && e.message) || 'llm_error' };

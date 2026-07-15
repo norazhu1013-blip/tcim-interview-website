@@ -106,10 +106,12 @@ function reportExam(payload) {
 }
 
 function reportInterview(payload) {
-  // payload: { sessionId, itemId?, interviews }
+  // payload: { sessionId, itemId?, interviews, feedback? }
+  // feedback 仅在反馈页提交时带上;云函数只在有值时写入,不会用 null 覆盖已存反馈。
   return callCloud(CLOUD_FUNCTIONS.reportInterview, {
     sessionId: payload.sessionId,
-    transcripts: payload.interviews || null
+    transcripts: payload.interviews || null,
+    feedback: payload.feedback || null
   });
 }
 

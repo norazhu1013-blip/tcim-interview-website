@@ -1,0 +1,15 @@
+<view class="bd">
+  <view class="h-lg">访谈反馈</view>
+  <view class="t" style="margin-top:10rpx;">3 个情境都聊完了，最后请留下你对本次 AI 访谈的反馈（可留空）。</view>
+
+  <view wx:for="{{questions}}" wx:key="index" class="card" style="margin-top:{{index === 0 ? 24 : 0}}rpx;">
+    <view class="h" style="font-size:27rpx;line-height:1.5;">{{index + 1}}. {{item}}</view>
+    <textarea class="fb-input" placeholder="请输入你的想法…" value="{{answers[index]}}"
+      data-i="{{index}}" bindinput="onInput"
+      auto-height maxlength="500" show-confirm-bar="{{false}}" cursor-spacing="20"></textarea>
+  </view>
+
+  <button class="btn" style="margin-top:28rpx;" bindtap="onSubmit" disabled="{{submitting}}">
+    提交反馈，完成访谈
+  </button>
+</view>

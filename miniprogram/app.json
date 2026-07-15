@@ -9,6 +9,7 @@
     "pages/review/review",
     "pages/interviewList/interviewList",
     "pages/interview/interview",
+    "pages/feedback/feedback",
     "pages/done/done"
   ],
   "window": {

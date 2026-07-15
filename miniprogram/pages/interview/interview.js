@@ -349,7 +349,12 @@ Page({
 
   onBack() {
     if (this.data.allDone) {
-      wx.redirectTo({ url: '/pages/done/done?sid=' + this.data.sid });
+      // 三题全部访谈完成:先进反馈页收集 3 个问题,已提交过则直接到完成页
+      const s = store.getSession(this.data.sid);
+      const fbDone = !!(s && s.interviewFeedback && s.interviewFeedback.submittedAt);
+      wx.redirectTo({
+        url: (fbDone ? '/pages/done/done?sid=' : '/pages/feedback/feedback?sid=') + this.data.sid
+      });
     } else {
       wx.navigateBack();
     }
