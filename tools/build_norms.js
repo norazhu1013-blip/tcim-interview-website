@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const advisor = require('./advisor_port.js');
 
-const DATA_DIR = path.join(__dirname, '..', 'DOC', '计算情境选择最终方案(1)', '计算情境选择最终方案', '模拟数据_45位教师');
+const DATA_DIR = path.join(__dirname, '..', 'DOC', '计算情境选择最终方案(1)', '计算情境选择最终方案', '模拟数据_45位教师_mp题序');
 const OUT = path.join(__dirname, 'advisor_norms.js');
 
 // 与 verify_align 相同的极简 CSV 解析
@@ -61,7 +61,8 @@ function main() {
     'oscillation_count'
   ];
 
-  const norms = { version: '2026-07-08-45sim', cohortSize: results.length, generatedAt: '2026-07-08', Q: {} };
+  // 2026-07-15 恒等题号迁移:Q 键改为 mp/小程序题号(与 advisor_port 恒等)。version 必须 bump,否则老 session 缓存不刷新。
+  const norms = { version: '2026-07-15-45sim-mporder', cohortSize: results.length, generatedAt: '2026-07-15', Q: {} };
   for (let q = 1; q <= 10; q++) {
     const rows = out.pDetail.filter((r) => r.questionIndex === q);
     if (rows.length !== results.length) {
@@ -78,7 +79,7 @@ function main() {
 
   const src = `// 自动生成于 ${new Date().toISOString().slice(0, 10)} —— 请勿手改。
 // 常模来源:DOC 45 位模拟教师(冷启动版本);后续换真实数据后重跑 tools/build_norms.js。
-// 结构:Q[pyQuestionIndex][metric] = [升序数值数组, null 排末尾]
+// 结构:Q[mpQuestionIndex][metric] = [升序数值数组, null 排末尾]（2026-07-15 起题号=小程序恒等题号）
 // 消费方:advisor_port.js 的 addPScores(rows, norms);云函数 gsyg_selectFinal 引用本文件。
 'use strict';
 module.exports = ${JSON.stringify(norms, null, 2)};

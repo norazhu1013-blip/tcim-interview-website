@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const advisor = require('./advisor_port.js');
 
-const DATA_DIR = path.join(__dirname, '..', 'DOC', '计算情境选择最终方案(1)', '计算情境选择最终方案', '模拟数据_45位教师');
+const DATA_DIR = path.join(__dirname, '..', 'DOC', '计算情境选择最终方案(1)', '计算情境选择最终方案', '模拟数据_45位教师_mp题序');
 const REF_DIR = path.join(__dirname, 'advisor_ref_output', 'legacy_csv');
 const RESULTS_CSV = path.join(DATA_DIR, 'exam_results_45teachers.csv');
 const LOG_CSV = path.join(DATA_DIR, '操作日志_result_45teachers.csv');

@@ -18,7 +18,9 @@ const advisor = require('./advisor_port.js');
 const norms = require('./advisor_norms.js');
 
 // 与云函数 index.js 里的翻译逻辑严格一致——从 index.js 拷贝,不 require(避免拉 wx-server-sdk)。
-const MP_TO_PY = { 1: 1, 2: 4, 3: 6, 4: 2, 5: 5, 6: 3, 7: 9, 8: 10, 9: 7, 10: 8 };
+// 2026-07-15 恒等题号:gsyg_selectFinal 的 MP_TO_PY 翻译层已移除,内部题号 == 小程序题号。
+// 这里保留恒等映射(而非删除变量)以最小化本对拍脚本结构改动;数据/参考已同步为 mp 题序。
+const MP_TO_PY = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10 };
 const PY_TO_MP = MP_TO_PY;
 const LETTER = ['A', 'B', 'C', 'D'];
 
@@ -64,7 +66,7 @@ function buildAdvisorInput(session) {
 
 /* ---------- 读 Python 参考数据 → 反向构造 mp session ---------- */
 
-const DATA_DIR = path.join(__dirname, '..', 'DOC', '计算情境选择最终方案(1)', '计算情境选择最终方案', '模拟数据_45位教师');
+const DATA_DIR = path.join(__dirname, '..', 'DOC', '计算情境选择最终方案(1)', '计算情境选择最终方案', '模拟数据_45位教师_mp题序');
 const REF_DIR = path.join(__dirname, 'advisor_ref_output', 'legacy_csv');
 
 function parseCsv(t) {

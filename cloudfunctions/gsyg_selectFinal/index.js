@@ -31,14 +31,12 @@ const SESSIONS = 'gsyg_sessions';
 // v1.2: 每题预生成完整 task_card 并挂到 selection.final[i].task_card。老 session 强制重跑。
 const ALGO_VERSION = 'advisor_v1.2';
 
-// mp 题号 <-> Python 题号(见 CLAUDE.md 情境映射;此映射是自对合,双向同表)。
-const MP_TO_PY = { 1: 1, 2: 4, 3: 6, 4: 2, 5: 5, 6: 3, 7: 9, 8: 10, 9: 7, 10: 8 };
-const PY_TO_MP = MP_TO_PY;
-
+// 2026-07-15 恒等题号:advisor_port 内部题号已重排为「与小程序一致」(见 tools/advisor_port.js 头注),
+// MP_TO_PY 翻译层已移除。mp session 直接喂 advisor,输出题号即小程序题号。
 const LETTER = ['A', 'B', 'C', 'D'];
 function letterToIdx(l) { return LETTER.indexOf(l); }
 function mpIdToNum(id) { return parseInt(String(id).replace(/^Q/i, ''), 10); }
-function mpQ(pyQ) { return 'Q' + PY_TO_MP[pyQ]; }
+function mpQ(qNum) { return 'Q' + qNum; }
 
 /* ---------- 把 mp session 的 answers/埋点合成 advisor.calculate 的入参 ---------- */
 
@@ -86,27 +84,27 @@ function buildAdvisorInput(session) {
       missing.push(mpItemId);
       continue;
     }
-    const pyQ = MP_TO_PY[mpNum];
-    // final_ranking (['A','C','D','B']) -> [0,2,3,1]
-    outAnswers[String(pyQ - 1)] = a.final_ranking.map(letterToIdx);
+    // 恒等题号:advisor 内部题号 == 小程序题号,直接用 mpNum,无需翻译。
+    // final_ranking (['A','C','D','B']) -> [0,2,3,1];answers 键为题号-1(0-based)。
+    outAnswers[String(mpNum - 1)] = a.final_ranking.map(letterToIdx);
 
     // 合成日志:enter + 逐条 change_sorting_option + leave
     const enterTs = Number(a.enter_ts) || 0;
     const submitTs = Number(a.submit_ts) || (enterTs + (Number(a.duration_ms) || 0));
     syntheticLogs.push({
-      userOpenid: openid, questionIndex: String(pyQ),
+      userOpenid: openid, questionIndex: String(mpNum),
       timestamp: String(enterTs), action: 'enter_question'
     });
     const drags = replayTrajectory(a.first_ranking, a.move_log);
     for (const d of drags) {
       syntheticLogs.push({
-        userOpenid: openid, questionIndex: String(pyQ),
+        userOpenid: openid, questionIndex: String(mpNum),
         timestamp: String(d.ts), action: 'change_sorting_option',
         previousValue: d.previousValue, currentValue: d.currentValue, answer: d.answer
       });
     }
     syntheticLogs.push({
-      userOpenid: openid, questionIndex: String(pyQ),
+      userOpenid: openid, questionIndex: String(mpNum),
       timestamp: String(submitTs), action: 'leave_question'
     });
   }
