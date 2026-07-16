@@ -1,10 +1,12 @@
-// 云函数 gsyg_exportData —— 管理员导出三张表全量为 JSON，写云存储，返回下载链接
+// 云函数 gsyg_exportData —— 管理员导出原始 JSON 或研究整理版 Excel
 // 认证：调用者的 gsyg_teachers 记录 isAdmin=true。非管理员 return { ok:false, error:'forbidden' }
 // event（可选）:
 //   collections: ["teachers","sessions","interviews"]  不传则三张全导
 //   since: 时间戳 ms  只导 updatedAt >= since 的增量（默认全量）
-// 返回：{ ok, fileID, downloadURL, expireAt, count:{teachers,sessions,interviews} }
+//   format: "json" | "xlsx"  默认 json；xlsx 为研究者可阅读的多工作表整理版
+// 返回：{ ok, format, fileID, downloadURL, expireAt, count:{teachers,sessions,interviews} }
 const cloud = require('wx-server-sdk');
+const { buildWorkbookBuffer } = require('./workbook');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
@@ -49,6 +51,7 @@ function stamp() {
 }
 
 exports.main = async (event) => {
+  event = event || {};
   const { OPENID } = cloud.getWXContext();
 
   // 认证
@@ -58,6 +61,7 @@ exports.main = async (event) => {
 
   const which = Array.isArray(event.collections) && event.collections.length ? event.collections : ['teachers', 'sessions', 'interviews'];
   const since = event.since ? Number(event.since) : null;
+  const format = event.format === 'xlsx' ? 'xlsx' : 'json';
 
   try {
     const bundle = { exportedAt: Date.now(), since: since, operator: OPENID, data: {} };
@@ -117,9 +121,13 @@ exports.main = async (event) => {
     }
     bundle.stats = stats;
 
-    // 写云存储
-    const cloudPath = 'gsyg-exports/' + stamp() + (since ? '-since' + since : '-full') + '.json';
-    const buf = Buffer.from(JSON.stringify(bundle));
+    // 原始 JSON 负责完整备份；整理版 Excel 负责研究阅读与分析。
+    // JSON 使用缩进格式，便于必要时人工查看；Excel 不包含 openid/_id/wxCode 等运行字段。
+    const suffix = since ? '-since' + since : (format === 'xlsx' ? '-readable' : '-full');
+    const cloudPath = 'gsyg-exports/' + stamp() + suffix + '.' + format;
+    const buf = format === 'xlsx'
+      ? await buildWorkbookBuffer(bundle)
+      : Buffer.from(JSON.stringify(bundle, null, 2));
     const up = await cloud.uploadFile({ cloudPath: cloudPath, fileContent: buf });
     const fileID = up.fileID;
 
@@ -130,12 +138,13 @@ exports.main = async (event) => {
 
     return {
       ok: true,
+      format: format,
       fileID: fileID,
       downloadURL: downloadURL,
       cloudPath: cloudPath,
       bytes: buf.length,
       count: count,
-      stats: stats, // 例如 { sessions: { selected_advisor_v1, missing_selection, other_algo } }
+      stats: stats,
       expireAt: Date.now() + 2 * 3600 * 1000, // 名义 2 小时，具体以 downloadURL 为准
       exportedAt: bundle.exportedAt
     };

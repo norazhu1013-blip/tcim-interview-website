@@ -256,3 +256,9 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
     - `gsyg_selectFinal/index.js`:删除 `MP_TO_PY/PY_TO_MP`,`buildAdvisorInput` 直接用 mpNum,`mpQ` 恒等;`ALGO_VERSION` 不变(靠 normsVersion 触发一次重算)。`verify_cf_pipeline.js` 映射改恒等;三份对拍(verify_align/norms_mode/cf_pipeline)对**新参考** 45/45·0 diff。
     - **行为差异(须知)**:与迁移前(旧 py 题号 + MP_TO_PY)相比,45 位模拟教师中 **43/45 最终 3 题完全一致,2 位**(sim_009、sim_043)因 R/P/G 排序中「同值并列按题号断」的 tie-break 在重排后断法不同而选出不同情境。这是**采用研究团队新程序 tie-break 的预期结果、非缺陷**(旧 mp 链路此前并非与新程序完全等价,正是这 2 例;迁移后 mp 与新程序逐位一致)。差异记录见 `tools/verify_migration_equivalence.js`。
     - **部署**:`node tools/sync_cf.js` → 重传 `gsyg_selectFinal`(advisor_port + advisor_norms 新版,normsVersion 变化会让老 session 自动重跑一次遴选;结果对 43/45 不变、2 例按新程序更新)。mp 前端无需改。
+- **2026-07-16 管理员导出增加研究整理版 Excel**:
+  - **双格式并存**:`gsyg_exportData` 新增 `event.format="xlsx"|"json"`。`json` 继续保存 teachers/sessions/interviews/task_card_index 全量原始字段,并改为带缩进的可读 JSON；`xlsx` 用 `exceljs` 生成研究整理版,不替代原始备份。
+  - **Excel 九表**:导出说明 / 教师信息 / 测验访谈汇总 / 作答明细 / 情境筛选 / 访谈逐字稿 / 访谈编码 / 访谈任务卡 / 访谈反馈。保留教师姓名、园所、教龄和当次历史姓名,另给 T001…教师编号用于跨表关联；整理版不放 openid/_id/wxCode,这些运行字段仍在原始 JSON。
+  - **历史数据兼容**:selection 无 algo 的旧 session 仍进入“情境筛选”,标为“历史版本/未标记”；没有完整 task_card 的记录不伪造任务卡；pending 情境在逐字稿/编码表中显式保留；同一 openid 曾修改姓名时,“教师信息”列出当前姓名与历史姓名。
+  - **管理员界面**:`我的 → 管理员` 分为“导出整理版 Excel”和“导出原始 JSON”两个入口,下载链接仍复制到剪贴板、有效期约 2 小时。
+  - **验证/部署**:`npm install` 安装 `gsyg_exportData` 依赖后,运行 `node tools/verify_export_workbook.js <full.json> [output.xlsx]` 回读校验九张表和各明细行数；上线需重新部署 `gsyg_exportData`（选择云端安装依赖）并重新编译小程序。

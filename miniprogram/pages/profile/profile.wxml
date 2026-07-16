@@ -25,9 +25,13 @@
   <block wx:if="{{isAdmin}}">
     <view class="sect">管理员</view>
     <view class="card form-card">
-      <view class="li" bindtap="onExport" hover-class="li-hover">
-        <text class="t">导出全部数据</text>
-        <text class="fld muted">JSON · 复制下载链接 ›</text>
+      <view class="li" bindtap="onExportExcel" hover-class="li-hover">
+        <text class="t">导出整理版 Excel</text>
+        <text class="fld muted">分工作表整理 · 保留姓名 ›</text>
+      </view>
+      <view class="li" bindtap="onExportJson" hover-class="li-hover">
+        <text class="t">导出原始 JSON</text>
+        <text class="fld muted">完整备份 · 保留全部字段 ›</text>
       </view>
     </view>
   </block>

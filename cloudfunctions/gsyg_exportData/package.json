@@ -1,9 +1,13 @@
 {
   "name": "gsyg_exportData",
-  "version": "1.0.0",
-  "description": "管理员导出三张表 → 云存储 JSON → 返回下载链接",
+  "version": "1.1.0",
+  "description": "管理员导出原始 JSON 或研究整理版 Excel",
   "main": "index.js",
   "dependencies": {
+    "exceljs": "4.4.0",
     "wx-server-sdk": "latest"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
   }
 }

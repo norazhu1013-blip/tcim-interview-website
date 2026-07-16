@@ -39,12 +39,26 @@ Page({
     });
   },
 
+  onExportExcel() {
+    this._runExport('xlsx');
+  },
+
+  onExportJson() {
+    this._runExport('json');
+  },
+
+  // 兼容旧模板可能残留的 bindtap="onExport"，默认导出更适合研究阅读的 Excel。
   onExport() {
+    this.onExportExcel();
+  },
+
+  _runExport(format) {
     if (!this.data.isAdmin) return;
     if (this._exporting) return;
     this._exporting = true;
-    wx.showLoading({ title: '导出中…', mask: true });
-    api.exportData({}).then((r) => {
+    const isExcel = format === 'xlsx';
+    wx.showLoading({ title: isExcel ? '整理表格中…' : '导出原始数据…', mask: true });
+    api.exportData({ format: format }).then((r) => {
       wx.hideLoading();
       this._exporting = false;
       if (!r || !r.ok) {
@@ -64,9 +78,10 @@ Page({
         data: url,
         success: () => {
           const kb = Math.round((r.bytes || 0) / 1024);
+          const formatLabel = (r.format || format) === 'xlsx' ? '整理版 Excel' : '原始 JSON';
           wx.showModal({
             title: '导出成功',
-            content: '下载链接已复制到剪贴板\n\n共 ' + kb + ' KB\nteachers=' + (r.count.teachers || 0) + ' / sessions=' + (r.count.sessions || 0) + ' / interviews=' + (r.count.interviews || 0) + '\n\n粘贴到浏览器打开即可下载（有效期约 2 小时）',
+            content: formatLabel + ' 的下载链接已复制到剪贴板\n\n共 ' + kb + ' KB\n教师记录=' + (r.count.teachers || 0) + ' / 测验记录=' + (r.count.sessions || 0) + ' / 访谈记录=' + (r.count.interviews || 0) + '\n\n粘贴到浏览器打开即可下载（有效期约 2 小时）',
             showCancel: false
           });
         }
