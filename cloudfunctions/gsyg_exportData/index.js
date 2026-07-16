@@ -3,7 +3,7 @@
 // event（可选）:
 //   collections: ["teachers","sessions","interviews"]  不传则三张全导
 //   since: 时间戳 ms  只导 updatedAt >= since 的增量（默认全量）
-//   format: "json" | "xlsx"  默认 json；xlsx 为研究者可阅读的多工作表整理版
+//   format: "json" | "xlsx"  默认 xlsx；旧版小程序不传 format 时也直接得到整理版 Excel
 // 返回：{ ok, format, fileID, downloadURL, expireAt, count:{teachers,sessions,interviews} }
 const cloud = require('wx-server-sdk');
 const { buildWorkbookBuffer } = require('./workbook');
@@ -61,7 +61,10 @@ exports.main = async (event) => {
 
   const which = Array.isArray(event.collections) && event.collections.length ? event.collections : ['teachers', 'sessions', 'interviews'];
   const since = event.since ? Number(event.since) : null;
-  const format = event.format === 'xlsx' ? 'xlsx' : 'json';
+  // 向后兼容已发布的旧版小程序：旧页面调用 exportData({})，没有 format。
+  // 缺省时返回研究者更容易使用的 Excel；只有明确传 json 才导出原始 JSON。
+  // 两种格式都只是读取数据库并新建带时间戳的文件，不会修改数据或覆盖既有导出。
+  const format = event.format === 'json' ? 'json' : 'xlsx';
 
   try {
     const bundle = { exportedAt: Date.now(), since: since, operator: OPENID, data: {} };

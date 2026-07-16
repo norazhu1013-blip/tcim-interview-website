@@ -259,6 +259,7 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
     - **部署**:`node tools/sync_cf.js` → 重传 `gsyg_selectFinal`(advisor_port + advisor_norms 新版,normsVersion 变化会让老 session 自动重跑一次遴选;结果对 43/45 不变、2 例按新程序更新)。mp 前端无需改。
 - **2026-07-16 管理员导出增加研究整理版 Excel**:
   - **双格式并存**:`gsyg_exportData` 新增 `event.format="xlsx"|"json"`。`json` 继续保存 teachers/sessions/interviews/task_card_index 全量原始字段,并改为带缩进的可读 JSON；`xlsx` 用 `exceljs` 生成研究整理版,不替代原始备份。
+  - **旧版小程序兼容**:云函数缺省格式改为 `xlsx`——已发布的旧页面调用 `exportData({})`、不传 `format` 时，现有“导出全部数据”入口会直接生成 Excel，因此此项可只重部署 `gsyg_exportData`、不更新小程序版本。只有明确传 `format:"json"` 时才生成原始 JSON；两种导出均只读数据库并按时间戳创建新文件，不覆盖历史 JSON 或业务数据。旧页面辅助文字仍可能显示 JSON，待以后正常发版时再由新版双入口纠正。
   - **Excel 九表**:导出说明 / 教师信息 / 测验访谈汇总 / 作答明细 / 情境筛选 / 访谈逐字稿 / 访谈编码 / 访谈任务卡 / 访谈反馈。保留教师姓名、园所、教龄和当次历史姓名,另给 T001…教师编号用于跨表关联；整理版不放 openid/_id/wxCode,这些运行字段仍在原始 JSON。
   - **历史数据兼容**:selection 无 algo 的旧 session 仍进入“情境筛选”,标为“历史版本/未标记”；没有完整 task_card 的记录不伪造任务卡；pending 情境在逐字稿/编码表中显式保留；同一 openid 曾修改姓名时,“教师信息”列出当前姓名与历史姓名。
   - **管理员界面**:`我的 → 管理员` 分为“导出整理版 Excel”和“导出原始 JSON”两个入口,下载链接仍复制到剪贴板、有效期约 2 小时。
