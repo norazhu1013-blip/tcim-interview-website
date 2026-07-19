@@ -74,7 +74,7 @@
 .msg .bub {
   background: #fff; border: 1rpx solid var(--line);
   border-radius: 6rpx 22rpx 22rpx 22rpx;
-  padding: 18rpx 22rpx; font-size: 26rpx; line-height: 1.55;
+  padding: 18rpx 22rpx; font-size: 28rpx; line-height: 1.55;
   max-width: 480rpx;
 }
 .msg.me { flex-direction: row-reverse; }
