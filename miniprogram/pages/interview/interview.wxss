@@ -97,6 +97,4 @@
   max-height: 200rpx;
   background: #fff;
 }
-.send { flex: 0 0 120rpx; }
-.fs-btn { flex: 0 0 120rpx; }
-.rv-time { text-align: center; margin-top: 12rpx; }
+.send { flex: 0 0 120rpx; }.rv-time { text-align: center; margin-top: 12rpx; }

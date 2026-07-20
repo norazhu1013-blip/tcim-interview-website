@@ -41,7 +41,6 @@
 
 <!-- 输入区（回看模式隐藏） -->
 <view wx:if="{{!isReview && !done}}" class="foot iv-foot" style="bottom:{{kbHeight}}px;">
-  <button class="btn sm fs-btn" bindtap="onToggleFont">{{fsLabel}}</button>
   <textarea class="iv-input" style="font-size:{{inputSize}}rpx;" placeholder="说说你的想法…" value="{{input}}"
     bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur"
     bindkeyboardheightchange="onKbHeightChange"
