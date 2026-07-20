@@ -55,6 +55,36 @@ Page({
     this.applyFontScale(next);
   },
 
+  // 两指缩放:touchstart 记初始双指距离与当前字号,touchmove 按比例更新
+  _pinch: null,
+  onBodyTouchStart(e) {
+    const ts = e.touches || [];
+    if (ts.length !== 2) { this._pinch = null; return; }
+    const dx = ts[0].clientX - ts[1].clientX;
+    const dy = ts[0].clientY - ts[1].clientY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    this._pinch = { dist, bub: this.data.bubSize, input: this.data.inputSize };
+  },
+  onBodyTouchMove(e) {
+    const ts = e.touches || [];
+    if (ts.length !== 2 || !this._pinch) return;
+    const dx = ts[0].clientX - ts[1].clientX;
+    const dy = ts[0].clientY - ts[1].clientY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (!this._pinch.dist) return;
+    const ratio = dist / this._pinch.dist;
+    const bub = Math.max(24, Math.min(60, Math.round(this._pinch.bub * ratio)));
+    const input = Math.max(22, Math.min(52, Math.round(this._pinch.input * ratio)));
+    if (bub !== this.data.bubSize || input !== this.data.inputSize) {
+      this.setData({ bubSize: bub, inputSize: input });
+    }
+  },
+  onBodyTouchEnd() {
+    if (!this._pinch) return;
+    this._pinch = null;
+    try { wx.setStorageSync('iv_font_custom', { bub: this.data.bubSize, input: this.data.inputSize }); } catch (e) {}
+  },
+
   initNavBar() {
     let info = {};
     try { info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync(); } catch (e) {}
@@ -96,6 +126,10 @@ Page({
     try {
       const saved = wx.getStorageSync('iv_font_scale');
       if (typeof saved === 'number' && saved >= 0 && saved < this.FS_LEVELS.length) this.applyFontScale(saved);
+      const custom = wx.getStorageSync('iv_font_custom');
+      if (custom && custom.bub && custom.input) {
+        this.setData({ bubSize: custom.bub, inputSize: custom.input });
+      }
     } catch (e) {}
     // 访谈会调用云端 AI 追问，必须先登录；未登录 → 弹窗 + 回上一页
     if (!store.requireLoginWithPrompt('AI 访谈前请先在「我的」填写姓名、园所、教龄')) {
