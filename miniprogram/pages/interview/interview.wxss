@@ -61,7 +61,7 @@
   left: 0; right: 0;
   top: 90rpx;
   bottom: 130rpx;
-  padding: 32rpx 16rpx 32rpx 32rpx;
+  padding: 32rpx 8rpx 32rpx 32rpx;
 }
 
 .msg { display: flex; gap: 16rpx; margin: 20rpx 0 40rpx; }
@@ -75,7 +75,7 @@
   background: #fff; border: 1rpx solid var(--line);
   border-radius: 6rpx 22rpx 22rpx 22rpx;
   padding: 18rpx 22rpx; font-size: 28rpx; line-height: 1.55;
-  max-width: 480rpx;
+  max-width: 600rpx;
 }
 .msg.me { flex-direction: row-reverse; }
 .msg.me .av { background: #c8cdd8; }
