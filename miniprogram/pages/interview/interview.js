@@ -32,16 +32,16 @@ Page({
     kbHeight: 0,
     // 字体大小档位:0=小/1=中/2=大;影响气泡与输入框
     fsLevel: 0,
-    fsLabel: 'A默认',
+    fsLabel: 'Aa',
     bubSize: 28,
     inputSize: 25
   },
 
   FS_LEVELS: [
-    { label: 'A默认', bub: 28, input: 25 },
-    { label: 'A大', bub: 34, input: 30 },
-    { label: 'A更大', bub: 40, input: 35 },
-    { label: 'A超大', bub: 46, input: 40 }
+    { label: 'Aa', bub: 28, input: 25 },
+    { label: 'Aa', bub: 34, input: 30 },
+    { label: 'Aa', bub: 40, input: 35 },
+    { label: 'Aa', bub: 46, input: 40 }
   ],
 
   applyFontScale(level) {
