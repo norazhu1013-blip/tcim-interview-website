@@ -34,7 +34,11 @@ Page({
     fsLevel: 0,
     fsLabel: 'Aa',
     bubSize: 28,
-    inputSize: 25
+    inputSize: 25,
+    topTitleSize: 27,
+    stemSize: 28,
+    rankBSize: 22,
+    rankXSize: 23
   },
 
   FS_LEVELS: [
@@ -44,9 +48,21 @@ Page({
     { label: 'Aa', bub: 46, input: 40 }
   ],
 
+  computeDerived(bub) {
+    const r = bub / 28; // 基准 28rpx = 1.0
+    return {
+      topTitleSize: Math.round(27 * r),
+      stemSize: Math.round(28 * r),
+      rankBSize: Math.round(22 * r),
+      rankXSize: Math.round(23 * r)
+    };
+  },
+
   applyFontScale(level) {
     const lv = this.FS_LEVELS[level] || this.FS_LEVELS[0];
-    this.setData({ fsLevel: level, fsLabel: lv.label, bubSize: lv.bub, inputSize: lv.input });
+    this.setData(Object.assign({
+      fsLevel: level, fsLabel: lv.label, bubSize: lv.bub, inputSize: lv.input
+    }, this.computeDerived(lv.bub)));
   },
 
   onToggleFont() {
@@ -76,7 +92,7 @@ Page({
     const bub = Math.max(24, Math.min(60, Math.round(this._pinch.bub * ratio)));
     const input = Math.max(22, Math.min(52, Math.round(this._pinch.input * ratio)));
     if (bub !== this.data.bubSize || input !== this.data.inputSize) {
-      this.setData({ bubSize: bub, inputSize: input });
+      this.setData(Object.assign({ bubSize: bub, inputSize: input }, this.computeDerived(bub)));
     }
   },
   onBodyTouchEnd() {
@@ -128,7 +144,7 @@ Page({
       if (typeof saved === 'number' && saved >= 0 && saved < this.FS_LEVELS.length) this.applyFontScale(saved);
       const custom = wx.getStorageSync('iv_font_custom');
       if (custom && custom.bub && custom.input) {
-        this.setData({ bubSize: custom.bub, inputSize: custom.input });
+        this.setData(Object.assign({ bubSize: custom.bub, inputSize: custom.input }, this.computeDerived(custom.bub)));
       }
     } catch (e) {}
     // 访谈会调用云端 AI 追问，必须先登录；未登录 → 弹窗 + 回上一页

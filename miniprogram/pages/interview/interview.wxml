@@ -7,7 +7,7 @@
 </view>
 
 <view class="iv-top" style="top:{{navBarH}}px;">
-  <text class="h" style="font-size:27rpx;">{{q.title}}</text>
+  <text class="h" style="font-size:{{topTitleSize}}rpx;">{{q.title}}</text>
   <text wx:if="{{!isReview}}" class="timer {{timeLow ? 'low' : ''}}" style="margin-left:auto;">{{countdown}}</text>
   <text wx:else class="muted" style="margin-left:auto;">回看</text>
 </view>
@@ -16,11 +16,11 @@
   <!-- 案例卡：完整案例 + 四选项 + 本人排序 -->
   <view class="card" id="case">
     <view class="muted" style="color:var(--pri);font-weight:600;">情境 · {{q.title}}</view>
-    <view class="t ink" style="margin-top:8rpx;">{{q.stem}}</view>
+    <view class="t ink" style="margin-top:8rpx;font-size:{{stemSize}}rpx;">{{q.stem}}</view>
     <view class="muted" style="margin:12rpx 0 6rpx;">你的排序（最理想 → 最不理想）</view>
     <view wx:for="{{rankRows}}" wx:key="opt" class="opt iv-rank">
-      <view class="b">{{item.opt}}</view>
-      <view class="x">{{item.text}}</view>
+      <view class="b" style="font-size:{{rankBSize}}rpx;">{{item.opt}}</view>
+      <view class="x" style="font-size:{{rankXSize}}rpx;">{{item.text}}</view>
     </view>
   </view>
 
