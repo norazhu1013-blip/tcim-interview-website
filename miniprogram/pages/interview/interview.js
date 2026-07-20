@@ -33,28 +33,28 @@ Page({
     // 字体大小档位:0=小/1=中/2=大;影响气泡与输入框
     fsLevel: 0,
     fsLabel: 'Aa',
-    bubSize: 28,
-    inputSize: 25,
-    topTitleSize: 27,
-    stemSize: 28,
-    rankBSize: 22,
-    rankXSize: 23
+    bubSize: 34,
+    inputSize: 30,
+    topTitleSize: 33,
+    stemSize: 34,
+    rankBSize: 27,
+    rankXSize: 28
   },
 
   FS_LEVELS: [
-    { label: 'Aa', bub: 28, input: 25 },
     { label: 'Aa', bub: 34, input: 30 },
     { label: 'Aa', bub: 40, input: 35 },
-    { label: 'Aa', bub: 46, input: 40 }
+    { label: 'Aa', bub: 46, input: 40 },
+    { label: 'Aa', bub: 52, input: 44 }
   ],
 
   computeDerived(bub) {
-    const r = bub / 28; // 基准 28rpx = 1.0
+    const r = bub / 34; // 基准 34rpx = 1.0(默认档)
     return {
-      topTitleSize: Math.round(27 * r),
-      stemSize: Math.round(28 * r),
-      rankBSize: Math.round(22 * r),
-      rankXSize: Math.round(23 * r)
+      topTitleSize: Math.round(33 * r),
+      stemSize: Math.round(34 * r),
+      rankBSize: Math.round(27 * r),
+      rankXSize: Math.round(28 * r)
     };
   },
 
