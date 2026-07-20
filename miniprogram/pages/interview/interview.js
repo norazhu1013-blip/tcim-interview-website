@@ -29,7 +29,29 @@ Page({
     bodyTop: 109,
     // 键盘高度补偿(px)——跨机型统一处理键盘遮挡:关闭 textarea 的 adjust-position,
     // 用 bindkeyboardheightchange 拿真实键盘高度,主动把 .iv-foot 和 .iv-body 底部上顶。
-    kbHeight: 0
+    kbHeight: 0,
+    // 字体大小档位:0=小/1=中/2=大;影响气泡与输入框
+    fsLevel: 1,
+    fsLabel: 'A中',
+    bubSize: 28,
+    inputSize: 25
+  },
+
+  FS_LEVELS: [
+    { label: 'A小', bub: 24, input: 22 },
+    { label: 'A中', bub: 28, input: 25 },
+    { label: 'A大', bub: 34, input: 30 }
+  ],
+
+  applyFontScale(level) {
+    const lv = this.FS_LEVELS[level] || this.FS_LEVELS[1];
+    this.setData({ fsLevel: level, fsLabel: lv.label, bubSize: lv.bub, inputSize: lv.input });
+  },
+
+  onToggleFont() {
+    const next = (this.data.fsLevel + 1) % 3;
+    try { wx.setStorageSync('iv_font_scale', next); } catch (e) {}
+    this.applyFontScale(next);
   },
 
   initNavBar() {
@@ -70,6 +92,10 @@ Page({
 
   onLoad(query) {
     this.initNavBar();
+    try {
+      const saved = wx.getStorageSync('iv_font_scale');
+      if (saved === 0 || saved === 1 || saved === 2) this.applyFontScale(saved);
+    } catch (e) {}
     // 访谈会调用云端 AI 追问，必须先登录；未登录 → 弹窗 + 回上一页
     if (!store.requireLoginWithPrompt('AI 访谈前请先在「我的」填写姓名、园所、教龄')) {
       setTimeout(() => wx.navigateBack(), 300);
