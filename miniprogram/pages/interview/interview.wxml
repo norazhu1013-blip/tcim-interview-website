@@ -1,9 +1,15 @@
 <!-- 自绘导航栏：无系统返回键，退出走此处「退出」 -->
 <view class="navbar" style="height:{{navBarH}}px;padding-top:{{statusBarHeight}}px;">
   <view class="nav-content" style="height:{{navContentH}}px;">
+  <view class="nav-left">
     <view wx:if="{{isReview}}" class="nav-exit" bindtap="onExit">返回</view>
-    <view class="nav-title">AI 访谈</view>
+    <view class="zoom-ctrl" style="height:{{capH}}px;border-radius:{{capR}}px;">
+      <view class="zbtn" style="width:{{capW}}px;height:{{capH}}px;" bindtap="onZoomOut">🔍−</view>
+      <view class="zbtn" style="width:{{capW}}px;height:{{capH}}px;" bindtap="onZoomIn">🔍+</view>
+    </view>
   </view>
+  <view class="nav-title">AI 访谈</view>
+</view>
 </view>
 
 <view class="iv-top" style="top:{{navBarH}}px;">

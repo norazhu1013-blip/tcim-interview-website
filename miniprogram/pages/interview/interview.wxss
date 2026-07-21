@@ -12,19 +12,27 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
+  padding: 0 24rpx;
 }
 .nav-title {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   font-size: 32rpx;
   font-weight: 600;
   color: var(--ink);
 }
 .nav-exit {
-  position: absolute;
-  left: 24rpx;
   font-size: 28rpx;
   color: var(--ink2);
   padding: 6rpx 8rpx;
+}
+/* 顶部左侧工具条：返回 + 缩放按钮并排显示，标题绝对居中不受影响 */
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
 }
 .iv-top {
   position: fixed;
@@ -37,6 +45,29 @@
   padding: 20rpx 32rpx;
   border-bottom: 1rpx solid var(--line);
 }
+/* 缩放按钮：仿微信胶囊样式，连体圆角+中间分隔线，尺寸由 JS 读取原生胶囊动态传入 */
+.zoom-ctrl {
+  display: flex;
+  align-items: center;
+  border: 1rpx solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.9);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.zbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  color: #000;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.zbtn + .zbtn {
+  border-left: 1rpx solid rgba(0,0,0,0.08);
+}
+.zbtn:active { background: rgba(0,0,0,0.06); }
 /* 访谈内“你的排序”选项：缩小字体 + 收紧内外边距，凸显对话 */
 .iv-rank {
   padding: 10rpx 14rpx;

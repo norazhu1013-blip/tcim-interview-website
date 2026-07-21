@@ -27,6 +27,10 @@ Page({
     navContentH: 44,
     navBarH: 64,
     bodyTop: 109,
+    // 仿原生胶囊尺寸（px）——默认与微信胶囊一致：高32 圆角16 每格宽56（容纳🔍+/🔍−）
+    capH: 32,
+    capR: 16,
+    capW: 56,
     // 键盘高度补偿(px)——跨机型统一处理键盘遮挡:关闭 textarea 的 adjust-position,
     // 用 bindkeyboardheightchange 拿真实键盘高度,主动把 .iv-foot 和 .iv-body 底部上顶。
     kbHeight: 0,
@@ -71,6 +75,20 @@ Page({
     this.applyFontScale(next);
   },
 
+  // 顶部按钮缩放：与双指缩放共用同一组上下界与持久化键（iv_font_custom）
+  // bub∈[24,60] input∈[22,52]，步长 4rpx；computeDerived 同步标题/题干/排序字号
+  _applyZoom(bub, input) {
+    if (bub === this.data.bubSize && input === this.data.inputSize) return;
+    this.setData(Object.assign({ bubSize: bub, inputSize: input }, this.computeDerived(bub)));
+    try { wx.setStorageSync('iv_font_custom', { bub, input }); } catch (e) {}
+  },
+  onZoomIn() {
+    this._applyZoom(Math.min(60, this.data.bubSize + 4), Math.min(52, this.data.inputSize + 4));
+  },
+  onZoomOut() {
+    this._applyZoom(Math.max(24, this.data.bubSize - 4), Math.max(22, this.data.inputSize - 4));
+  },
+
   // 两指缩放:touchstart 记初始双指距离与当前字号,touchmove 按比例更新
   _pinch: null,
   onBodyTouchStart(e) {
@@ -106,14 +124,20 @@ Page({
     try { info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync(); } catch (e) {}
     const statusBarHeight = info.statusBarHeight || 20;
     let navContentH = 44;
+    let capH = 32, capR = 16, capW = 56;
     try {
       const m = wx.getMenuButtonBoundingClientRect();
-      if (m && m.height) navContentH = (m.top - statusBarHeight) * 2 + m.height;
+      if (m && m.height) {
+        navContentH = (m.top - statusBarHeight) * 2 + m.height;
+        capH = m.height;
+        capR = Math.round(m.height / 2);
+        capW = Math.round(m.height * 1.75);
+      }
     } catch (e) {}
     const navBarH = statusBarHeight + navContentH;
     const sw = info.windowWidth || 375;
     const ivTopPx = Math.round((90 * sw) / 750); // iv-top 约 90rpx
-    this.setData({ statusBarHeight, navContentH, navBarH, bodyTop: navBarH + ivTopPx });
+    this.setData({ statusBarHeight, navContentH, navBarH, bodyTop: navBarH + ivTopPx, capH, capR, capW });
   },
 
   onExit() {
