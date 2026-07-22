@@ -265,3 +265,4 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **历史数据兼容**:selection 无 algo 的旧 session 仍进入“情境筛选”,标为“历史版本/未标记”；没有完整 task_card 的记录不伪造任务卡；pending 情境在逐字稿/编码表中显式保留；同一 openid 曾修改姓名时,“教师信息”列出当前姓名与历史姓名。
   - **管理员界面**:`我的 → 管理员` 分为“导出整理版 Excel”和“导出原始 JSON”两个入口,下载链接仍复制到剪贴板、有效期约 2 小时。
   - **验证/部署**:`npm install` 安装 `gsyg_exportData` 依赖后,运行 `node tools/verify_export_workbook.js <full.json> [output.xlsx]` 回读校验九张表和各明细行数；上线需重新部署 `gsyg_exportData`（选择云端安装依赖）并重新编译小程序。
+- **2026-07-22 AI 访谈页生成内容提示**:访谈进行中的底部输入区、访谈完成状态及回看状态均显示「内容由AI生成，仅供参考」；`prototype.html` 与 `设计文档.md` 同步保持一致。

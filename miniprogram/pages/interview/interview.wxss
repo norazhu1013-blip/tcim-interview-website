@@ -116,7 +116,12 @@
 }
 
 .iv-foot {
-  display: flex; align-items: flex-end; gap: 14rpx;
+  display: block;
+}
+.iv-compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 14rpx;
 }
 .iv-input {
   flex: 1;
@@ -128,4 +133,13 @@
   max-height: 200rpx;
   background: #fff;
 }
-.send { flex: 0 0 120rpx; }.rv-time { text-align: center; margin-top: 12rpx; }
+.send { flex: 0 0 120rpx; }
+.rv-time { text-align: center; margin-top: 12rpx; }
+.ai-disclaimer {
+  margin-top: 12rpx;
+  color: var(--ink3);
+  font-size: 22rpx;
+  line-height: 1.4;
+  text-align: center;
+}
+.iv-done-foot .ai-disclaimer { margin-top: 12rpx; }
