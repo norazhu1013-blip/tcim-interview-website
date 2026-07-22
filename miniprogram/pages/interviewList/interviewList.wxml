@@ -1,7 +1,7 @@
 <view class="bd">
   <view class="t">AI 将就以下 {{list.length}} 个情境和你聊聊，每个不超过 10 分钟，没有标准答案。内容由AI生成，仅供参考。</view>
 
-  <view wx:for="{{list}}" wx:key="id" class="card interview-card" style="margin-top:{{index === 0 ? 24 : 0}}rpx;">
+  <view wx:for="{{list}}" wx:key="id" class="card interview-card">
     <view class="row">
       <text class="h" style="font-size:28rpx;">{{item.no}} {{item.title}}</text>
       <text class="pill {{item.done ? 'on' : ''}}" style="margin-left:auto;">{{item.done ? '已完成' : '待访谈'}}</text>

@@ -1,5 +1,10 @@
 /* pages/interviewList/interviewList.wxss */
 .interview-card {
+  margin-top: 32rpx;
   padding-top: 40rpx;
   padding-bottom: 40rpx;
+}
+
+.interview-card + .interview-card {
+  margin-top: 32rpx;
 }
