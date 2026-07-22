@@ -1,1 +1,5 @@
 /* pages/interviewList/interviewList.wxss */
+.interview-card {
+  padding-top: 40rpx;
+  padding-bottom: 40rpx;
+}
