@@ -266,3 +266,9 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **管理员界面**:`我的 → 管理员` 分为“导出整理版 Excel”和“导出原始 JSON”两个入口,下载链接仍复制到剪贴板、有效期约 2 小时。
   - **验证/部署**:`npm install` 安装 `gsyg_exportData` 依赖后,运行 `node tools/verify_export_workbook.js <full.json> [output.xlsx]` 回读校验九张表和各明细行数；上线需重新部署 `gsyg_exportData`（选择云端安装依赖）并重新编译小程序。
 - **2026-07-22 AI 访谈生成内容提示与列表留白**:访谈情境列表顶部说明、访谈进行中的底部输入区、访谈完成状态及回看状态均显示「内容由AI生成，仅供参考」；访谈列表每张情境卡增加上下内边距，卡片间纵向外间距统一为 `32rpx`（移除循环内联 `margin-top:0`，避免覆盖全局相邻卡片间距）；`prototype.html` 与 `设计文档.md` 同步保持一致。
+- **2026-07-29 双端并存 · 新增网页端 `web/`**:
+  - **范围**:保留原生微信小程序 `miniprogram/` 不改动；新增 Vue 3 + Vite 的响应式教师端网页，覆盖资料、历次记录、20 分钟 10 题排序、评分/回看、服务端三题遴选、AI 访谈、反馈与完成页。管理端不在网页端重复建设。
+  - **唯一数据口径**:`miniprogram/data/` 仍是题库、赋分、指标映射、知识库的 canonical source；`web/scripts/sync-data.mjs` 在网页构建前自动同步至 `web/src/generated/data.js` 并复制情境图。`npm run verify` 必须跑小程序与网页 10×24=240 个题目排列的评分对拍；评分仍是确定性查表，AI 不参与评分。
+  - **数据字段**:网页会话沿用 `sessionId`、`answers.{Qn}.first_ranking/final_ranking/move_log/duration_ms`、`scores`、`selection`、`interview`、`interviewFeedback` 等字段，以保持过程数据、筛题与访谈口径一致。
+  - **后端安全边界(硬约束)**:现有 `gsyg_*` 事件云函数依赖小程序 `wxContext.OPENID`，**网页不可直接调用**。网页一律调用 `VITE_WEB_API_BASE_URL/call` HTTPS 网关，由网关完成网页认证、从可信会话取得 `webUserId`，再受控访问同一数据集合与确定性算法。禁止从网页 JSON 接收/信任 `openid`、`uid`；不得把 CloudBase 管理员 API Key、LLM Key 或网关密钥放进前端。小程序保留 `wx.cloud.callFunction` 原路径。跨端统一教师身份必须由服务端基于已验证手机号或统一账号绑定，不能按姓名合并。
+  - **上线前**:完成网关的登录、CSRF/CORS、ownerId 权限校验、审计与内容安全审核；仅允许已登录用户调用写入、遴选和访谈。详见 `web/README.md`。
