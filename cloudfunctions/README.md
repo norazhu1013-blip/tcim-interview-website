@@ -48,9 +48,9 @@
 
 手机号（有权限时拿到）存本地，`profile` 保存时随 `gsyg_reportTeacher` 一并上报。所有非登录页在 onShow/onLoad 用 `store.requireLogin()` 守卫，未登录即 `reLaunch` 登录页。
 
-## 网页匿名演示网关（`gsyg_webGateway`）
+## 网页微信扫码登录网关（`gsyg_webGateway`）
 
-网页端测试时可部署 `gsyg_webGateway` 为 **HTTP 云函数**。它以随机 HttpOnly Cookie 区分浏览器会话，白名单转发 profile/session/确定性三题遴选/AI 访谈；不验证手机号，因此**只能用于测试环境**，不得用于真实教师数据、跨设备记录、管理员或导出。
+网页端部署 `gsyg_webGateway` 为 **HTTP 云函数**。网页通过 CloudBase Web SDK 发起微信开放平台扫码登录；网关向 CloudBase 校验短期 access token 后签发 HttpOnly Cookie，并白名单转发 profile/session/确定性三题遴选/AI 访谈。业务请求不接受客户端提交的 `openid`、`uid` 或 access token。
 
-部署前须为网关和 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal` 配置相同的 `GSYG_WEB_GATEWAY_TOKEN`；再设置网关的 `WEB_ALLOWED_ORIGIN` 为网页站点域名。函数监听 9000，HTTP 访问路径建议为 `/gsyg-web`。完整步骤见 `gsyg_webGateway/README.md`；正式上线接入手机号验证后必须关闭该匿名入口。
+部署前，网关和 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal` 须配置相同的 `GSYG_WEB_GATEWAY_TOKEN`；网关还必须配置独立 `GSYG_WEB_SESSION_SECRET`、`WEB_CLOUDBASE_ENV_ID`、精确网页域名 `WEB_ALLOWED_ORIGIN` 及 HTTPS Cookie 参数。函数监听 9000，HTTP 访问路径建议为 `/gsyg-web`。完整控制台设置、首次账号绑定和验证步骤见 `gsyg_webGateway/README.md`。
 

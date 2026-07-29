@@ -3,6 +3,7 @@ import { computed, ref, onActivated, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ITEMS, QUESTIONS_VERSION } from '../generated/data.js'
 import { createSession, deleteSession, formatDate, getProfile, listSessions } from '../services/storage.js'
+import { requireWebLogin } from '../services/web-auth.js'
 
 const router = useRouter()
 const records = ref([])
@@ -22,12 +23,13 @@ const blockStart = computed(() => records.value.some((session) => {
   return done < planned
 }))
 
-function start() {
+async function start() {
   if (!profile.value?.name || !profile.value?.kindergarten || !profile.value?.teachingYears) {
     router.push('/profile?next=start')
     return
   }
   if (blockStart.value) return
+  if (!await requireWebLogin('#/')) return
   const session = createSession(QUESTIONS_VERSION)
   router.push(`/exam/${session.sessionId}`)
 }

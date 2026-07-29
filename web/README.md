@@ -22,39 +22,44 @@ npm run verify
 npm run build
 ```
 
-## 后端接入（上线前必做）
+## 网页微信扫码登录（正式接入）
 
-现有 `gsyg_*` 云函数由微信小程序调用，并以 `wxContext.OPENID` 作为身份。**网页不能直接调用它们。** CloudBase 对混合调用场景也明确提示：非小程序调用没有 `OPENID`，复用实例还可能遗留上一位小程序用户的环境变量，从而造成越权风险。
+网页使用 CloudBase Web SDK 发起微信开放平台网站扫码登录。扫码回调后，SDK 拿到的短期 access token 只用于换取网关的 `HttpOnly` 会话 Cookie；后续业务请求不携带可伪造的 `openid`、`uid` 或 access token。
 
-因此网页端统一调用 `VITE_WEB_API_BASE_URL/call`。该 HTTPS 网关应：
+在 `.env.production` 中配置：
 
-1. 使用网页认证（短信、账号、微信开放平台扫码或企业 SSO 任选已开通的一种）建立 HttpOnly 会话或验证 Bearer token。
-2. 从可信会话取得稳定的 `webUserId`，绝不从请求 JSON 接收 `openid` / `uid`。
-3. 将 `reportTeacher`、`reportSession`、`selectFinal`、`interviewChat`、`reportInterview` 分发给现有同一套数据集合和确定性算法；会话记录增加 `identityType: 'web'` 与 `ownerId: webUserId`，并按 ownerId 做读写校验。
-4. 保持小程序的 `openid` 记录和网页的 `webUserId` 隔离；如产品要求同一教师跨端连续使用，再通过已验证的手机号或统一账号在服务端建立绑定，不能只依赖姓名。
-5. 仅允许已登录用户访问写入、筛题与访谈接口；AI 仍由服务端调用，且保留内容安全审核和审计日志。
+```env
+VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web
+VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
+VITE_CLOUDBASE_REGION=ap-shanghai
+
+# 仅在 CloudBase 还开启了匿名登录、并要自动完成首次扫码帐号绑定时启用：
+VITE_CLOUDBASE_ENABLE_FIRST_LOGIN_BIND=true
+```
+
+登录前需要在 CloudBase 控制台启用「微信开放平台登录」，并配置微信开放平台网站应用的 AppId、AppSecret、网页域名与授权回调域。首次扫码帐号若未绑定 CloudBase 用户，CloudBase 需要先建立一个用户再绑定第三方身份；本项目可在管理员明确启用匿名登录后，使用一次性匿名帐号完成这一步绑定。详见 `cloudfunctions/gsyg_webGateway/README.md`。
+
+## 后端安全边界（上线前必做）
+
+现有 `gsyg_*` 云函数最初由微信小程序调用，并以 `wxContext.OPENID` 作为身份。**网页不能直接调用它们。** 网页统一调用 `VITE_WEB_API_BASE_URL/call` 的 HTTPS 网关；网关验证 CloudBase 登录身份、从验证结果中取得稳定 UID，再受控调用同一套数据集合和确定性算法。
 
 网关约定：
 
 ```http
 POST /call
 Content-Type: application/json
+Cookie: gsyg_web_session=<HttpOnly cookie，由浏览器自动携带>
 
 {"action":"reportSession","data":{"sessionId":"..."}}
 ```
 
 返回值沿用云函数约定：`{ "ok": true, ... }` 或 `{ "ok": false, "error": "..." }`。
 
-将 `.env.example` 复制为 `.env.production` 并填入网关地址后再构建。前端不存放 CloudBase 管理员 API Key、LLM Key 或网关共享密钥。
+部署时必须：
 
-### 临时匿名完整流程
+1. 部署 `cloudfunctions/gsyg_webGateway/` HTTP 云函数，并按其 README 配置 `GSYG_WEB_GATEWAY_TOKEN`、`GSYG_WEB_SESSION_SECRET`、CORS 与 CloudBase 环境变量。
+2. 用同一 `GSYG_WEB_GATEWAY_TOKEN` 重部署 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal`；它们会拒绝匿名演示 actor 和伪造网页 actor。
+3. 仅允许已登录教师调用资料写入、会话上报、筛题和 AI 访谈；保留内容安全审核和审计日志。
+4. 若需让教师跨小程序与网页继续同一份记录，服务端必须基于已验证手机号或统一帐号建立绑定，绝不能按姓名合并。
 
-测试阶段可以部署仓库中的 `cloudfunctions/gsyg_webGateway/`。它为浏览器签发随机 HttpOnly Cookie，支持完整的上报、确定性筛题和 AI 访谈，但**不验证身份**：清除 Cookie、换浏览器或换设备后都会成为新用户，且严禁用于正式数据采集或管理员导出。
-
-部署要求、环境变量和测试数据清理说明见 `cloudfunctions/gsyg_webGateway/README.md`。部署后将网关地址填入：
-
-```env
-VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web
-```
-
-然后重新执行 `npm run build` 并上传新的 `dist/`。
+前端不存放 CloudBase 管理员 API Key、LLM Key、网关共享密钥或会话签名密钥。

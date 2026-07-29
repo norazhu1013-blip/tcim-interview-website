@@ -11,6 +11,7 @@
     "verify": "npm run sync && node scripts/verify-parity.mjs"
   },
   "dependencies": {
+    "@cloudbase/js-sdk": "3.6.6",
     "vue": "^3.5.0",
     "vue-router": "^4.5.0"
   },

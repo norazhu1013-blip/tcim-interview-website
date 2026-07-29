@@ -272,8 +272,9 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **数据字段**:网页会话沿用 `sessionId`、`answers.{Qn}.first_ranking/final_ranking/move_log/duration_ms`、`scores`、`selection`、`interview`、`interviewFeedback` 等字段，以保持过程数据、筛题与访谈口径一致。
   - **后端安全边界(硬约束)**:现有 `gsyg_*` 事件云函数依赖小程序 `wxContext.OPENID`，**网页不可直接调用**。网页一律调用 `VITE_WEB_API_BASE_URL/call` HTTPS 网关，由网关完成网页认证、从可信会话取得 `webUserId`，再受控访问同一数据集合与确定性算法。禁止从网页 JSON 接收/信任 `openid`、`uid`；不得把 CloudBase 管理员 API Key、LLM Key 或网关密钥放进前端。小程序保留 `wx.cloud.callFunction` 原路径。跨端统一教师身份必须由服务端基于已验证手机号或统一账号绑定，不能按姓名合并。
   - **上线前**:完成网关的登录、CSRF/CORS、ownerId 权限校验、审计与内容安全审核；仅允许已登录用户调用写入、遴选和访谈。详见 `web/README.md`。
-- **2026-07-29 网页端临时匿名完整流程**:
-  - **用途边界**:用户确认先不验证身份；仅允许作为测试/演示，严禁用于正式数据采集、管理员导出或跨设备教师记录。测试中不录入真实手机号或敏感个人信息；结束后清理 `identityType="web_demo"` 数据。
-  - **实现**:`cloudfunctions/gsyg_webGateway/` 为 HTTP 云函数，签发随机 HttpOnly Cookie，并将其映射为 `web_demo:<随机值>`；仅白名单转发 profile/session/selectFinal/interviewChat/interview 五类动作。网关不接收或信任网页传入的 openid/uid，限流且按 `WEB_ALLOWED_ORIGIN` CORS 限制来源。
-  - **下游授权**:`gsyg_reportTeacher` / `gsyg_reportSession` / `gsyg_reportInterview` / `gsyg_selectFinal` 仅当 `__gsygGateway.token === GSYG_WEB_GATEWAY_TOKEN` 时接受该匿名 actor；其他调用继续沿用小程序 OPENID。所有五个函数须配置相同的强随机 `GSYG_WEB_GATEWAY_TOKEN`。session/interview 上报新增 owner 校验，不能按已知 sessionId 覆写他人记录。
-  - **部署**:HTTP 函数监听 9000，上传 `gsyg_webGateway` 并配置 `/gsyg-web`；网页 `VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web` 后重建。详见 `cloudfunctions/gsyg_webGateway/README.md`。正式上线接入手机号验证后必须移除/关闭匿名路由。
+- **2026-07-29 网页端改为 CloudBase 微信网站扫码登录**:
+  - **身份链路**:`web/src/services/web-auth.js` 用 `@cloudbase/js-sdk` 的 `wx_open` provider 生成扫码跳转地址；回调严格校验 `state`，再用 `code → provider_token → signInWithProvider` 获取短期 CloudBase access token。token 只发往网关 `/auth/session` 一次，后续业务请求只带 HMAC 签名的 HttpOnly Cookie。
+  - **首次帐号**:CloudBase provider 返回 `not_found` 时，只有管理员显式启用 CloudBase 匿名登录且网页设 `VITE_CLOUDBASE_ENABLE_FIRST_LOGIN_BIND=true` 才以一次性匿名帐号调用 `bindWithProvider` 自动绑定；绑定完成后的业务 actor 仍是正式 `web:<CloudBase UID>`，绝不接收匿名 actor。
+  - **网关**:`gsyg_webGateway` 以 `WEB_CLOUDBASE_ENV_ID/REGION` 构造（可由 `WEB_CLOUDBASE_USERINFO_URL` 覆盖）CloudBase `/auth/v1/user/me` 地址，验证 Bearer token 后签发 `gsyg_web_session`；需独立强随机 `GSYG_WEB_SESSION_SECRET`。仅白名单转发 profile/session/selectFinal/interviewChat/interview 五类动作，CORS 只允许 `WEB_ALLOWED_ORIGIN` 精确来源。
+  - **下游授权**:`gsyg_reportTeacher` / `gsyg_reportSession` / `gsyg_reportInterview` / `gsyg_selectFinal` 仅当 `__gsygGateway.token === GSYG_WEB_GATEWAY_TOKEN` 且 actor 匹配 `web:<UID>` 时接受网页调用，identityType=`web_wechat`；其他调用继续沿用小程序 OPENID。session/interview 上报按该 actor owner 校验，不能按已知 sessionId 覆写他人记录。
+  - **部署**:5 个函数均配同一 `GSYG_WEB_GATEWAY_TOKEN`，网关另配 session secret、CloudBase 环境 ID、HTTPS CORS/Cookie 参数；上传网关并绑定 `/gsyg-web`，重传四个下游函数；网页配置 `VITE_WEB_API_BASE_URL`、`VITE_CLOUDBASE_ENV_ID` 后重建。详细控制台设置在 `cloudfunctions/gsyg_webGateway/README.md`。正式跨端统一仍必须服务端绑定已验证手机号或统一帐号，不能按姓名合并；旧 `web_demo` 数据应清理。

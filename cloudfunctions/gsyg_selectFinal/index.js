@@ -197,8 +197,8 @@ function toMpSelection(advisorOut, sessionAnswers) {
 
 function resolveActor(event) {
   const gateway = event && event.__gsygGateway;
-  if (gateway && gateway.token && gateway.token === process.env.GSYG_WEB_GATEWAY_TOKEN && /^web_demo:[a-f0-9]{48}$/i.test(gateway.actor || '')) {
-    return { id: gateway.actor, identityType: 'web_demo' };
+  if (gateway && gateway.token && gateway.token === process.env.GSYG_WEB_GATEWAY_TOKEN && /^web:[A-Za-z0-9_-]{4,128}$/.test(gateway.actor || '')) {
+    return { id: gateway.actor, identityType: 'web_wechat' };
   }
   const { OPENID } = cloud.getWXContext();
   return { id: OPENID, identityType: 'wechat' };

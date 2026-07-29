@@ -1,10 +1,19 @@
-# `gsyg_webGateway`：网页匿名演示网关
+# `gsyg_webGateway`：网页微信扫码登录网关
 
-这是**测试环境专用** HTTP 云函数：它不验证手机号，而为每个浏览器签发随机 HttpOnly Cookie，并将该 Cookie 映射为 `web_demo:<随机值>`。Cookie 丢失、换浏览器或无痕模式后均视为新用户。
+这是网页端正式身份入口。浏览器通过 **CloudBase Web SDK + 微信开放平台网站扫码登录** 取得短期 CloudBase access token；该 token 只提交给本函数的 `/auth/session` 一次。本函数调用 CloudBase 的已登录用户信息接口反查 UID，再签发一个带 HMAC 的 `HttpOnly` Cookie。之后所有网页业务请求只使用 Cookie，不能从请求 JSON 伪造 `openid`、`uid` 或 CloudBase token。
 
-## 部署前环境变量
+> 原有匿名演示 Cookie 不再被接受。正式采集前应清理旧 `identityType="web_demo"` 测试数据。
 
-以下四个普通事件云函数和网关必须配置**同一个**高强度随机值：
+## CloudBase 控制台配置
+
+1. 在「身份认证 → 登录方式」开启**微信开放平台登录**，填写微信开放平台网站应用的 AppId 与 AppSecret。
+2. 在 CloudBase 环境安全配置中加入网页域名，例如 `https://app.example.com`。
+3. 在微信开放平台网站应用中，将授权回调域配置为该网页域名。网页实际回调地址是网站根地址，例如 `https://app.example.com/`；必须与 SDK 生成授权地址时使用的地址一致。
+4. 若要让**首次扫码自动创建并绑定** CloudBase 帐号，还要在 CloudBase 中开启匿名登录，并在网页构建变量中设置 `VITE_CLOUDBASE_ENABLE_FIRST_LOGIN_BIND=true`。这只用于首次绑定：绑定后本网关仍只接受 `web_wechat` 会话，不接受匿名用户请求。
+
+## 云函数环境变量
+
+以下五个函数必须配置**同一个**高强度随机值：
 
 - `gsyg_webGateway`
 - `gsyg_reportTeacher`
@@ -16,29 +25,52 @@
 GSYG_WEB_GATEWAY_TOKEN=<至少32字节随机值>
 ```
 
-网关另需：
+`gsyg_webGateway` 另需：
 
 ```text
-WEB_ALLOWED_ORIGIN=https://<网页域名>
+# 用于给 HttpOnly 网关会话签名；独立随机值，至少32字节，绝不放入前端。
+GSYG_WEB_SESSION_SECRET=<至少32字节随机值>
+
+# 与网页 VITE_CLOUDBASE_ENV_ID / VITE_CLOUDBASE_REGION 一致。
+WEB_CLOUDBASE_ENV_ID=<CloudBase环境ID>
+WEB_CLOUDBASE_REGION=ap-shanghai
+
+# 可选。未填时按上述环境 ID 自动构造：
+# https://<env>.<region>.tcb-api.tencentcloudapi.com/auth/v1/user/me
+WEB_CLOUDBASE_USERINFO_URL=
+
+WEB_ALLOWED_ORIGIN=https://app.example.com
 WEB_COOKIE_SECURE=1
 WEB_COOKIE_SAMESITE=lax
+WEB_SESSION_TTL_SECONDS=21600
 GSYG_WEB_RATE_LIMIT=36
 GSYG_WEB_RATE_WINDOW_MS=600000
 NODE_ENV=production
 ```
 
-本地静态站和 API 不在同一个站点时，把 `WEB_COOKIE_SAMESITE=none`，并保持 HTTPS。
+网页和 API 不在同一个站点且确实需要跨站 Cookie 时，设 `WEB_COOKIE_SAMESITE=none`；此时必须保持 HTTPS 和 `WEB_COOKIE_SECURE=1`。`WEB_ALLOWED_ORIGIN` 仅填写精确的网页 Origin，不要使用 `*`。
 
 ## 部署
 
 1. CloudBase 控制台 → 云函数 → 新建 **HTTP 云函数**，名称 `gsyg_webGateway`，Node.js 18+。
-2. 上传本目录，选择「云端安装依赖」；HTTP 云函数需启动 `scf_bootstrap` 并监听 9000 端口。
+2. 上传本目录并选择「云端安装依赖」。HTTP 云函数通过 `scf_bootstrap` 监听 9000 端口。
 3. 配置上述环境变量；在「HTTP 访问服务」绑定 `/gsyg-web` 路径或自定义 API 域名。
-4. 设置函数安全规则允许 HTTP 演示调用；网关本身以 `WEB_ALLOWED_ORIGIN` 做浏览器来源限制，不能把现有 `gsyg_*` 事件云函数公开给网页。
-5. 设置网页构建环境变量：`VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web`，重新构建并部署 `web/dist`。
+4. 重新上传四个受控事件云函数：`gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal`。它们现在只接受格式为 `web:<CloudBase UID>` 的、带共享网关令牌的调用。
+5. 设置网页构建变量，重新构建并部署 `web/dist`：
 
-## 限制
+```env
+VITE_WEB_API_BASE_URL=https://api.example.com/gsyg-web
+VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
+VITE_CLOUDBASE_REGION=ap-shanghai
+# 仅在已按上文开启匿名登录、要自动处理首次绑定时启用：
+VITE_CLOUDBASE_ENABLE_FIRST_LOGIN_BIND=true
+```
 
-- 不可用于正式数据采集、管理员操作、导出或教师跨设备记录。
-- 测试时不要录入真实手机号或敏感个人信息；完成测试后清理 `identityType="web_demo"` 的数据。
-- 正式上线必须替换为手机号验证码认证，并移除匿名演示网关或关闭其路由。
+6. 上线前验证：打开网页 → 点击「微信扫码登录」→ 扫码 → 返回网站根地址 → 网关 `/auth/session` 返回 `ok: true` → 完成一次资料保存、答题上报和访谈调用。可先运行 `npm test` 验证网关的令牌验证、会话签发和伪造身份拦截逻辑。
+
+## 安全边界
+
+- 网页从不直调依赖 `wxContext.OPENID` 的事件云函数，也不在前端保存 `GSYG_WEB_GATEWAY_TOKEN`、会话签名密钥、CloudBase 管理员密钥或 LLM 密钥。
+- `/auth/session` 必须成功向 CloudBase 反查 access token 对应的 UID 才会签发 Cookie；Cookie 带 `HttpOnly`、`Secure`（生产环境）和有限有效期。
+- 下游会话、访谈上报和遴选均按 `web:<UID>` 做 owner 校验；已知的 `sessionId` 不能覆盖其他教师数据。
+- 如果需要让小程序与网页识别为同一位教师，必须在服务端以已验证手机号或统一帐号建立绑定；不能按姓名合并。

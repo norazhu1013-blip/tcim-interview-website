@@ -27,6 +27,9 @@ p { line-height: 1.72; }
 .brand-mark { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; background: var(--primary); color: white; font-weight: 800; }
 .brand strong, .brand small { display: block; }
 .brand small { color: var(--muted); margin-top: 2px; }
+.web-auth { margin-left: auto; }
+.auth-button { min-height: 38px; padding-inline: 14px; font-size: 13px; }
+.auth-notice { width: min(1120px, calc(100% - 32px)); margin: 14px auto -12px; padding: 10px 14px; border-radius: 12px; color: #9a5b00; background: #fff5df; font-size: 14px; }
 .page-shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
 .page { padding: 48px 0; }
 .narrow-page { width: min(720px, 100%); margin: 0 auto; }

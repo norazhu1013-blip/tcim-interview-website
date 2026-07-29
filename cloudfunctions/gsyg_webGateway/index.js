@@ -1,12 +1,11 @@
 'use strict';
 
 /**
- * 网页匿名演示网关（仅测试环境）。
+ * 网页微信扫码登录网关。
  *
- * 浏览器不传 openid/uid。网关签发不含个人信息的随机 HttpOnly Cookie，并用同一份
- * GSYG_WEB_GATEWAY_TOKEN 调用既有事件云函数。下游函数仅在令牌匹配时接收 actor。
- *
- * 禁止用于正式环境：无手机号验证、Cookie 丢失不可找回、也不提供跨设备数据合并。
+ * 浏览器由 CloudBase Web SDK 完成微信开放平台 OAuth。SDK access token 仅用于调用
+ * /auth/session，由本函数向 CloudBase `/auth/v1/user/me` 反查稳定 UID；验证通过后，
+ * 网关签发带 HMAC 的 HttpOnly Cookie。业务请求从不接受客户端提交的 openid / uid。
  */
 const crypto = require('crypto');
 const express = require('express');
@@ -14,12 +13,20 @@ const cloud = require('wx-server-sdk');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
-const COOKIE_NAME = 'gsyg_demo_sid';
+const COOKIE_NAME = 'gsyg_web_session';
 const TOKEN = process.env.GSYG_WEB_GATEWAY_TOKEN || '';
+const SESSION_SECRET = process.env.GSYG_WEB_SESSION_SECRET || '';
 const PORT = Number(process.env.PORT || 9000);
 const MAX_BODY = process.env.GSYG_WEB_MAX_BODY || '1mb';
 const MAX_CALLS = Math.max(5, Number(process.env.GSYG_WEB_RATE_LIMIT || 36));
 const WINDOW_MS = Math.max(60_000, Number(process.env.GSYG_WEB_RATE_WINDOW_MS || 600_000));
+const SESSION_TTL_SECONDS = Math.min(7 * 24 * 60 * 60, Math.max(15 * 60, Number(process.env.GSYG_WEB_SESSION_TTL_SECONDS || 21600)));
+const authEnvId = String(process.env.WEB_CLOUDBASE_ENV_ID || '').trim();
+const authRegion = String(process.env.WEB_CLOUDBASE_REGION || 'ap-shanghai').trim();
+const defaultUserInfoUrl = authEnvId
+  ? `https://${authEnvId}.${authRegion}.tcb-api.tencentcloudapi.com/auth/v1/user/me`
+  : '';
+const USER_INFO_URL = String(process.env.WEB_CLOUDBASE_USERINFO_URL || defaultUserInfoUrl).trim();
 const allowedOrigins = String(process.env.WEB_ALLOWED_ORIGIN || '')
   .split(',').map((item) => item.trim()).filter(Boolean);
 const sameSite = ['lax', 'strict', 'none'].includes(String(process.env.WEB_COOKIE_SAMESITE || 'lax').toLowerCase())
@@ -48,22 +55,53 @@ function parseCookies(header) {
   return out;
 }
 
-function issueAnonymousActor(req, res) {
-  const existing = parseCookies(req.headers.cookie)[COOKIE_NAME];
-  if (/^[a-f0-9]{48}$/i.test(existing || '')) return `web_demo:${existing}`;
+function base64url(value) {
+  return Buffer.from(value).toString('base64url');
+}
 
-  const id = crypto.randomBytes(24).toString('hex');
+function timingSafeEqual(a, b) {
+  const left = Buffer.from(a || '');
+  const right = Buffer.from(b || '');
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function createSessionToken(actor, now = Date.now()) {
+  if (!SESSION_SECRET) return '';
+  const payload = base64url(JSON.stringify({ sub: actor, exp: now + SESSION_TTL_SECONDS * 1000 }));
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function parseSessionToken(value, now = Date.now()) {
+  if (!SESSION_SECRET || typeof value !== 'string') return null;
+  const [payload, signature, extra] = value.split('.');
+  if (!payload || !signature || extra) return null;
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  if (!timingSafeEqual(signature, expected)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!parsed || !/^web:[A-Za-z0-9_-]{4,128}$/.test(parsed.sub || '') || !Number.isFinite(parsed.exp) || parsed.exp <= now) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function sessionCookie(value, maxAge = SESSION_TTL_SECONDS) {
   const secure = process.env.NODE_ENV === 'production' || String(process.env.WEB_COOKIE_SECURE || '') === '1';
   const attrs = [
-    `${COOKIE_NAME}=${id}`,
+    `${COOKIE_NAME}=${encodeURIComponent(value)}`,
     'Path=/',
     'HttpOnly',
     `SameSite=${sameSite[0].toUpperCase()}${sameSite.slice(1)}`,
-    `Max-Age=${7 * 24 * 60 * 60}`
+    `Max-Age=${maxAge}`
   ];
   if (secure || sameSite === 'none') attrs.push('Secure');
-  res.append('Set-Cookie', attrs.join('; '));
-  return `web_demo:${id}`;
+  return attrs.join('; ');
+}
+
+function readActor(req) {
+  return parseSessionToken(parseCookies(req.headers.cookie)[COOKIE_NAME])?.sub || '';
 }
 
 function setCors(req, res) {
@@ -73,7 +111,7 @@ function setCors(req, res) {
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   return true;
 }
@@ -89,7 +127,36 @@ function checkRateLimit(actor) {
   return current.count <= MAX_CALLS;
 }
 
-function createGateway({ invoke = cloud.callFunction.bind(cloud) } = {}) {
+function extractBearerToken(header) {
+  const match = /^Bearer\s+(.+)$/i.exec(String(header || '').trim());
+  return match ? match[1].trim() : '';
+}
+
+function extractUid(body) {
+  const data = body && (body.data || body);
+  const uid = data && (data.uid || data.sub || (data.user && (data.user.uid || data.user.sub)));
+  return typeof uid === 'string' && /^[A-Za-z0-9_-]{4,128}$/.test(uid) ? uid : '';
+}
+
+async function verifyCloudBaseAccessToken(accessToken, fetchImpl = globalThis.fetch) {
+  if (!USER_INFO_URL || !accessToken || typeof fetchImpl !== 'function') return '';
+  try {
+    const response = await fetchImpl(USER_INFO_URL, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!response.ok) return '';
+    return extractUid(await response.json());
+  } catch (error) {
+    console.warn('[gateway] CloudBase token verification failed:', error && error.message);
+    return '';
+  }
+}
+
+function createGateway({
+  invoke = cloud.callFunction.bind(cloud),
+  verifyAccessToken = verifyCloudBaseAccessToken
+} = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use((req, res, next) => {
@@ -100,7 +167,35 @@ function createGateway({ invoke = cloud.callFunction.bind(cloud) } = {}) {
   app.use(express.json({ limit: MAX_BODY }));
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, mode: 'anonymous_demo', tokenConfigured: Boolean(TOKEN) });
+    res.json({
+      ok: true,
+      mode: 'wechat_web_login',
+      tokenConfigured: Boolean(TOKEN),
+      sessionConfigured: Boolean(SESSION_SECRET),
+      cloudbaseUserInfoConfigured: Boolean(USER_INFO_URL)
+    });
+  });
+
+  app.get('/auth/session', (req, res) => {
+    const actor = readActor(req);
+    if (!actor) return res.status(401).json({ ok: false, error: 'not_authenticated' });
+    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_wechat' } });
+  });
+
+  app.post('/auth/session', async (req, res) => {
+    if (!SESSION_SECRET || !USER_INFO_URL) return res.status(503).json({ ok: false, error: 'gateway_auth_not_configured' });
+    const accessToken = extractBearerToken(req.headers.authorization);
+    const uid = await verifyAccessToken(accessToken);
+    if (!uid) return res.status(401).json({ ok: false, error: 'cloudbase_token_invalid' });
+
+    const actor = `web:${uid}`;
+    res.append('Set-Cookie', sessionCookie(createSessionToken(actor)));
+    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_wechat' } });
+  });
+
+  app.post('/auth/logout', (_req, res) => {
+    res.append('Set-Cookie', sessionCookie('', 0));
+    return res.json({ ok: true });
   });
 
   app.post('/call', async (req, res) => {
@@ -109,12 +204,13 @@ function createGateway({ invoke = cloud.callFunction.bind(cloud) } = {}) {
     const functionName = ACTIONS[action];
     if (!functionName) return res.status(400).json({ ok: false, error: 'unsupported_action' });
 
-    const actor = issueAnonymousActor(req, res);
+    const actor = readActor(req);
+    if (!actor) return res.status(401).json({ ok: false, error: 'not_authenticated' });
     if (!checkRateLimit(actor)) return res.status(429).json({ ok: false, error: 'rate_limited' });
 
-    // 明确覆盖客户端可能提交的同名字段：actor 只来自 HttpOnly Cookie。
+    // 明确覆盖客户端可能提交的同名字段：身份只来自验证后的网关会话。
     const data = Object.assign({}, req.body.data || {}, {
-      __gsygGateway: { token: TOKEN, actor, identityType: 'web_demo' }
+      __gsygGateway: { token: TOKEN, actor, identityType: 'web_wechat' }
     });
     delete data.openid;
     delete data.uid;
@@ -135,4 +231,13 @@ if (require.main === module) {
   createGateway().listen(PORT, '0.0.0.0', () => console.log(`gsyg_webGateway listening on ${PORT}`));
 }
 
-module.exports = { ACTIONS, createGateway, issueAnonymousActor, parseCookies };
+module.exports = {
+  ACTIONS,
+  COOKIE_NAME,
+  createGateway,
+  createSessionToken,
+  extractUid,
+  parseCookies,
+  parseSessionToken,
+  verifyCloudBaseAccessToken
+};

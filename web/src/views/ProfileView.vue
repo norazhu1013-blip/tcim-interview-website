@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { QUESTIONS_VERSION } from '../generated/data.js'
 import { createSession, getProfile, saveProfile } from '../services/storage.js'
 import { reportProfile } from '../services/api.js'
+import { requireWebLogin } from '../services/web-auth.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,6 +23,7 @@ async function submit() {
     message.value = '请填写姓名、园所和教龄。'
     return
   }
+  if (!await requireWebLogin(window.location.hash || '#/profile')) return
   const profile = saveProfile({ ...form, updatedAt: Date.now() })
   message.value = '资料已保存。'
   reportProfile(profile)
