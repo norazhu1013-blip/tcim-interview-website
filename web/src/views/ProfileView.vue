@@ -23,7 +23,7 @@ async function submit() {
     message.value = '请填写姓名、园所和教龄。'
     return
   }
-  if (!await requireWebLogin(window.location.hash || '#/profile')) return
+  if (!await requireWebLogin()) return
   const profile = saveProfile({ ...form, updatedAt: Date.now() })
   message.value = '资料已保存。'
   reportProfile(profile)

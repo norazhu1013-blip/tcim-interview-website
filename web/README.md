@@ -24,7 +24,7 @@ npm run build
 
 ## 网页微信扫码登录（正式接入）
 
-网页使用 CloudBase Web SDK 发起微信开放平台网站扫码登录。扫码回调后，SDK 拿到的短期 access token 只用于换取网关的 `HttpOnly` 会话 Cookie；后续业务请求不携带可伪造的 `openid`、`uid` 或 access token。
+网页进入首页即调用 CloudBase Web SDK 的 `auth().toDefaultLoginPage()` 检查登录态：已有 CloudBase 凭证时直接换取网关 `HttpOnly` 会话 Cookie；没有凭证时自动跳转到 CloudBase 默认登录页，教师无需点击登录按钮。默认登录页完成微信开放平台扫码后回到同域首页，SDK 保存的短期 access token 只用于换取网关 Cookie；后续业务请求不携带可伪造的 `openid`、`uid` 或 access token。
 
 在 `.env.production` 中配置：
 
@@ -32,12 +32,9 @@ npm run build
 VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web
 VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 VITE_CLOUDBASE_REGION=ap-shanghai
-
-# 仅在 CloudBase 还开启了匿名登录、并要自动完成首次扫码帐号绑定时启用：
-VITE_CLOUDBASE_ENABLE_FIRST_LOGIN_BIND=true
 ```
 
-登录前需要在 CloudBase 控制台启用「微信开放平台登录」，并配置微信开放平台网站应用的 AppId、AppSecret、网页域名与授权回调域。首次扫码帐号若未绑定 CloudBase 用户，CloudBase 需要先建立一个用户再绑定第三方身份；本项目可在管理员明确启用匿名登录后，使用一次性匿名帐号完成这一步绑定。详见 `cloudfunctions/gsyg_webGateway/README.md`。
+登录前需要在 CloudBase 控制台启用「微信开放平台登录」，并配置微信开放平台网站应用的 AppId、AppSecret、网页域名与授权回调域。默认登录页域名与 `redirect_uri` 必须使用同一网页域名；本项目的回调地址固定为 `${window.location.origin}${window.location.pathname}`，例如 `https://app.example.com/`。详见 `cloudfunctions/gsyg_webGateway/README.md`。
 
 ## 后端安全边界（上线前必做）
 

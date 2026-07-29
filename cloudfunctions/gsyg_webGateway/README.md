@@ -1,6 +1,6 @@
 # `gsyg_webGateway`：网页微信扫码登录网关
 
-这是网页端正式身份入口。浏览器通过 **CloudBase Web SDK + 微信开放平台网站扫码登录** 取得短期 CloudBase access token；该 token 只提交给本函数的 `/auth/session` 一次。本函数调用 CloudBase 的已登录用户信息接口反查 UID，再签发一个带 HMAC 的 `HttpOnly` Cookie。之后所有网页业务请求只使用 Cookie，不能从请求 JSON 伪造 `openid`、`uid` 或 CloudBase token。
+这是网页端正式身份入口。网页首页通过 **CloudBase Web SDK 的默认登录页**自动检查登录态；未登录时跳转默认登录页完成微信开放平台扫码，成功回跳后由 SDK 取得短期 CloudBase access token。该 token 只提交给本函数的 `/auth/session` 一次。本函数调用 CloudBase 的已登录用户信息接口反查 UID，再签发一个带 HMAC 的 `HttpOnly` Cookie。之后所有网页业务请求只使用 Cookie，不能从请求 JSON 伪造 `openid`、`uid` 或 CloudBase token。
 
 > 原有匿名演示 Cookie 不再被接受。正式采集前应清理旧 `identityType="web_demo"` 测试数据。
 
@@ -9,7 +9,7 @@
 1. 在「身份认证 → 登录方式」开启**微信开放平台登录**，填写微信开放平台网站应用的 AppId 与 AppSecret。
 2. 在 CloudBase 环境安全配置中加入网页域名，例如 `https://app.example.com`。
 3. 在微信开放平台网站应用中，将授权回调域配置为该网页域名。网页实际回调地址是网站根地址，例如 `https://app.example.com/`；必须与 SDK 生成授权地址时使用的地址一致。
-4. 若要让**首次扫码自动创建并绑定** CloudBase 帐号，还要在 CloudBase 中开启匿名登录，并在网页构建变量中设置 `VITE_CLOUDBASE_ENABLE_FIRST_LOGIN_BIND=true`。这只用于首次绑定：绑定后本网关仍只接受 `web_wechat` 会话，不接受匿名用户请求。
+4. 默认登录页域名必须与 `redirect_uri` 使用同一网页域名，否则浏览器无法共享登录态。本项目自动传入网站根页面，例如 `https://app.example.com/`；不要填写 API 网关地址，也不要填写 `#/` 哈希路由。
 
 ## 云函数环境变量
 
@@ -62,11 +62,9 @@ NODE_ENV=production
 VITE_WEB_API_BASE_URL=https://api.example.com/gsyg-web
 VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 VITE_CLOUDBASE_REGION=ap-shanghai
-# 仅在已按上文开启匿名登录、要自动处理首次绑定时启用：
-VITE_CLOUDBASE_ENABLE_FIRST_LOGIN_BIND=true
 ```
 
-6. 上线前验证：打开网页 → 点击「微信扫码登录」→ 扫码 → 返回网站根地址 → 网关 `/auth/session` 返回 `ok: true` → 完成一次资料保存、答题上报和访谈调用。可先运行 `npm test` 验证网关的令牌验证、会话签发和伪造身份拦截逻辑。
+6. 上线前验证：打开网页 → 自动跳转 CloudBase 默认登录页 → 扫码 → 返回网站根地址 → 网关 `/auth/session` 返回 `ok: true` → 完成一次资料保存、答题上报和访谈调用。可先运行 `npm test` 验证网关的令牌验证、会话签发和伪造身份拦截逻辑。
 
 ## 安全边界
 

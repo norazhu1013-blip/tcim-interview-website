@@ -29,7 +29,7 @@ async function start() {
     return
   }
   if (blockStart.value) return
-  if (!await requireWebLogin('#/')) return
+  if (!await requireWebLogin()) return
   const session = createSession(QUESTIONS_VERSION)
   router.push(`/exam/${session.sessionId}`)
 }

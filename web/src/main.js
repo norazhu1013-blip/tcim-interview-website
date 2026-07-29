@@ -10,6 +10,7 @@ import InterviewListView from './views/InterviewListView.vue'
 import InterviewView from './views/InterviewView.vue'
 import FeedbackView from './views/FeedbackView.vue'
 import DoneView from './views/DoneView.vue'
+import { cloud } from './services/cloudbase.js'
 import './styles.css'
 
 const router = createRouter({
@@ -28,4 +29,7 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 })
 })
 
-createApp(App).use(router).mount('#app')
+const app = createApp(App)
+// 让任意 setup 组件都可以 inject('$cloud') 使用 CloudBase 实例。
+app.provide('$cloud', cloud)
+app.use(router).mount('#app')
