@@ -6,14 +6,25 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const COLL = 'gsyg_sessions';
 
-exports.main = async (event) => {
+function resolveActor(event) {
+  const gateway = event && event.__gsygGateway;
+  if (gateway && gateway.token && gateway.token === process.env.GSYG_WEB_GATEWAY_TOKEN && /^web_demo:[a-f0-9]{48}$/i.test(gateway.actor || '')) {
+    return { id: gateway.actor, identityType: 'web_demo' };
+  }
   const { OPENID } = cloud.getWXContext();
+  return { id: OPENID, identityType: 'wechat' };
+}
+
+exports.main = async (event) => {
+  const actor = resolveActor(event);
+  if (!actor.id) return { ok: false, error: 'missing_identity' };
   const sessionId = event.sessionId;
   if (!sessionId) return { ok: false, error: 'missing_sessionId' };
   try {
     const now = Date.now();
     const data = {
-      openid: OPENID,
+      openid: actor.id,
+      identityType: actor.identityType,
       sessionId: sessionId,
       profile: event.profile || null,
       answers: event.answers || {},
@@ -36,6 +47,7 @@ exports.main = async (event) => {
     const existing = await db.collection(COLL).where({ sessionId: sessionId }).limit(1).get();
     if (existing.data && existing.data.length) {
       const id = existing.data[0]._id;
+      if (existing.data[0].openid !== actor.id) return { ok: false, error: 'forbidden' };
       await db.collection(COLL).doc(id).update({ data: data });
       return { ok: true, id: id };
     }

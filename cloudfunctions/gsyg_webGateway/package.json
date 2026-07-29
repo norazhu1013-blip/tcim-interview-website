@@ -1,0 +1,15 @@
+{
+  "name": "gsyg_webGateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "网页匿名演示网关：Cookie 会话隔离并转发至既有 gsyg 云函数",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test/smoke.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "wx-server-sdk": "latest"
+  }
+}

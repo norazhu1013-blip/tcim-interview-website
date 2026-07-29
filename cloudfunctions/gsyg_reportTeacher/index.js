@@ -7,20 +7,30 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const COLL = 'gsyg_teachers';
 
-exports.main = async (event) => {
+function resolveActor(event) {
+  const gateway = event && event.__gsygGateway;
+  if (gateway && gateway.token && gateway.token === process.env.GSYG_WEB_GATEWAY_TOKEN && /^web_demo:[a-f0-9]{48}$/i.test(gateway.actor || '')) {
+    return { id: gateway.actor, identityType: 'web_demo' };
+  }
   const { OPENID } = cloud.getWXContext();
+  return { id: OPENID, identityType: 'wechat' };
+}
+
+exports.main = async (event) => {
+  const actor = resolveActor(event);
+  if (!actor.id) return { ok: false, error: 'missing_identity' };
   try {
     const now = Date.now();
-    const payload = { openid: OPENID, profile: event.profile || null, updatedAt: now };
-    const existing = await db.collection(COLL).where({ openid: OPENID }).limit(1).get();
+    const payload = { openid: actor.id, identityType: actor.identityType, profile: event.profile || null, updatedAt: now };
+    const existing = await db.collection(COLL).where({ openid: actor.id }).limit(1).get();
     if (existing.data && existing.data.length) {
       const rec = existing.data[0];
       await db.collection(COLL).doc(rec._id).update({ data: payload });
-      return { ok: true, id: rec._id, openid: OPENID, isAdmin: !!rec.isAdmin };
+      return { ok: true, id: rec._id, openid: actor.id, isAdmin: !!rec.isAdmin };
     }
     // 新建：isAdmin 默认 false；管理员由后台在控制台改为 true
     const r = await db.collection(COLL).add({ data: Object.assign({ createdAt: now, isAdmin: false }, payload) });
-    return { ok: true, id: r._id, openid: OPENID, isAdmin: false };
+    return { ok: true, id: r._id, openid: actor.id, isAdmin: false };
   } catch (e) {
     return { ok: false, error: e && e.message };
   }

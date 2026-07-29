@@ -195,8 +195,18 @@ function toMpSelection(advisorOut, sessionAnswers) {
 
 /* ---------- 主入口 ---------- */
 
-exports.main = async (event) => {
+function resolveActor(event) {
+  const gateway = event && event.__gsygGateway;
+  if (gateway && gateway.token && gateway.token === process.env.GSYG_WEB_GATEWAY_TOKEN && /^web_demo:[a-f0-9]{48}$/i.test(gateway.actor || '')) {
+    return { id: gateway.actor, identityType: 'web_demo' };
+  }
   const { OPENID } = cloud.getWXContext();
+  return { id: OPENID, identityType: 'wechat' };
+}
+
+exports.main = async (event) => {
+  const actor = resolveActor(event);
+  if (!actor.id) return { ok: false, error: 'missing_identity' };
   const sessionId = event && event.sessionId;
   if (!sessionId) return { ok: false, error: 'missing_sessionId' };
 
@@ -210,7 +220,7 @@ exports.main = async (event) => {
   }
 
   // 权限:必须本人
-  if (sessionDoc.openid !== OPENID) return { ok: false, error: 'forbidden' };
+  if (sessionDoc.openid !== actor.id) return { ok: false, error: 'forbidden' };
 
   // 幂等缓存
   const cached = sessionDoc.selection;

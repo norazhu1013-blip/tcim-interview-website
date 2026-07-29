@@ -46,3 +46,15 @@ Content-Type: application/json
 返回值沿用云函数约定：`{ "ok": true, ... }` 或 `{ "ok": false, "error": "..." }`。
 
 将 `.env.example` 复制为 `.env.production` 并填入网关地址后再构建。前端不存放 CloudBase 管理员 API Key、LLM Key 或网关共享密钥。
+
+### 临时匿名完整流程
+
+测试阶段可以部署仓库中的 `cloudfunctions/gsyg_webGateway/`。它为浏览器签发随机 HttpOnly Cookie，支持完整的上报、确定性筛题和 AI 访谈，但**不验证身份**：清除 Cookie、换浏览器或换设备后都会成为新用户，且严禁用于正式数据采集或管理员导出。
+
+部署要求、环境变量和测试数据清理说明见 `cloudfunctions/gsyg_webGateway/README.md`。部署后将网关地址填入：
+
+```env
+VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web
+```
+
+然后重新执行 `npm run build` 并上传新的 `dist/`。
