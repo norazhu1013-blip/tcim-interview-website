@@ -83,10 +83,17 @@ VITE_INTERVIEW_LLM_PROFILE=deepseek
 ## 返回结构
 
 ```json
-{ "ok": true, "question": "…", "done": false, "evidenceHint": ["E1","E3"] }
+{
+  "ok": true,
+  "question": "…",
+  "done": false,
+  "evidenceHint": ["E1","E3"],
+  "llmProfile": "wxai",
+  "llmModel": "hy3-preview"
+}
 ```
 
-`ok:false` 时客户端不显示，回退到规则脚本队列。
+`llmProfile` / `llmModel` 只用于调试和审计，不包含 endpoint 或 key。`ok:false` 时客户端不显示，回退到规则脚本队列；若后端已解析出 profile，也会尽量带上这两个字段。
 
 ## 云端调试
 

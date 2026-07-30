@@ -285,12 +285,27 @@ function resolveLLMProfile(event) {
   return { id, config };
 }
 
+function llmResponseMeta(selected) {
+  if (!selected || !selected.config) return { llmProfile: '', llmModel: '' };
+  return {
+    llmProfile: selected.id,
+    llmModel: selected.config.type === 'wxai' ? DEFAULT_MODEL : (selected.config.model || '')
+  };
+}
+
+function safeLLMResponseMeta(event) {
+  try {
+    return llmResponseMeta(resolveLLMProfile(event));
+  } catch (e) {
+    return { llmProfile: '', llmModel: '' };
+  }
+}
+
 function endpointHost(endpoint) {
   try { return new URL(endpoint).host; } catch { return ''; }
 }
 
-async function callLLM(event, system, user) {
-  const selected = resolveLLMProfile(event);
+async function callLLM(selected, system, user) {
   if (selected.config.type === 'wxai') {
     return callWxAI(system, user, selected.id);
   }
@@ -571,22 +586,28 @@ exports.main = async (event) => {
 
   // 剩余 <60s：直接收束（红线）
   if (typeof event.remainingMs === 'number' && event.remainingMs < 60000) {
+    const llmMeta = safeLLMResponseMeta(event);
     return {
       ok: true,
       done: true,
       question: DEFAULT_CLOSING_MESSAGE,
-      evidenceHint: []
+      evidenceHint: [],
+      llmProfile: llmMeta.llmProfile,
+      llmModel: llmMeta.llmModel
     };
   }
 
   // 最多让教师回答 6 个 AI 问题。第 6 次回答提交后直接显示陈述性收束语，
   // 不再像旧流程那样先生成第 7 个问题、再立即 done，造成问题可见却无法作答。
   if (rounds >= MAX_ANSWERABLE_AI_QUESTIONS) {
+    const llmMeta = safeLLMResponseMeta(event);
     return {
       ok: true,
       done: true,
       question: DEFAULT_CLOSING_MESSAGE,
       evidenceHint: [],
+      llmProfile: llmMeta.llmProfile,
+      llmModel: llmMeta.llmModel,
       questionStrategy: {
         mode: 'closing',
         type: '收束',
@@ -619,7 +640,9 @@ exports.main = async (event) => {
 
     const system = buildSystemPrompt(event, taskCard);
     const user = buildUserPrompt(event, taskCard);
-    const raw = await withTimeout(callLLM(event, system, user), LLM_TIMEOUT_MS);
+    const selectedLLM = resolveLLMProfile(event);
+    llmMeta = llmResponseMeta(selectedLLM);
+    const raw = await withTimeout(callLLM(selectedLLM, system, user), LLM_TIMEOUT_MS);
     if (!raw) throw new Error('LLM 空响应');
 
     const obj = parseModelJSON(raw);
@@ -635,18 +658,30 @@ exports.main = async (event) => {
 
     // 内容安全
     const sec = await secCheck(question);
-    if (!sec.pass) return { ok: false, error: 'msgSecCheck_failed: ' + (sec.error || '') };
+    if (!sec.pass) return {
+      ok: false,
+      error: 'msgSecCheck_failed: ' + (sec.error || ''),
+      llmProfile: llmMeta.llmProfile,
+      llmModel: llmMeta.llmModel
+    };
 
     return {
       ok: true,
       question: question,
       done: done,
       evidenceHint: norm.evidenceHint,
+      llmProfile: llmMeta.llmProfile,
+      llmModel: llmMeta.llmModel,
       questionStrategy: norm.questionStrategy || null, // 研究审计用,mp 端不展示
       stage: stage,           // 本轮实际使用的 stage(保留兼容)
       nextStage: nextStage    // 下一轮建议的 stage(保留兼容)
     };
   } catch (e) {
-    return { ok: false, error: (e && e.message) || 'llm_error' };
+    return {
+      ok: false,
+      error: (e && e.message) || 'llm_error',
+      llmProfile: llmMeta.llmProfile,
+      llmModel: llmMeta.llmModel
+    };
   }
 };
