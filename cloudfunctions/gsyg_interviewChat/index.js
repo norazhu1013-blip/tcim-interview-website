@@ -13,7 +13,7 @@
 //
 // 环境变量:
 //   WXAI_MODEL/WXAI_PROVIDER/LLM_TIMEOUT_MS/SEC_CHECK 见 README
-//   网页第三方 AI: WEB_INTERVIEW_LLM_PROFILE/WEB_LLM_ENDPOINT/WEB_LLM_API_KEY/WEB_LLM_MODEL 等见 README
+//   网页第三方 AI: WEB_INTERVIEW_LLM_PROFILE/DEEPSEEK_API_KEY/OPENAI_COMPATIBLE_* 等见 README
 
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
@@ -29,14 +29,6 @@ const DEFAULT_CLOSING_MESSAGE = '感谢您的分享，本情境的访谈先到�
 // 密钥仍走云函数环境变量,不要写入代码或前端构建变量。
 const LLM_PROFILES = Object.freeze({
   wxai: { type: 'wxai' },
-  'web-default': {
-    type: 'openai-compatible',
-    endpoint: process.env.WEB_LLM_ENDPOINT || '',
-    apiKeyEnv: 'WEB_LLM_API_KEY',
-    model: process.env.WEB_LLM_MODEL || '',
-    temperature: Number(process.env.WEB_LLM_TEMPERATURE || 0.2),
-    maxTokens: Number(process.env.WEB_LLM_MAX_TOKENS || 900)
-  },
   deepseek: {
     type: 'openai-compatible',
     endpoint: 'https://api.deepseek.com/chat/completions',
@@ -278,12 +270,19 @@ function isWebGatewayCall(event) {
 
 function resolveLLMProfile(event) {
   const requested = String((event && event.llmProfile) || '').trim();
-  const defaultForWeb = String(process.env.WEB_INTERVIEW_LLM_PROFILE || 'web-default').trim();
+  const defaultForWeb = String(process.env.WEB_INTERVIEW_LLM_PROFILE || 'wxai').trim();
   const id = requested || (isWebGatewayCall(event) ? defaultForWeb : 'wxai');
   if (!LLM_PROFILES[id]) {
     throw new Error('unsupported_llm_profile:' + id);
   }
-  return { id, config: LLM_PROFILES[id] };
+  const config = LLM_PROFILES[id];
+  console.log('[llm_profile] selected', JSON.stringify({
+    id,
+    type: config.type,
+    requested: requested || '',
+    isWebGateway: isWebGatewayCall(event)
+  }));
+  return { id, config };
 }
 
 function endpointHost(endpoint) {

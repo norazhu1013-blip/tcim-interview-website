@@ -4,7 +4,7 @@
 
 - 每轮教师发言后由客户端调本云函数拿到「下一句要问的问题」+「教师上一轮回答实质覆盖了哪些证据点(E1-E7)」。
 - 小程序默认走微信云开发 AI 能力（`cloud.extend.AI` / `cloud.ai` 两代 API 自动兼容）。
-- 网页端默认走第三方 OpenAI-compatible 接口；也可通过入参 `llmProfile` 在云函数内置配置组之间切换。
+- 网页端默认同样走微信云开发 AI 能力；也可通过入参 `llmProfile` 在云函数内置配置组之间切换到第三方 OpenAI-compatible 接口。
 - 失败/超时/未开通 → `ok:false`，客户端 `interview.js` 自动回退规则版脚本序列（`interview.utils.js` 的 T→Q→E 流程）。
 
 ## 与之前"规则版问过即算"的关键差异
@@ -25,10 +25,7 @@
 | `WXAI_PROVIDER` | wxai provider | `cloudbase` |
 | `LLM_TIMEOUT_MS` | 单次 LLM 超时 ms | `30000` |
 | `SEC_CHECK` | `1` 开启对 AI 输出的 `security.msgSecCheck` 机审（上线建议开） | 不开 |
-| `WEB_INTERVIEW_LLM_PROFILE` | 网页端未传 `llmProfile` 时使用的内置配置组 | `web-default` |
-| `WEB_LLM_ENDPOINT` | `web-default` 的完整 chat/completions URL | 空 |
-| `WEB_LLM_API_KEY` | `web-default` 的 API Key | 空 |
-| `WEB_LLM_MODEL` | `web-default` 的模型名 | 空 |
+| `WEB_INTERVIEW_LLM_PROFILE` | 网页端未传 `llmProfile` 时使用的内置配置组 | `wxai` |
 | `DEEPSEEK_API_KEY` | `deepseek` 配置组 API Key | 空 |
 | `DEEPSEEK_MODEL` | `deepseek` 配置组模型名 | `deepseek-chat` |
 | `OPENAI_COMPATIBLE_ENDPOINT` | `openai-compatible` 配置组完整 chat/completions URL | 空 |
@@ -43,8 +40,7 @@
 
 | profile | 类型 | 说明 |
 |---|---|---|
-| `wxai` | 微信云开发 AI | 小程序默认 |
-| `web-default` | OpenAI-compatible | 网页端默认，endpoint/model/key 走 `WEB_LLM_*` |
+| `wxai` | 微信云开发 AI | 小程序和网页端默认 |
 | `deepseek` | OpenAI-compatible | endpoint 固定为 `https://api.deepseek.com/chat/completions` |
 | `openai-compatible` | OpenAI-compatible | 通用第三方接口，endpoint/model/key 走 `OPENAI_COMPATIBLE_*` |
 
@@ -54,7 +50,7 @@
 VITE_INTERVIEW_LLM_PROFILE=deepseek
 ```
 
-不填时，网页请求由云函数按 `WEB_INTERVIEW_LLM_PROFILE || "web-default"` 选择。小程序不传该字段，默认仍走 `wxai`。
+不填时，网页请求由云函数按 `WEB_INTERVIEW_LLM_PROFILE || "wxai"` 选择；若云函数也未配置 `WEB_INTERVIEW_LLM_PROFILE`，默认走 `wxai`。小程序不传该字段，默认仍走 `wxai`。
 
 5. 云函数配置 → **执行超时时间** ≥ 45s(推荐 60s),否则平台会先杀函数,`LLM_TIMEOUT_MS` 白设。
 6. 若开启 `SEC_CHECK=1`,需在小程序 openapi 权限里勾选 `security.msgSecCheck`(云开发环境默认可用)。

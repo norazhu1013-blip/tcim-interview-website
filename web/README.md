@@ -32,8 +32,8 @@ npm run build
 VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web
 VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 VITE_CLOUDBASE_REGION=ap-shanghai
-# 可选：选择 gsyg_interviewChat 内置 LLM profile；不填由云函数默认 web-default
-VITE_INTERVIEW_LLM_PROFILE=web-default
+# 可选：选择 gsyg_interviewChat 内置 LLM profile；不填默认 wxai
+VITE_INTERVIEW_LLM_PROFILE=deepseek
 ```
 
 登录前需要在 CloudBase 控制台启用「匿名登录」，并在环境安全配置中加入网页域名。详见 `cloudfunctions/gsyg_webGateway/README.md`。
