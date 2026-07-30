@@ -1,19 +1,23 @@
 import { cloudbaseConfigured, getCloudAuth } from './cloudbase.js'
 import { createGatewaySession, getGatewaySession, clearGatewaySession } from './web-gateway.js'
 
-function callbackUrl() {
-  // CloudBase 默认登录页与回调页面必须位于同一网页域名，才能共享浏览器登录态。
-  return `${window.location.origin}${window.location.pathname}`
-}
-
-function redirectToDefaultLogin() {
-  getCloudAuth().toDefaultLoginPage({ redirect_uri: callbackUrl() })
-  return { ok: false, redirecting: true }
+async function getAnonymousAccessToken() {
+  const auth = getCloudAuth()
+  let tokenResult = null
+  try {
+    tokenResult = await auth.getAccessToken()
+  } catch {
+    tokenResult = null
+  }
+  if (!tokenResult || !tokenResult.accessToken) {
+    await auth.signInAnonymously()
+    tokenResult = await auth.getAccessToken()
+  }
+  return tokenResult && tokenResult.accessToken
 }
 
 /**
- * 首页加载时执行：已有网关会话直接通过；已有 CloudBase 登录态则换取会话；
- * 两者都没有时自动跳转 CloudBase 默认登录页，教师无需点击登录按钮。
+ * 首页加载时执行：已有网关会话直接通过；否则用 CloudBase 匿名登录换取网关会话。
  */
 export async function ensureWebLogin() {
   if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
@@ -23,12 +27,11 @@ export async function ensureWebLogin() {
 
   let accessToken
   try {
-    // 默认登录页成功回跳后，SDK 已将凭证保存在同域浏览器中。
-    ({ accessToken } = await getCloudAuth().getAccessToken())
+    accessToken = await getAnonymousAccessToken()
   } catch {
-    return redirectToDefaultLogin()
+    return { ok: false, error: 'cloudbase_anonymous_login_failed' }
   }
-  if (!accessToken) return redirectToDefaultLogin()
+  if (!accessToken) return { ok: false, error: 'cloudbase_anonymous_login_failed' }
 
   // 已有 CloudBase 凭证但网关不可用时显示明确错误，不能错误地反复跳回登录页。
   return createGatewaySession(accessToken)
@@ -39,7 +42,7 @@ export async function getWebLoginState() {
   return getGatewaySession()
 }
 
-/** 业务动作的兜底：网关会话失效时同样自动进入默认登录页。 */
+/** 业务动作的兜底：网关会话失效时重新走匿名登录。 */
 export async function requireWebLogin() {
   const session = await ensureWebLogin()
   return Boolean(session.ok)

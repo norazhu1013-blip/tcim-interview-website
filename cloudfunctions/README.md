@@ -10,7 +10,7 @@
 | `gsyg_interviewChat` | 访谈对话每轮 | —— | LLM 动态追问，失败回退规则版 |
 | `gsyg_whoami` | 客户端「我的」页 onShow | `gsyg_teachers` | 返回 `{openid, isAdmin, teacher}` |
 | `gsyg_exportData` | 管理员在「我的」页触发 | 三个集合 | 全量导 JSON → 云存储 `gsyg-exports/` → 返回下载链接 |
-| `gsyg_webGateway` | 网页端（HTTP） | 三个集合/既有函数 | **测试专用**匿名 Cookie 网关，受控转发网页完整流程 |
+| `gsyg_webGateway` | 网页端（HTTP） | 三个集合/既有函数 | CloudBase 匿名登录网关，受控转发网页完整流程 |
 
 ## 管理员标记
 
@@ -48,9 +48,8 @@
 
 手机号（有权限时拿到）存本地，`profile` 保存时随 `gsyg_reportTeacher` 一并上报。所有非登录页在 onShow/onLoad 用 `store.requireLogin()` 守卫，未登录即 `reLaunch` 登录页。
 
-## 网页微信扫码登录网关（`gsyg_webGateway`）
+## 网页 CloudBase 匿名登录网关（`gsyg_webGateway`）
 
-网页端部署 `gsyg_webGateway` 为 **HTTP 云函数**。网页通过 CloudBase Web SDK 发起微信开放平台扫码登录；网关向 CloudBase 校验短期 access token 后签发 HttpOnly Cookie，并白名单转发 profile/session/确定性三题遴选/AI 访谈。业务请求不接受客户端提交的 `openid`、`uid` 或 access token。
+网页端部署 `gsyg_webGateway` 为 **HTTP 云函数**。网页通过 CloudBase Web SDK 调用 `signInAnonymously()`；网关向 CloudBase 校验短期 access token 后签发 HttpOnly Cookie，并白名单转发 profile/session/确定性三题遴选/AI 访谈。业务请求不接受客户端提交的 `openid`、`uid` 或 access token。
 
 部署前，网关和 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal` 须配置相同的 `GSYG_WEB_GATEWAY_TOKEN`；网关还必须配置独立 `GSYG_WEB_SESSION_SECRET`、`WEB_CLOUDBASE_ENV_ID`、精确网页域名 `WEB_ALLOWED_ORIGIN` 及 HTTPS Cookie 参数。函数监听 9000，HTTP 访问路径建议为 `/gsyg-web`。完整控制台设置、首次账号绑定和验证步骤见 `gsyg_webGateway/README.md`。
-

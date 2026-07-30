@@ -10,7 +10,6 @@ const authError = ref('')
 
 async function logout() {
   await signOutWebUser()
-  // 退出后按产品要求立即回到 CloudBase 默认登录页，而不是显示手动登录按钮。
   await ensureWebLogin()
 }
 
@@ -18,10 +17,6 @@ onMounted(async () => {
   const session = await ensureWebLogin()
   if (session.ok) {
     authState.value = 'signed_in'
-    return
-  }
-  if (session.redirecting) {
-    authState.value = 'redirecting'
     return
   }
   authState.value = 'error'
@@ -43,7 +38,7 @@ onMounted(async () => {
       </router-link>
       <div class="web-auth">
         <button v-if="authState === 'signed_in'" class="button text auth-button" type="button" @click="logout">退出登录</button>
-        <span v-else class="auth-status">{{ authState === 'redirecting' ? '正在跳转登录…' : '正在确认登录…' }}</span>
+        <span v-else class="auth-status">正在确认登录…</span>
       </div>
     </header>
 

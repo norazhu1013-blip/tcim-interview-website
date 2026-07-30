@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * 网页微信扫码登录网关。
+ * 网页匿名登录网关。
  *
- * 浏览器由 CloudBase Web SDK 完成微信开放平台 OAuth。SDK access token 仅用于调用
+ * 浏览器由 CloudBase Web SDK 完成匿名登录。SDK access token 仅用于调用
  * /auth/session，由本函数向 CloudBase `/auth/v1/user/me` 反查稳定 UID；验证通过后，
  * 网关签发带 HMAC 的 HttpOnly Cookie。业务请求从不接受客户端提交的 openid / uid。
  */
@@ -169,7 +169,7 @@ function createGateway({
   app.get('/health', (_req, res) => {
     res.json({
       ok: true,
-      mode: 'wechat_web_login',
+      mode: 'cloudbase_anonymous_login',
       tokenConfigured: Boolean(TOKEN),
       sessionConfigured: Boolean(SESSION_SECRET),
       cloudbaseUserInfoConfigured: Boolean(USER_INFO_URL)
@@ -179,7 +179,7 @@ function createGateway({
   app.get('/auth/session', (req, res) => {
     const actor = readActor(req);
     if (!actor) return res.status(401).json({ ok: false, error: 'not_authenticated' });
-    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_wechat' } });
+    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_anonymous' } });
   });
 
   app.post('/auth/session', async (req, res) => {
@@ -190,7 +190,7 @@ function createGateway({
 
     const actor = `web:${uid}`;
     res.append('Set-Cookie', sessionCookie(createSessionToken(actor)));
-    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_wechat' } });
+    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_anonymous' } });
   });
 
   app.post('/auth/logout', (_req, res) => {
@@ -210,7 +210,7 @@ function createGateway({
 
     // 明确覆盖客户端可能提交的同名字段：身份只来自验证后的网关会话。
     const data = Object.assign({}, req.body.data || {}, {
-      __gsygGateway: { token: TOKEN, actor, identityType: 'web_wechat' }
+      __gsygGateway: { token: TOKEN, actor, identityType: 'web_anonymous' }
     });
     delete data.openid;
     delete data.uid;

@@ -51,7 +51,7 @@ async function main() {
     assert.equal(forwarded.data.openid, undefined);
     assert.equal(forwarded.data.uid, undefined);
     assert.equal(forwarded.data.__gsygGateway.actor, 'web:cloudbase_user_123');
-    assert.equal(forwarded.data.__gsygGateway.identityType, 'web_wechat');
+    assert.equal(forwarded.data.__gsygGateway.identityType, 'web_anonymous');
 
     const rejected = await fetch(`${endpoint}/call`, {
       method: 'POST',
@@ -59,7 +59,7 @@ async function main() {
       body: JSON.stringify({ action: 'reportSession', data: { sessionId: 'test' } })
     });
     assert.equal(rejected.status, 401);
-    console.log('web login gateway smoke test passed');
+    console.log('web anonymous login gateway smoke test passed');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
