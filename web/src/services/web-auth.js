@@ -3,16 +3,23 @@ import { createGatewaySession, getGatewaySession, clearGatewaySession } from './
 
 async function getAnonymousAccessToken() {
   const auth = getCloudAuth()
-  let tokenResult = null
   try {
-    tokenResult = await auth.getAccessToken()
+    const scope = await auth.loginScope()
+    if (scope === 'anonymous') {
+      const tokenResult = await auth.getAccessToken()
+      if (tokenResult && tokenResult.accessToken) return tokenResult.accessToken
+    }
   } catch {
-    tokenResult = null
+    // 旧登录态或损坏凭证都重新走匿名登录。
   }
-  if (!tokenResult || !tokenResult.accessToken) {
-    await auth.signInAnonymously()
-    tokenResult = await auth.getAccessToken()
+
+  try {
+    await auth.signOut()
+  } catch {
+    // 没有可清理的旧凭证时继续匿名登录。
   }
+  await auth.signInAnonymously()
+  const tokenResult = await auth.getAccessToken()
   return tokenResult && tokenResult.accessToken
 }
 
