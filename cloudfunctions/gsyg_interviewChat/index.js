@@ -13,6 +13,7 @@
 //
 // 环境变量:
 //   WXAI_MODEL/WXAI_PROVIDER/LLM_TIMEOUT_MS/SEC_CHECK 见 README
+//   网页第三方 AI: WEB_INTERVIEW_LLM_PROFILE/WEB_LLM_ENDPOINT/WEB_LLM_API_KEY/WEB_LLM_MODEL 等见 README
 
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
@@ -23,6 +24,36 @@ const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 30000); // 2026-07-0
 const SEC_CHECK_ON = String(process.env.SEC_CHECK || '') === '1';
 const MAX_ANSWERABLE_AI_QUESTIONS = 6;
 const DEFAULT_CLOSING_MESSAGE = '感谢您的分享，本情境的访谈先到这里。';
+
+// LLM 配置白名单。前端只能传 llmProfile 选择这里已有的配置,不能传 endpoint/key。
+// 密钥仍走云函数环境变量,不要写入代码或前端构建变量。
+const LLM_PROFILES = Object.freeze({
+  wxai: { type: 'wxai' },
+  'web-default': {
+    type: 'openai-compatible',
+    endpoint: process.env.WEB_LLM_ENDPOINT || '',
+    apiKeyEnv: 'WEB_LLM_API_KEY',
+    model: process.env.WEB_LLM_MODEL || '',
+    temperature: Number(process.env.WEB_LLM_TEMPERATURE || 0.2),
+    maxTokens: Number(process.env.WEB_LLM_MAX_TOKENS || 900)
+  },
+  deepseek: {
+    type: 'openai-compatible',
+    endpoint: 'https://api.deepseek.com/chat/completions',
+    apiKeyEnv: 'DEEPSEEK_API_KEY',
+    model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+    temperature: Number(process.env.DEEPSEEK_TEMPERATURE || 0.2),
+    maxTokens: Number(process.env.DEEPSEEK_MAX_TOKENS || 900)
+  },
+  'openai-compatible': {
+    type: 'openai-compatible',
+    endpoint: process.env.OPENAI_COMPATIBLE_ENDPOINT || '',
+    apiKeyEnv: 'OPENAI_COMPATIBLE_API_KEY',
+    model: process.env.OPENAI_COMPATIBLE_MODEL || '',
+    temperature: Number(process.env.OPENAI_COMPATIBLE_TEMPERATURE || 0.2),
+    maxTokens: Number(process.env.OPENAI_COMPATIBLE_MAX_TOKENS || 900)
+  }
+});
 
 // ⚠️ 以下两个文件的 canonical 源在 tools/,由 `node tools/sync_cf.js` 物理拷入本目录。
 //    改这些前先改 tools/ 里的原文件,再跑 sync,不要直接改本目录副本(会被覆盖)。
@@ -238,16 +269,46 @@ function buildUserPrompt(ev, taskCard) {
   ].filter(Boolean).join('\n');
 }
 
-/* ------------------------------ LLM 调用（wxai） ------------------------------ */
+/* ------------------------------ LLM 调用 ------------------------------ */
+
+function isWebGatewayCall(event) {
+  const gateway = event && event.__gsygGateway;
+  return Boolean(gateway && gateway.actor && String(gateway.actor).indexOf('web:') === 0);
+}
+
+function resolveLLMProfile(event) {
+  const requested = String((event && event.llmProfile) || '').trim();
+  const defaultForWeb = String(process.env.WEB_INTERVIEW_LLM_PROFILE || 'web-default').trim();
+  const id = requested || (isWebGatewayCall(event) ? defaultForWeb : 'wxai');
+  if (!LLM_PROFILES[id]) {
+    throw new Error('unsupported_llm_profile:' + id);
+  }
+  return { id, config: LLM_PROFILES[id] };
+}
+
+function endpointHost(endpoint) {
+  try { return new URL(endpoint).host; } catch { return ''; }
+}
+
+async function callLLM(event, system, user) {
+  const selected = resolveLLMProfile(event);
+  if (selected.config.type === 'wxai') {
+    return callWxAI(system, user, selected.id);
+  }
+  if (selected.config.type === 'openai-compatible') {
+    return callOpenAICompatible(selected.id, selected.config, system, user);
+  }
+  throw new Error('unsupported_llm_profile_type:' + selected.config.type);
+}
 
 // 微信云开发 AI（`cloud.extend.AI.createModel(...)`）主接口是 `streamText`（SSE）。
 // 需要 wx-server-sdk ^3.0.0；package.json 已升级。
-async function callWxAI(system, user) {
+async function callWxAI(system, user, profileId) {
   const messages = [
     { role: 'system', content: system },
     { role: 'user', content: user }
   ];
-  console.log('[wxai] call', JSON.stringify({ model: DEFAULT_MODEL, provider: DEFAULT_PROVIDER, timeoutMs: LLM_TIMEOUT_MS }));
+  console.log('[wxai] call', JSON.stringify({ profileId: profileId || 'wxai', model: DEFAULT_MODEL, provider: DEFAULT_PROVIDER, timeoutMs: LLM_TIMEOUT_MS }));
 
   // wxai 在不同 wx-server-sdk 版本下暴露路径不同：
   //   4.x 稳定路径优先 cloud.extend.AI；老版本或某些运行时只注入 cloud.ai。两者 API 形状一致。
@@ -318,6 +379,48 @@ async function callWxAI(system, user) {
   const out = await drainStream(res);
   console.log('[wxai] ok streamText', JSON.stringify({ model: DEFAULT_MODEL, providerUsed, ms: Date.now() - t0, chars: out.length }));
   return out;
+}
+
+async function callOpenAICompatible(profileId, profile, system, user) {
+  if (!profile.endpoint) throw new Error('llm_profile_missing_endpoint:' + profileId);
+  const apiKey = process.env[profile.apiKeyEnv];
+  if (!apiKey) throw new Error('llm_profile_missing_api_key:' + profile.apiKeyEnv);
+  if (!profile.model) throw new Error('llm_profile_missing_model:' + profileId);
+
+  const messages = [
+    { role: 'system', content: system },
+    { role: 'user', content: user }
+  ];
+  const payload = {
+    model: profile.model,
+    messages,
+    temperature: profile.temperature,
+    max_tokens: profile.maxTokens
+  };
+  console.log('[third_llm] call', JSON.stringify({
+    profileId,
+    model: profile.model,
+    endpointHost: endpointHost(profile.endpoint),
+    timeoutMs: LLM_TIMEOUT_MS
+  }));
+
+  const response = await fetch(profile.endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + apiKey
+    },
+    body: JSON.stringify(payload)
+  });
+  const body = await response.json().catch(async () => ({ text: await response.text().catch(() => '') }));
+  if (!response.ok) {
+    const msg = body && (body.error && (body.error.message || body.error.code) || body.message || body.text);
+    throw new Error('third_llm_http_' + response.status + ':' + String(msg || '').slice(0, 200));
+  }
+  const text = extractText(body);
+  if (!text) throw new Error('third_llm_empty_response:' + profileId);
+  console.log('[third_llm] ok', JSON.stringify({ profileId, model: profile.model, chars: text.length }));
+  return text;
 }
 
 // 兼容多种返回形态：dataStream/eventStream/textStream/AsyncIterable
@@ -517,7 +620,7 @@ exports.main = async (event) => {
 
     const system = buildSystemPrompt(event, taskCard);
     const user = buildUserPrompt(event, taskCard);
-    const raw = await withTimeout(callWxAI(system, user), LLM_TIMEOUT_MS);
+    const raw = await withTimeout(callLLM(event, system, user), LLM_TIMEOUT_MS);
     if (!raw) throw new Error('LLM 空响应');
 
     const obj = parseModelJSON(raw);

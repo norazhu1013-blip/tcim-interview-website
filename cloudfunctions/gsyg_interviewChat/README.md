@@ -1,9 +1,10 @@
-# gsyg_interviewChat —— AI 访谈动态追问（wxai 版）
+# gsyg_interviewChat —— AI 访谈动态追问
 
 ## 做什么
 
 - 每轮教师发言后由客户端调本云函数拿到「下一句要问的问题」+「教师上一轮回答实质覆盖了哪些证据点(E1-E7)」。
-- 走微信云开发 AI 能力（`cloud.extend.AI` / `cloud.ai` 两代 API 自动兼容）。
+- 小程序默认走微信云开发 AI 能力（`cloud.extend.AI` / `cloud.ai` 两代 API 自动兼容）。
+- 网页端默认走第三方 OpenAI-compatible 接口；也可通过入参 `llmProfile` 在云函数内置配置组之间切换。
 - 失败/超时/未开通 → `ok:false`，客户端 `interview.js` 自动回退规则版脚本序列（`interview.utils.js` 的 T→Q→E 流程）。
 
 ## 与之前"规则版问过即算"的关键差异
@@ -21,8 +22,39 @@
 | 变量 | 说明 | 默认 |
 |---|---|---|
 | `WXAI_MODEL` | wxai 已开通的模型 id | `hy3-preview` |
+| `WXAI_PROVIDER` | wxai provider | `cloudbase` |
 | `LLM_TIMEOUT_MS` | 单次 LLM 超时 ms | `30000` |
 | `SEC_CHECK` | `1` 开启对 AI 输出的 `security.msgSecCheck` 机审（上线建议开） | 不开 |
+| `WEB_INTERVIEW_LLM_PROFILE` | 网页端未传 `llmProfile` 时使用的内置配置组 | `web-default` |
+| `WEB_LLM_ENDPOINT` | `web-default` 的完整 chat/completions URL | 空 |
+| `WEB_LLM_API_KEY` | `web-default` 的 API Key | 空 |
+| `WEB_LLM_MODEL` | `web-default` 的模型名 | 空 |
+| `DEEPSEEK_API_KEY` | `deepseek` 配置组 API Key | 空 |
+| `DEEPSEEK_MODEL` | `deepseek` 配置组模型名 | `deepseek-chat` |
+| `OPENAI_COMPATIBLE_ENDPOINT` | `openai-compatible` 配置组完整 chat/completions URL | 空 |
+| `OPENAI_COMPATIBLE_API_KEY` | `openai-compatible` 配置组 API Key | 空 |
+| `OPENAI_COMPATIBLE_MODEL` | `openai-compatible` 配置组模型名 | 空 |
+
+## LLM profile 切换
+
+云函数内置 `LLM_PROFILES` 白名单，前端只能传 `llmProfile` 选择已有配置，不能传 endpoint 或 key。
+
+当前内置:
+
+| profile | 类型 | 说明 |
+|---|---|---|
+| `wxai` | 微信云开发 AI | 小程序默认 |
+| `web-default` | OpenAI-compatible | 网页端默认，endpoint/model/key 走 `WEB_LLM_*` |
+| `deepseek` | OpenAI-compatible | endpoint 固定为 `https://api.deepseek.com/chat/completions` |
+| `openai-compatible` | OpenAI-compatible | 通用第三方接口，endpoint/model/key 走 `OPENAI_COMPATIBLE_*` |
+
+网页端可在构建变量中指定:
+
+```env
+VITE_INTERVIEW_LLM_PROFILE=deepseek
+```
+
+不填时，网页请求由云函数按 `WEB_INTERVIEW_LLM_PROFILE || "web-default"` 选择。小程序不传该字段，默认仍走 `wxai`。
 
 5. 云函数配置 → **执行超时时间** ≥ 45s(推荐 60s),否则平台会先杀函数,`LLM_TIMEOUT_MS` 白设。
 6. 若开启 `SEC_CHECK=1`,需在小程序 openapi 权限里勾选 `security.msgSecCheck`(云开发环境默认可用)。
@@ -47,7 +79,8 @@
   "processTags": ["首位强摇摆","修改≥2次"],
   "kbSlice": { "core_orientation": "…", "observation_points": ["…"], "triggers": [{"code":"T1","result_cond":"…","target":"…"}], "evidence_points": [{"code":"E1","name":"…"}] },
   "history": [{"role":"ai","text":"…"},{"role":"me","text":"…"}],
-  "remainingMs": 480000
+  "remainingMs": 480000,
+  "llmProfile": "deepseek"
 }
 ```
 

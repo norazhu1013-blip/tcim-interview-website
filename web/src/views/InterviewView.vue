@@ -22,6 +22,7 @@ const startedAt = ref(existing?.startedAt || Date.now())
 const remaining = ref(10 * 60)
 const chatEnd = ref(null)
 const scriptQueue = buildScriptQueue(route.params.itemId, answer?.final_ranking)
+const webLLMProfile = String(import.meta.env.VITE_INTERVIEW_LLM_PROFILE || '').trim()
 let timer = null
 
 const isReview = computed(() => existing?.status === 'done')
@@ -59,7 +60,8 @@ async function requestNext() {
     ].filter(Boolean),
     history: historyForApi(),
     remainingMs: remaining.value * 1000,
-    kbSlice: kbSlice(item.item_id)
+    kbSlice: kbSlice(item.item_id),
+    llmProfile: webLLMProfile || undefined
   }
   const cloudResult = await interviewNext(context)
   const next = cloudResult.ok ? cloudResult : fallbackNext()
