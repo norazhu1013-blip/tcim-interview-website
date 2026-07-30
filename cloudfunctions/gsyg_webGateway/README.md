@@ -30,12 +30,12 @@ GSYG_WEB_GATEWAY_TOKEN=<至少32字节随机值>
 # 用于给 HttpOnly 网关会话签名；独立随机值，至少32字节，绝不放入前端。
 GSYG_WEB_SESSION_SECRET=<至少32字节随机值>
 
-# 与网页 VITE_CLOUDBASE_ENV_ID / VITE_CLOUDBASE_REGION 一致。
+# 与网页 VITE_CLOUDBASE_ENV_ID 一致。WEB_CLOUDBASE_REGION 保留给自定义 URL/历史配置使用。
 WEB_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 WEB_CLOUDBASE_REGION=ap-shanghai
 
 # 可选。未填时按上述环境 ID 自动构造：
-# https://<env>.<region>.tcb-api.tencentcloudapi.com/web/auth/v1/user/me
+# https://<env>.api.tcloudbasegateway.com/auth/v1/user/me
 WEB_CLOUDBASE_USERINFO_URL=
 
 WEB_ALLOWED_ORIGIN=https://app.example.com

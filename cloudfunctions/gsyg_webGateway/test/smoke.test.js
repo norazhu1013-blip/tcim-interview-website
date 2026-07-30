@@ -20,7 +20,7 @@ async function main() {
     };
   });
   assert.equal(verifiedUid, 'cloudbase_user_123');
-  assert.match(verifiedUrl, /\/web\/auth\/v1\/user\/me$/);
+  assert.equal(verifiedUrl, 'https://test-env.api.tcloudbasegateway.com/auth/v1/user/me');
 
   let forwarded;
   const app = createGateway({

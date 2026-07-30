@@ -24,7 +24,7 @@ const SESSION_TTL_SECONDS = Math.min(7 * 24 * 60 * 60, Math.max(15 * 60, Number(
 const authEnvId = String(process.env.WEB_CLOUDBASE_ENV_ID || '').trim();
 const authRegion = String(process.env.WEB_CLOUDBASE_REGION || 'ap-shanghai').trim();
 const defaultUserInfoUrl = authEnvId
-  ? `https://${authEnvId}.${authRegion}.tcb-api.tencentcloudapi.com/web/auth/v1/user/me`
+  ? `https://${authEnvId}.api.tcloudbasegateway.com/auth/v1/user/me`
   : '';
 const USER_INFO_URL = String(process.env.WEB_CLOUDBASE_USERINFO_URL || defaultUserInfoUrl).trim();
 const allowedOrigins = String(process.env.WEB_ALLOWED_ORIGIN || '')
