@@ -8,7 +8,7 @@
     "dev": "npm run sync && vite",
     "build": "npm run sync && vite build",
     "preview": "vite preview",
-    "verify": "npm run sync && node scripts/verify-parity.mjs"
+    "verify": "npm run sync && node scripts/verify-parity.mjs && node scripts/verify-interview-v7.mjs"
   },
   "dependencies": {
     "@cloudbase/js-sdk": "3.6.6",
