@@ -35,7 +35,7 @@ WEB_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 WEB_CLOUDBASE_REGION=ap-shanghai
 
 # 可选。未填时按上述环境 ID 自动构造：
-# https://<env>.<region>.tcb-api.tencentcloudapi.com/auth/v1/user/me
+# https://<env>.<region>.tcb-api.tencentcloudapi.com/web/auth/v1/user/me
 WEB_CLOUDBASE_USERINFO_URL=
 
 WEB_ALLOWED_ORIGIN=https://app.example.com

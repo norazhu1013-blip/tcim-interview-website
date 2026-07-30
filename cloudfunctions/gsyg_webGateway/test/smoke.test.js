@@ -7,9 +7,21 @@ process.env.GSYG_WEB_SESSION_SECRET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 process.env.WEB_CLOUDBASE_ENV_ID = 'test-env';
 process.env.WEB_ALLOWED_ORIGIN = 'https://app.example.test';
 
-const { createGateway } = require('../index.js');
+const { createGateway, verifyCloudBaseAccessToken } = require('../index.js');
 
 async function main() {
+  let verifiedUrl = '';
+  const verifiedUid = await verifyCloudBaseAccessToken('valid-cloudbase-access-token', async (url, options) => {
+    verifiedUrl = url;
+    assert.equal(options.headers.Authorization, 'Bearer valid-cloudbase-access-token');
+    return {
+      ok: true,
+      json: async () => ({ uid: 'cloudbase_user_123' })
+    };
+  });
+  assert.equal(verifiedUid, 'cloudbase_user_123');
+  assert.match(verifiedUrl, /\/web\/auth\/v1\/user\/me$/);
+
   let forwarded;
   const app = createGateway({
     verifyAccessToken: async (token) => token === 'valid-cloudbase-access-token' ? 'cloudbase_user_123' : '',
