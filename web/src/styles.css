@@ -145,9 +145,13 @@ h2 { letter-spacing: -.02em; }
 .chat-row.teacher > div { background: var(--primary); color: white; border: 0; border-radius: 16px 4px 16px 16px; }
 .chat-row.teacher time { color: #dce3ff; }
 .typing { color: var(--muted); }
-.chat-input, .chat-complete { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: min(860px, calc(100% - 24px)); background: rgba(255,255,255,.96); border: 1px solid var(--line); border-bottom: 0; border-radius: 18px 18px 0 0; padding: 14px; display: flex; gap: 10px; align-items: end; z-index: 30; box-shadow: 0 -10px 30px rgba(22,31,54,.08); }
+.chat-input, .chat-complete, .chat-recovery { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: min(860px, calc(100% - 24px)); background: rgba(255,255,255,.96); border: 1px solid var(--line); border-bottom: 0; border-radius: 18px 18px 0 0; padding: 14px; display: flex; gap: 10px; align-items: end; z-index: 30; box-shadow: 0 -10px 30px rgba(22,31,54,.08); }
 .chat-input textarea { flex: 1; }
 .chat-complete { justify-content: space-between; align-items: center; }
+.chat-recovery { justify-content: space-between; align-items: center; }
+.chat-recovery strong, .chat-recovery span { display: block; }
+.chat-recovery span { margin-top: 4px; color: var(--muted); font-size: 13px; }
+.chat-recovery-actions { display: flex; gap: 8px; flex: 0 0 auto; }
 .done-page { text-align: center; padding-top: 100px; }
 .done-page > p:not(.eyebrow) { color: var(--muted); max-width: 560px; margin-inline: auto; }
 .done-mark { margin: 0 auto 28px; width: 84px; height: 84px; display: grid; place-items: center; border-radius: 50%; color: white; background: #3b9d65; font-size: 40px; box-shadow: 0 16px 40px rgba(59,157,101,.25); }
@@ -163,6 +167,8 @@ h2 { letter-spacing: -.02em; }
   .hero { margin-top: 18px; grid-template-columns: 1fr; padding: 28px; min-height: 0; }
   .hero-visual { display: none; }
   .record-grid, .form-row, .context-options { grid-template-columns: 1fr; }
+  .chat-recovery { align-items: stretch; flex-direction: column; }
+  .chat-recovery-actions { justify-content: flex-end; }
   .bottom-tabs { display: grid; grid-template-columns: 1fr 1fr; position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; padding-bottom: env(safe-area-inset-bottom); background: rgba(255,255,255,.96); border-top: 1px solid var(--line); }
   .bottom-tabs a { min-height: 62px; display: grid; place-items: center; color: #8a93a5; font-weight: 700; }
   .bottom-tabs a.active { color: var(--primary); }

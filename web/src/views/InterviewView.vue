@@ -2,9 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ITEMS } from '../generated/data.js'
-import { buildScriptQueue, kbSlice, stopScript } from '../core/interview.js'
+import { kbSlice } from '../core/interview.js'
 import { computeProcess } from '../core/process.js'
-import { getSession, saveSession } from '../services/storage.js'
+import { getProfile, getSession, saveSession } from '../services/storage.js'
 import { interviewNext, reportInterview } from '../services/api.js'
 
 const route = useRoute()
@@ -18,10 +18,14 @@ const messages = ref(existing?.messages?.slice() || [])
 const input = ref('')
 const sending = ref(false)
 const done = ref(existing?.status === 'done')
+const generationPaused = ref(Boolean(existing?.generationError))
+const generationError = ref(existing?.generationError || '')
 const startedAt = ref(existing?.startedAt || Date.now())
 const remaining = ref(10 * 60)
 const chatEnd = ref(null)
-const scriptQueue = buildScriptQueue(route.params.itemId, answer?.final_ranking)
+const stage = ref(existing?.stage || 'S1_CONTEXT')
+const lastLLMProfile = ref(existing?.llmProfile || '')
+const lastLLMModel = ref(existing?.llmModel || '')
 const webLLMProfile = String(import.meta.env.VITE_INTERVIEW_LLM_PROFILE || '').trim()
 let timer = null
 
@@ -35,20 +39,13 @@ function historyForApi() {
   }))
 }
 
-function fallbackNext() {
-  const answered = messages.value.filter((message) => message.role === 'teacher').length
-  const script = scriptQueue[answered]
-  if (!script || answered >= 6 || remaining.value < 60) {
-    return { question: stopScript(item.item_id), done: true, evidenceHint: [] }
-  }
-  return { question: script.q, done: false, evidenceHint: script.E || [] }
-}
-
 async function requestNext() {
   const process = computeProcess(answer)
+  const profile = getProfile() || {}
   const context = {
     sessionId: session.value.sessionId,
     itemId: item.item_id,
+    teacherName: profile.name || '',
     itemContext: { title: item.title, stem: item.stem, options: item.options },
     teacherRanking: answer.final_ranking,
     taskCard: selected?.task_card || null,
@@ -61,11 +58,28 @@ async function requestNext() {
     history: historyForApi(),
     remainingMs: remaining.value * 1000,
     kbSlice: kbSlice(item.item_id),
+    stage: stage.value,
     llmProfile: webLLMProfile || undefined
   }
-  const cloudResult = await interviewNext(context)
-  const next = cloudResult.ok ? cloudResult : fallbackNext()
-  messages.value.push({ role: 'ai', text: next.question, ts: Date.now() })
+  let next
+  try {
+    next = await interviewNext(context)
+  } catch (error) {
+    next = { ok: false, error: error?.message || 'gateway_request_failed' }
+  }
+  if (!next?.ok || (!next.question && !next.done)) {
+    generationPaused.value = true
+    generationError.value = next?.error || 'invalid_interview_response'
+    persist(false)
+    return false
+  }
+
+  generationPaused.value = false
+  generationError.value = ''
+  if (next.nextStage) stage.value = next.nextStage
+  if (next.llmProfile) lastLLMProfile.value = next.llmProfile
+  if (next.llmModel) lastLLMModel.value = next.llmModel
+  if (next.question) messages.value.push({ role: 'ai', text: next.question, ts: Date.now() })
   if (next.done) {
     done.value = true
     persist(true)
@@ -74,17 +88,48 @@ async function requestNext() {
   }
   await nextTick()
   chatEnd.value?.scrollIntoView({ behavior: 'smooth' })
+  return true
 }
 
 async function send() {
   const text = input.value.trim()
-  if (!text || sending.value || done.value) return
+  if (!text || sending.value || done.value || generationPaused.value) return
   messages.value.push({ role: 'teacher', text, ts: Date.now() })
   input.value = ''
   sending.value = true
   persist(false)
-  await requestNext()
-  sending.value = false
+  try {
+    await requestNext()
+  } finally {
+    sending.value = false
+  }
+}
+
+async function retryQuestion() {
+  if (sending.value || done.value) return
+  sending.value = true
+  try {
+    await requestNext()
+  } finally {
+    sending.value = false
+  }
+}
+
+function buildLocalClosing() {
+  const teacherTurns = messages.value.filter((message) => message.role === 'teacher' && message.text)
+  const last = teacherTurns.length ? String(teacherTurns[teacherTurns.length - 1].text).replace(/\s+/g, ' ').trim() : ''
+  if (!last) return '谢谢您的参与。本情境访谈先到这里。'
+  const excerpt = last.length > 42 ? `${last.slice(0, 42)}……` : last
+  return `谢谢您的分享。我记下了您刚才强调的“${excerpt}”。本情境访谈先到这里。`
+}
+
+function endAfterError() {
+  if (done.value || sending.value) return
+  messages.value.push({ role: 'ai', text: buildLocalClosing(), ts: Date.now() })
+  generationPaused.value = false
+  generationError.value = ''
+  done.value = true
+  persist(true)
 }
 
 function persist(isDone) {
@@ -95,7 +140,11 @@ function persist(isDone) {
     startedAt: startedAt.value,
     finishedAt: isDone ? Date.now() : null,
     messages: messages.value.slice(),
-    teacherRanking: answer.final_ranking
+    teacherRanking: answer.final_ranking,
+    stage: stage.value,
+    llmProfile: lastLLMProfile.value,
+    llmModel: lastLLMModel.value,
+    generationError: generationPaused.value ? generationError.value : ''
   }
   session.value = saveSession(session.value)
   if (isDone) reportInterview(session.value)
@@ -118,8 +167,11 @@ onMounted(async () => {
   }, 1000)
   if (!messages.value.length && !isReview.value) {
     sending.value = true
-    await requestNext()
-    sending.value = false
+    try {
+      await requestNext()
+    } finally {
+      sending.value = false
+    }
   }
 })
 onBeforeUnmount(() => clearInterval(timer))
@@ -128,7 +180,7 @@ onBeforeUnmount(() => clearInterval(timer))
 <template>
   <section v-if="session && item" class="interview-live">
     <header class="interview-header">
-      <button class="icon-button" @click="leave">←</button>
+      <button v-if="isReview || done" class="icon-button" @click="leave">←</button>
       <div><strong>{{ item.title }}</strong><small>内容由 AI 生成，仅供参考</small></div>
       <span :class="{ urgent: remaining < 60 }">{{ isReview ? '回看' : timeText }}</span>
     </header>
@@ -155,7 +207,17 @@ onBeforeUnmount(() => clearInterval(timer))
       <div ref="chatEnd"></div>
     </div>
 
-    <div v-if="!done && !isReview" class="chat-input">
+    <div v-if="generationPaused && !done && !isReview" class="chat-recovery">
+      <div>
+        <strong>刚才的问题暂时没有生成成功</strong>
+        <span>您的回答已经保存，可以重新生成；如果不想继续，也可以结束本情境。</span>
+      </div>
+      <div class="chat-recovery-actions">
+        <button class="button secondary" :disabled="sending" @click="retryQuestion">重新生成</button>
+        <button class="button text" :disabled="sending" @click="endAfterError">结束本情境</button>
+      </div>
+    </div>
+    <div v-else-if="!done && !isReview" class="chat-input">
       <textarea v-model="input" rows="2" maxlength="2000" placeholder="请输入您的回答…" @keydown.ctrl.enter="send"></textarea>
       <button class="button primary" :disabled="!input.trim() || sending" @click="send">发送</button>
     </div>
