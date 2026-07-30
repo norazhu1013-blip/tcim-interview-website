@@ -13,7 +13,7 @@
 //
 // 环境变量:
 //   WXAI_MODEL/WXAI_PROVIDER/LLM_TIMEOUT_MS/SEC_CHECK 见 README
-//   网页第三方 AI: WEB_INTERVIEW_LLM_PROFILE/DEEPSEEK_API_KEY/OPENAI_COMPATIBLE_* 等见 README
+//   网页 AI: WEB_INTERVIEW_LLM_PROFILE/OPENAI_API_KEY/DEEPSEEK_API_KEY/OPENAI_COMPATIBLE_* 等见 README
 
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
@@ -26,10 +26,58 @@ const MIN_NORMAL_QUESTIONS = 8;
 const MAX_VISIBLE_QUESTION_CHARS = 100;
 const DEFAULT_CLOSING_MESSAGE = '感谢您的分享，本情境的访谈先到这里。';
 
+const INTERVIEW_RESPONSE_SCHEMA = Object.freeze({
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    understanding: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        teacher_quote: { type: 'string' },
+        meaning: { type: 'string' },
+        confidence: { type: 'string', enum: ['HIGH', 'MEDIUM', 'LOW'] }
+      },
+      required: ['teacher_quote', 'meaning', 'confidence']
+    },
+    state: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        active_thread: { type: 'string' },
+        latest_new_point: { type: 'string' },
+        next_move: {
+          type: 'string',
+          enum: ['OPEN', 'CLARIFY', 'DEEPEN', 'CONNECT', 'TENSION', 'BOUNDARY', 'INTEGRATE', 'PIVOT', 'CLOSE']
+        },
+        purpose: { type: 'string' },
+        completion: {
+          type: 'string',
+          enum: ['BEFORE_MINIMUM', 'INCOMPLETE', 'COMPLETE', 'MUST_STOP']
+        }
+      },
+      required: ['active_thread', 'latest_new_point', 'next_move', 'purpose', 'completion']
+    },
+    next_question: { type: 'string' },
+    done: { type: 'boolean' },
+    closing_message: { type: 'string' },
+    covered_evidence: { type: 'array', items: { type: 'string' } }
+  },
+  required: ['understanding', 'state', 'next_question', 'done', 'closing_message', 'covered_evidence']
+});
+
 // LLM 配置白名单。前端只能传 llmProfile 选择这里已有的配置,不能传 endpoint/key。
 // 密钥仍走云函数环境变量,不要写入代码或前端构建变量。
 const LLM_PROFILES = Object.freeze({
   wxai: { type: 'wxai' },
+  'openai-official': {
+    type: 'openai-responses',
+    endpoint: 'https://api.openai.com/v1/responses',
+    apiKeyEnv: 'OPENAI_API_KEY',
+    model: process.env.OPENAI_MODEL || 'gpt-5.6-sol',
+    reasoningEffort: process.env.OPENAI_REASONING_EFFORT || 'high',
+    maxOutputTokens: Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || 4000)
+  },
   deepseek: {
     type: 'openai-compatible',
     endpoint: 'https://api.deepseek.com/chat/completions',
@@ -269,10 +317,61 @@ function endpointHost(endpoint) {
 
 async function callLLM(selected, system, user) {
   if (selected.config.type === 'wxai') return callWxAI(system, user, selected.id);
+  if (selected.config.type === 'openai-responses') {
+    return callOpenAIResponses(selected.id, selected.config, system, user);
+  }
   if (selected.config.type === 'openai-compatible') {
     return callOpenAICompatible(selected.id, selected.config, system, user);
   }
   throw new Error('unsupported_llm_profile_type:' + selected.config.type);
+}
+
+async function callOpenAIResponses(profileId, profile, system, user) {
+  const apiKey = process.env[profile.apiKeyEnv];
+  if (!apiKey) throw new Error('llm_profile_missing_api_key:' + profile.apiKeyEnv);
+
+  const payload = {
+    model: profile.model,
+    instructions: system,
+    input: user,
+    reasoning: { effort: profile.reasoningEffort },
+    text: {
+      verbosity: 'low',
+      format: {
+        type: 'json_schema',
+        name: 'teacher_interview_turn',
+        strict: true,
+        schema: INTERVIEW_RESPONSE_SCHEMA
+      }
+    },
+    max_output_tokens: profile.maxOutputTokens,
+    store: false
+  };
+  console.log('[openai_official] call', JSON.stringify({
+    profileId,
+    model: profile.model,
+    endpointHost: endpointHost(profile.endpoint),
+    reasoningEffort: profile.reasoningEffort,
+    timeoutMs: LLM_TIMEOUT_MS
+  }));
+
+  const response = await fetch(profile.endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + apiKey
+    },
+    body: JSON.stringify(payload)
+  });
+  const body = await response.json().catch(async () => ({ text: await response.text().catch(() => '') }));
+  if (!response.ok) {
+    const msg = body && (body.error && (body.error.message || body.error.code) || body.message || body.text);
+    throw new Error('openai_official_http_' + response.status + ':' + String(msg || '').slice(0, 200));
+  }
+  const text = extractOpenAIResponseText(body);
+  if (!text) throw new Error('openai_official_empty_response:' + profileId);
+  console.log('[openai_official] ok', JSON.stringify({ profileId, model: profile.model, chars: text.length }));
+  return text;
 }
 
 // 微信云开发 AI（`cloud.extend.AI.createModel(...)`）主接口是 `streamText`（SSE）。
@@ -467,6 +566,18 @@ function extractText(res) {
   }
   if (res.data && res.data.output) return res.data.output;
   return '';
+}
+
+function extractOpenAIResponseText(res) {
+  if (!res) return '';
+  if (typeof res.output_text === 'string' && res.output_text) return res.output_text;
+  if (!Array.isArray(res.output)) return '';
+  return res.output
+    .filter((item) => item && item.type === 'message' && Array.isArray(item.content))
+    .flatMap((item) => item.content)
+    .filter((content) => content && content.type === 'output_text' && typeof content.text === 'string')
+    .map((content) => content.text)
+    .join('');
 }
 
 // 12s 内 llm 未返回视为失败
@@ -697,6 +808,7 @@ if (process.env.NODE_ENV === 'test') {
     visibleQuestionIssue,
     buildGroundedRecoveryQuestion,
     closingFromLatestTeacher,
+    extractOpenAIResponseText,
     isStrongFrustrationText,
     isExplicitStopText
   };
