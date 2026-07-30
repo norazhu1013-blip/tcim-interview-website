@@ -138,15 +138,40 @@ function extractUid(body) {
   return typeof uid === 'string' && /^[A-Za-z0-9_-]{4,128}$/.test(uid) ? uid : '';
 }
 
+function summarizeBody(body) {
+  try {
+    return JSON.stringify(body).slice(0, 300);
+  } catch {
+    return String(body || '').slice(0, 300);
+  }
+}
+
 async function verifyCloudBaseAccessToken(accessToken, fetchImpl = globalThis.fetch) {
-  if (!USER_INFO_URL || !accessToken || typeof fetchImpl !== 'function') return '';
+  if (!USER_INFO_URL || !accessToken || typeof fetchImpl !== 'function') {
+    console.warn('[gateway] CloudBase token verification skipped:', {
+      userInfoConfigured: Boolean(USER_INFO_URL),
+      hasAccessToken: Boolean(accessToken),
+      tokenLength: accessToken ? String(accessToken).length : 0,
+      hasFetch: typeof fetchImpl === 'function'
+    });
+    return '';
+  }
   try {
     const response = await fetchImpl(USER_INFO_URL, {
       method: 'GET',
       headers: { Authorization: `Bearer ${accessToken}` }
     });
-    if (!response.ok) return '';
-    return extractUid(await response.json());
+    const body = await response.json().catch(async () => ({ text: await response.text().catch(() => '') }));
+    const uid = response.ok ? extractUid(body) : '';
+    if (!uid) {
+      console.warn('[gateway] CloudBase token verification rejected:', {
+        url: USER_INFO_URL,
+        status: response.status,
+        ok: response.ok,
+        body: summarizeBody(body)
+      });
+    }
+    return uid;
   } catch (error) {
     console.warn('[gateway] CloudBase token verification failed:', error && error.message);
     return '';
@@ -185,6 +210,12 @@ function createGateway({
   app.post('/auth/session', async (req, res) => {
     if (!SESSION_SECRET || !USER_INFO_URL) return res.status(503).json({ ok: false, error: 'gateway_auth_not_configured' });
     const accessToken = extractBearerToken(req.headers.authorization);
+    if (!accessToken) {
+      console.warn('[gateway] /auth/session missing bearer token:', {
+        method: req.method,
+        hasAuthorizationHeader: Boolean(req.headers.authorization)
+      });
+    }
     const uid = await verifyAccessToken(accessToken);
     if (!uid) return res.status(401).json({ ok: false, error: 'cloudbase_token_invalid' });
 
