@@ -21,6 +21,11 @@ const MAX_BODY = process.env.GSYG_WEB_MAX_BODY || '1mb';
 const MAX_CALLS = Math.max(5, Number(process.env.GSYG_WEB_RATE_LIMIT || 36));
 const WINDOW_MS = Math.max(60_000, Number(process.env.GSYG_WEB_RATE_WINDOW_MS || 600_000));
 const SESSION_TTL_SECONDS = Math.min(7 * 24 * 60 * 60, Math.max(15 * 60, Number(process.env.GSYG_WEB_SESSION_TTL_SECONDS || 21600)));
+const DEFAULT_UPSTREAM_TIMEOUT_MS = Math.max(5_000, Number(process.env.GSYG_WEB_UPSTREAM_TIMEOUT_MS || 15_000));
+const INTERVIEW_UPSTREAM_TIMEOUT_MS = Math.max(
+  DEFAULT_UPSTREAM_TIMEOUT_MS,
+  Number(process.env.GSYG_WEB_INTERVIEW_TIMEOUT_MS || 65_000)
+);
 const authEnvId = String(process.env.WEB_CLOUDBASE_ENV_ID || '').trim();
 const authRegion = String(process.env.WEB_CLOUDBASE_REGION || 'ap-shanghai').trim();
 const defaultUserInfoUrl = authEnvId
@@ -247,7 +252,12 @@ function createGateway({
     delete data.uid;
 
     try {
-      const result = await invoke({ name: functionName, data });
+      // wx-server-sdk 的 callFunction 默认只等待 15 秒。访谈模型常需 20 秒以上，
+      // 必须为访谈显式放宽，否则下游已成功生成时网关仍会提前返回失败。
+      const timeout = action === 'interviewChat'
+        ? INTERVIEW_UPSTREAM_TIMEOUT_MS
+        : DEFAULT_UPSTREAM_TIMEOUT_MS;
+      const result = await invoke({ name: functionName, data, timeout });
       return res.status(200).json(result && result.result ? result.result : { ok: false, error: 'empty_function_result' });
     } catch (error) {
       console.error('[gateway] invoke failed', action, error && error.message);

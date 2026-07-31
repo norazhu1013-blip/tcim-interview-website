@@ -66,6 +66,8 @@ check('网页失败界面明确保留回答并提供重试', () => {
   assert(view.includes('您的回答已经保存'));
   assert(view.includes('@click="retryQuestion"'));
   assert(view.includes('@click="endAfterError"'));
+  assert(view.includes('generationFailures.value.push'));
+  assert(view.includes('durationMs: Date.now() - requestedAt'));
 });
 
 check('错误姓氏、英文残词和多问题可在发送前清理', () => {

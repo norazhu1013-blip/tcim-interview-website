@@ -64,6 +64,18 @@ async function main() {
     assert.equal(forwarded.data.uid, undefined);
     assert.equal(forwarded.data.__gsygGateway.actor, 'web:cloudbase_user_123');
     assert.equal(forwarded.data.__gsygGateway.identityType, 'web_anonymous');
+    assert.equal(forwarded.timeout, 15000);
+
+    const interviewResponse = await fetch(`${endpoint}/call`, {
+      method: 'POST',
+      headers: { ...headers, Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'interviewChat', data: { sessionId: 'test', itemId: 'Q5' } })
+    });
+    const interviewBody = await interviewResponse.json();
+    assert.equal(interviewResponse.status, 200);
+    assert.equal(interviewBody.ok, true);
+    assert.equal(forwarded.name, 'gsyg_interviewChat');
+    assert.equal(forwarded.timeout, 65000);
 
     const rejected = await fetch(`${endpoint}/call`, {
       method: 'POST',
