@@ -89,7 +89,14 @@ async function requestNext() {
   if (next.nextStage) stage.value = next.nextStage
   if (next.llmProfile) lastLLMProfile.value = next.llmProfile
   if (next.llmModel) lastLLMModel.value = next.llmModel
-  if (next.question) messages.value.push({ role: 'ai', text: next.question, ts: Date.now() })
+  if (next.question) messages.value.push({
+    role: 'ai',
+    text: next.question,
+    ts: Date.now(),
+    llmProfile: next.llmProfile || lastLLMProfile.value,
+    llmModel: next.llmModel || lastLLMModel.value,
+    generationSource: 'llm'
+  })
   if (next.done) {
     done.value = true
     persist(true)
@@ -135,7 +142,14 @@ function buildLocalClosing() {
 
 function endAfterError() {
   if (done.value || sending.value) return
-  messages.value.push({ role: 'ai', text: buildLocalClosing(), ts: Date.now() })
+  messages.value.push({
+    role: 'ai',
+    text: buildLocalClosing(),
+    ts: Date.now(),
+    llmProfile: 'local',
+    llmModel: '未调用大模型',
+    generationSource: 'local'
+  })
   generationPaused.value = false
   generationError.value = ''
   done.value = true
