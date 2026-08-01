@@ -86,6 +86,15 @@ const LLM_PROFILES = Object.freeze({
     temperature: Number(process.env.DEEPSEEK_TEMPERATURE || 0.2),
     maxTokens: Number(process.env.DEEPSEEK_MAX_TOKENS || 900)
   },
+  'kimi-k3': {
+    type: 'openai-compatible',
+    endpoint: 'https://api.moonshot.ai/v1/chat/completions',
+    apiKeyEnv: 'MOONSHOT_API_KEY',
+    model: process.env.KIMI_MODEL || 'kimi-k3',
+    reasoningEffort: process.env.KIMI_REASONING_EFFORT || 'high',
+    maxCompletionTokens: Number(process.env.KIMI_MAX_COMPLETION_TOKENS || 4000),
+    strictJsonSchema: true
+  },
   'openai-compatible': {
     type: 'openai-compatible',
     endpoint: process.env.OPENAI_COMPATIBLE_ENDPOINT || '',
@@ -465,14 +474,28 @@ async function callOpenAICompatible(profileId, profile, system, user) {
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user }
-    ],
-    temperature: profile.temperature,
-    max_tokens: profile.maxTokens
+    ]
   };
+  if (Number.isFinite(profile.temperature)) payload.temperature = profile.temperature;
+  if (Number.isFinite(profile.maxTokens)) payload.max_tokens = profile.maxTokens;
+  if (profile.reasoningEffort) payload.reasoning_effort = profile.reasoningEffort;
+  if (Number.isFinite(profile.maxCompletionTokens)) payload.max_completion_tokens = profile.maxCompletionTokens;
+  if (profile.strictJsonSchema) {
+    payload.response_format = {
+      type: 'json_schema',
+      json_schema: {
+        name: 'teacher_interview_turn',
+        strict: true,
+        schema: INTERVIEW_RESPONSE_SCHEMA
+      }
+    };
+  }
   console.log('[third_llm] call', JSON.stringify({
     profileId,
     model: profile.model,
     endpointHost: endpointHost(profile.endpoint),
+    reasoningEffort: profile.reasoningEffort || '',
+    strictJsonSchema: !!profile.strictJsonSchema,
     timeoutMs: LLM_TIMEOUT_MS
   }));
 

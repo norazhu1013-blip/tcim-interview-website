@@ -33,6 +33,10 @@
 | `OPENAI_MAX_OUTPUT_TOKENS` | 含推理与最终 JSON 的输出上限 | `4000` |
 | `DEEPSEEK_API_KEY` | `deepseek` 配置组 API Key | 空 |
 | `DEEPSEEK_MODEL` | `deepseek` 配置组模型名 | `deepseek-chat` |
+| `MOONSHOT_API_KEY` | Kimi 官方开放平台 API Key（只存云函数环境变量） | 空 |
+| `KIMI_MODEL` | Kimi 配置组模型名 | `kimi-k3` |
+| `KIMI_REASONING_EFFORT` | K3 推理强度：`low` / `high` / `max` | `high` |
+| `KIMI_MAX_COMPLETION_TOKENS` | K3 单轮推理与最终 JSON 的输出上限 | `4000` |
 | `OPENAI_COMPATIBLE_ENDPOINT` | `openai-compatible` 配置组完整 chat/completions URL | 空 |
 | `OPENAI_COMPATIBLE_API_KEY` | `openai-compatible` 配置组 API Key | 空 |
 | `OPENAI_COMPATIBLE_MODEL` | `openai-compatible` 配置组模型名 | 空 |
@@ -48,6 +52,7 @@
 | `wxai` | 微信云开发 AI | 小程序和网页端默认 |
 | `openai-official` | OpenAI 官方 Responses API | 固定直连 `https://api.openai.com/v1/responses`；默认 `gpt-5.6-sol` |
 | `deepseek` | OpenAI-compatible | endpoint 固定为 `https://api.deepseek.com/chat/completions` |
+| `kimi-k3` | Kimi 官方 OpenAI-compatible API | 固定直连 `https://api.moonshot.ai/v1/chat/completions`；使用严格 JSON Schema |
 | `openai-compatible` | OpenAI-compatible | 通用第三方接口，endpoint/model/key 走 `OPENAI_COMPATIBLE_*` |
 
 网页端可在构建变量中指定:
@@ -59,6 +64,8 @@ VITE_INTERVIEW_LLM_PROFILE=openai-official
 不填时，网页请求由云函数按 `WEB_INTERVIEW_LLM_PROFILE || "wxai"` 选择；若云函数也未配置 `WEB_INTERVIEW_LLM_PROFILE`，默认走 `wxai`。小程序不传该字段，默认仍走 `wxai`。
 
 正式切换网页端时，在云函数环境变量中设置 `WEB_INTERVIEW_LLM_PROFILE=openai-official` 和 `OPENAI_API_KEY`。不要把 `OPENAI_API_KEY` 放进 `VITE_*`、网页源码、GitHub 或聊天记录。官方通道使用严格 JSON Schema，并设置 `store:false`，不让 Responses API 保存访谈请求。
+
+试用 Kimi K3 时，先在 Kimi API Platform 充值解锁 K3并创建 Key，把 Key 仅保存为云函数环境变量 `MOONSHOT_API_KEY`；网页构建变量改为 `VITE_INTERVIEW_LLM_PROFILE=kimi-k3`。K3 固定采样参数不允许自定义，因此本配置不发送 `temperature`，使用 `reasoning_effort=high`、`max_completion_tokens=4000` 与严格 JSON Schema。若真实访谈响应偏慢，只调整 `KIMI_REASONING_EFFORT=low`，不改访谈提示词。
 
 > 地区合规提醒：OpenAI 官方 API 只能在其公布的支持国家和地区内访问和提供访问。当前 CloudBase 环境为上海区，不得直接把生产默认 profile 切为 `openai-official`；否则既可能连接失败，也可能导致 OpenAI 账号被暂停。必须先确认服务部署位置与实际服务对象均符合 OpenAI 支持地区政策，再配置官方 Key 和启用该 profile。
 
@@ -123,6 +130,7 @@ VITE_INTERVIEW_LLM_PROFILE=openai-official
 node tools/verify_interview_v7.js
 node tools/verify_interview_resilience.js
 node tools/verify_openai_official.js
+node tools/verify_kimi_k3.js
 ```
 
 ## 后续可优化（v1.1）
