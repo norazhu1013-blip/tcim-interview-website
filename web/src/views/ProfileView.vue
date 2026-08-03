@@ -34,8 +34,6 @@ const logoutError = ref('')
 
 onMounted(async () => {
   if (!await requireWebLogin()) return
-  // 恢复上一版约定：Nora 保存过资料后，进入“我的”即由后端确认管理员身份。
-  if (String(saved.name || '').trim().toLowerCase() === 'nora') await reportProfile(saved)
   const identity = await whoami()
   isAdmin.value = Boolean(identity?.ok && identity.isAdmin)
 })

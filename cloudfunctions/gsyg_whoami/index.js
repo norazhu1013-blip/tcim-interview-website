@@ -22,14 +22,7 @@ exports.main = async (event) => {
   if (!OPENID) return { ok: false, openid: '', isAdmin: false, error: 'missing_identity' };
   try {
     const r = await db.collection(COLL).where({ openid: OPENID }).limit(1).get();
-    let rec = r.data && r.data[0];
-    const isNora = String(rec && rec.profile && rec.profile.name || '').trim().toLowerCase() === 'nora';
-    if (rec && isNora && !rec.isAdmin) {
-      await db.collection(COLL).doc(rec._id).update({
-        data: { isAdmin: true, adminGrantedByNameAt: Date.now() }
-      });
-      rec = Object.assign({}, rec, { isAdmin: true });
-    }
+    const rec = r.data && r.data[0];
     return {
       ok: true,
       openid: OPENID,
