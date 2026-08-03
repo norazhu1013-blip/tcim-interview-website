@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ITEMS } from '../generated/data.js'
 import { getSession, saveSession } from '../services/storage.js'
 import { selectFinal } from '../services/api.js'
 
@@ -27,21 +26,13 @@ async function goInterview() {
 <template>
   <section v-if="session" class="page narrow-page">
     <div class="page-title center">
-      <p class="eyebrow">确定性查表结果</p>
-      <h1>本次测评评分</h1>
-      <p>评分仅来自既定赋分表与算术计算，AI 不参与评分。</p>
+      <p class="eyebrow">提交成功</p>
+      <h1>本次测评已完成</h1>
+      <p>您的答题记录已保存，可以继续进行 AI 访谈。</p>
     </div>
-    <div class="score-hero">
-      <span>总分</span>
-      <strong>{{ session.scores?.total }}</strong>
-      <small>/ {{ ITEMS.length * 4 }}</small>
-      <p>{{ session.scores?.level }}</p>
-    </div>
-    <div class="score-list">
-      <div v-for="(item, i) in ITEMS" :key="item.item_id">
-        <span>{{ i + 1 }}. {{ item.title }}</span>
-        <strong>{{ session.scores?.perItem?.[item.item_id] ?? '-' }} 分</strong>
-      </div>
+    <div class="empty-card">
+      <strong>答题已提交</strong>
+      <p>接下来将围绕三个情境开展访谈。</p>
     </div>
     <div class="stack-actions">
       <button class="button primary wide" :disabled="loading" @click="goInterview">去 AI 访谈</button>

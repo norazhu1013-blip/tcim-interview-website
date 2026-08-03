@@ -90,7 +90,7 @@ function interviewProgress(session) {
         <p v-if="session.status === 'in_progress'">
           已完成 {{ Object.keys(session.answers || {}).length }}/{{ ITEMS.length }} 题
         </p>
-        <p v-else>{{ ITEMS.length }} 题 · 总分 {{ session.scores?.total ?? '-' }} · {{ session.scores?.level }}</p>
+        <p v-else>{{ ITEMS.length }} 题 · 已提交</p>
         <div class="actions">
           <template v-if="session.status === 'in_progress'">
             <button class="button secondary" @click="router.push(`/exam/${session.sessionId}`)">继续答题</button>
@@ -98,7 +98,6 @@ function interviewProgress(session) {
           </template>
           <template v-else>
             <button class="button text" @click="router.push(`/review/${session.sessionId}`)">看答题</button>
-            <button class="button text" @click="router.push(`/score/${session.sessionId}`)">看评分</button>
             <button class="button secondary" @click="router.push(`/interviews/${session.sessionId}`)">
               {{ interviewProgress(session) === '3/3' ? '回看访谈' : '去访谈' }}
             </button>

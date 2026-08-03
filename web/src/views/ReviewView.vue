@@ -25,7 +25,6 @@ const index = ref(0)
           <span>{{ pos + 1 }}</span><strong>{{ letter }}</strong><p>{{ ITEMS[index].options[letter] }}</p>
         </li>
       </ol>
-      <div class="review-score">本题得分 <strong>{{ session.scores?.perItem?.[ITEMS[index].item_id] }}</strong></div>
     </article>
     <div class="exam-actions">
       <button class="button secondary" :disabled="index === 0" @click="index--">上一题</button>
