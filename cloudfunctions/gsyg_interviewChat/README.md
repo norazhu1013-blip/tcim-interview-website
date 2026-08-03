@@ -52,7 +52,7 @@
 | `wxai` | 微信云开发 AI | 小程序和网页端默认 |
 | `openai-official` | OpenAI 官方 Responses API | 固定直连 `https://api.openai.com/v1/responses`；默认 `gpt-5.6-sol` |
 | `deepseek` | OpenAI-compatible | endpoint 固定为 `https://api.deepseek.com/chat/completions` |
-| `kimi-k3` | Kimi 官方 OpenAI-compatible API | 固定直连 `https://api.moonshot.ai/v1/chat/completions`；使用严格 JSON Schema |
+| `kimi-k3` | Kimi 国内官方 OpenAI-compatible API | 固定直连 `https://api.moonshot.cn/v1/chat/completions`；使用严格 JSON Schema |
 | `openai-compatible` | OpenAI-compatible | 通用第三方接口，endpoint/model/key 走 `OPENAI_COMPATIBLE_*` |
 
 网页端可在构建变量中指定:
@@ -65,7 +65,7 @@ VITE_INTERVIEW_LLM_PROFILE=openai-official
 
 正式切换网页端时，在云函数环境变量中设置 `WEB_INTERVIEW_LLM_PROFILE=openai-official` 和 `OPENAI_API_KEY`。不要把 `OPENAI_API_KEY` 放进 `VITE_*`、网页源码、GitHub 或聊天记录。官方通道使用严格 JSON Schema，并设置 `store:false`，不让 Responses API 保存访谈请求。
 
-试用 Kimi K3 时，先在 Kimi API Platform 充值解锁 K3并创建 Key，把 Key 仅保存为云函数环境变量 `MOONSHOT_API_KEY`；网页构建变量改为 `VITE_INTERVIEW_LLM_PROFILE=kimi-k3`。K3 固定采样参数不允许自定义，因此本配置不发送 `temperature`，使用 `reasoning_effort=high`、`max_completion_tokens=4000` 与严格 JSON Schema。若真实访谈响应偏慢，只调整 `KIMI_REASONING_EFFORT=low`，不改访谈提示词。
+试用 Kimi K3 时，先在 Kimi 国内 API 开放平台充值解锁 K3并创建 Key，把 Key 仅保存为云函数环境变量 `MOONSHOT_API_KEY`；网页构建变量改为 `VITE_INTERVIEW_LLM_PROFILE=kimi-k3`。国内平台 Key 只能配合 `api.moonshot.cn` 使用，不能发送至国际版 `.ai`。K3 固定采样参数不允许自定义，因此本配置不发送 `temperature`，使用 `reasoning_effort=high`、`max_completion_tokens=4000` 与严格 JSON Schema。若真实访谈响应偏慢，只调整 `KIMI_REASONING_EFFORT=low`，不改访谈提示词。
 
 > 地区合规提醒：OpenAI 官方 API 只能在其公布的支持国家和地区内访问和提供访问。当前 CloudBase 环境为上海区，不得直接把生产默认 profile 切为 `openai-official`；否则既可能连接失败，也可能导致 OpenAI 账号被暂停。必须先确认服务部署位置与实际服务对象均符合 OpenAI 支持地区政策，再配置官方 Key 和启用该 profile。
 

@@ -88,7 +88,7 @@ const LLM_PROFILES = Object.freeze({
   },
   'kimi-k3': {
     type: 'openai-compatible',
-    endpoint: 'https://api.moonshot.ai/v1/chat/completions',
+    endpoint: 'https://api.moonshot.cn/v1/chat/completions',
     apiKeyEnv: 'MOONSHOT_API_KEY',
     model: process.env.KIMI_MODEL || 'kimi-k3',
     reasoningEffort: process.env.KIMI_REASONING_EFFORT || 'high',
