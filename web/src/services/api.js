@@ -1,5 +1,9 @@
 import { callGateway } from './web-gateway.js'
 
+export const whoami = () => callGateway('whoami')
+
+export const exportData = (format = 'xlsx') => callGateway('exportData', { format })
+
 export const reportProfile = (profile) => callGateway('reportTeacher', { profile })
 
 export function reportExam(session, profile) {

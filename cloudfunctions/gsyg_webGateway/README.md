@@ -12,13 +12,16 @@
 
 ## 云函数环境变量
 
-以下五个函数必须配置**同一个**高强度随机值：
+以下八个函数必须配置**同一个**高强度随机值：
 
 - `gsyg_webGateway`
 - `gsyg_reportTeacher`
 - `gsyg_reportSession`
 - `gsyg_reportInterview`
 - `gsyg_selectFinal`
+- `gsyg_interviewChat`
+- `gsyg_whoami`
+- `gsyg_exportData`
 
 ```text
 GSYG_WEB_GATEWAY_TOKEN=<至少32字节随机值>
@@ -62,7 +65,7 @@ NODE_ENV=production
 1. CloudBase 控制台 → 云函数 → 新建 **HTTP 云函数**，名称 `gsyg_webGateway`，Node.js 18+。
 2. 上传本目录并选择「云端安装依赖」。HTTP 云函数通过 `scf_bootstrap` 监听 9000 端口；函数自身超时需设为至少 70 秒。
 3. 配置上述环境变量；在「HTTP 访问服务」绑定 `/gsyg-web` 路径或自定义 API 域名。
-4. 重新上传四个受控事件云函数：`gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal`。它们现在只接受格式为 `web:<CloudBase UID>` 的、带共享网关令牌的调用。
+4. 重新上传受控事件云函数：`gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal`、`gsyg_interviewChat`、`gsyg_whoami`、`gsyg_exportData`。其中身份与管理员接口只接受格式为 `web:<CloudBase UID>` 的、带共享网关令牌的网页调用。
 5. 设置网页构建变量，重新构建并部署 `web/dist`：
 
 ```env
@@ -78,4 +81,5 @@ VITE_CLOUDBASE_REGION=ap-shanghai
 - 网页从不直调依赖 `wxContext.OPENID` 的事件云函数，也不在前端保存 `GSYG_WEB_GATEWAY_TOKEN`、会话签名密钥、CloudBase 管理员密钥或 LLM 密钥。
 - `/auth/session` 必须成功向 CloudBase 反查 access token 对应的 UID 才会签发 Cookie；Cookie 带 `HttpOnly`、`Secure`（生产环境）和有限有效期。
 - 下游会话、访谈上报和遴选均按 `web:<UID>` 做 owner 校验；已知的 `sessionId` 不能覆盖其他教师数据。
+- 网页管理员导出只返回 `openid` 以 `web:` 开头的网站参与者数据；小程序管理员原有导出范围不变。
 - 如果需要让小程序与网页识别为同一位教师，必须在服务端以已验证手机号或统一帐号建立绑定；不能按姓名合并。

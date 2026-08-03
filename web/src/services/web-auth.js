@@ -1,6 +1,10 @@
 import { cloudbaseConfigured, getCloudAuth } from './cloudbase.js'
 import { createGatewaySession, getGatewaySession, clearGatewaySession } from './web-gateway.js'
 
+function notifyAuthState(state) {
+  window.dispatchEvent(new CustomEvent('gsyg:web-auth-changed', { detail: { state } }))
+}
+
 async function getAnonymousAccessToken() {
   const auth = getCloudAuth()
   try {
@@ -30,7 +34,10 @@ export async function ensureWebLogin() {
   if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
 
   const gatewaySession = await getGatewaySession()
-  if (gatewaySession.ok) return gatewaySession
+  if (gatewaySession.ok) {
+    notifyAuthState('signed_in')
+    return gatewaySession
+  }
 
   let accessToken
   try {
@@ -41,7 +48,9 @@ export async function ensureWebLogin() {
   if (!accessToken) return { ok: false, error: 'cloudbase_anonymous_login_failed' }
 
   // 已有 CloudBase 凭证但网关不可用时显示明确错误，不能错误地反复跳回登录页。
-  return createGatewaySession(accessToken)
+  const session = await createGatewaySession(accessToken)
+  if (session.ok) notifyAuthState('signed_in')
+  return session
 }
 
 export async function getWebLoginState() {
@@ -56,10 +65,14 @@ export async function requireWebLogin() {
 }
 
 export async function signOutWebUser() {
-  await clearGatewaySession()
+  const gatewayResult = await clearGatewaySession()
+  let cloudbaseSignedOut = true
   try {
     await getCloudAuth().signOut()
   } catch {
-    // 网关 Cookie 已清理时，CloudBase 本地凭证清理失败不应阻塞退出。
+    cloudbaseSignedOut = false
   }
+  if (!gatewayResult.ok || !cloudbaseSignedOut) return { ok: false, error: 'web_logout_failed' }
+  notifyAuthState('signed_out')
+  return { ok: true }
 }

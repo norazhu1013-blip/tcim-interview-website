@@ -47,6 +47,8 @@ const sameSite = ['lax', 'strict', 'none'].includes(String(process.env.WEB_COOKI
   : 'lax';
 
 const ACTIONS = Object.freeze({
+  whoami: 'gsyg_whoami',
+  exportData: 'gsyg_exportData',
   reportTeacher: 'gsyg_reportTeacher',
   reportSession: 'gsyg_reportSession',
   selectFinal: 'gsyg_selectFinal',

@@ -20,13 +20,24 @@ const COLL = {
 
 const PAGE = 100; // 微信云数据库单次 get 上限
 
+function resolveActor(event) {
+  const gateway = event && event.__gsygGateway;
+  if (
+    gateway &&
+    gateway.token &&
+    gateway.token === process.env.GSYG_WEB_GATEWAY_TOKEN &&
+    /^web:[A-Za-z0-9_-]{4,128}$/.test(gateway.actor || '')
+  ) return gateway.actor;
+  return cloud.getWXContext().OPENID;
+}
+
 async function isAdmin(openid) {
   if (!openid) return false;
   const r = await db.collection(COLL.teachers).where({ openid: openid }).limit(1).get();
   return !!(r.data && r.data[0] && r.data[0].isAdmin);
 }
 
-async function fetchAll(collName, since) {
+async function fetchAll(collName, since, websiteOnly) {
   const out = [];
   const where = since ? { updatedAt: _.gte(Number(since)) } : {};
   let skip = 0;
@@ -35,9 +46,12 @@ async function fetchAll(collName, since) {
   // 上限 100 页（=1w 条）作保护
   for (let i = 0; i < 100; i++) {
     const r = await db.collection(collName).where(where).skip(skip).limit(PAGE).get();
-    const arr = (r && r.data) || [];
+    const rows = (r && r.data) || [];
+    const arr = websiteOnly
+      ? rows.filter((row) => String(row && row.openid || '').startsWith('web:'))
+      : rows;
     out.push.apply(out, arr);
-    if (arr.length < PAGE) break;
+    if (rows.length < PAGE) break;
     skip += PAGE;
   }
   return out;
@@ -52,7 +66,8 @@ function stamp() {
 
 exports.main = async (event) => {
   event = event || {};
-  const { OPENID } = cloud.getWXContext();
+  const OPENID = resolveActor(event);
+  const websiteOnly = String(OPENID || '').startsWith('web:');
 
   // 认证
   if (!(await isAdmin(OPENID))) {
@@ -72,7 +87,7 @@ exports.main = async (event) => {
     const stats = {}; // 各集合的分类统计,便于导出后 QA
     for (const k of which) {
       if (!COLL[k]) continue;
-      const rows = await fetchAll(COLL[k], since);
+      const rows = await fetchAll(COLL[k], since, websiteOnly);
       bundle.data[k] = rows;
       count[k] = rows.length;
       // sessions:统计已遴选/待遴选;展平 task_card 索引方便研究者审阅

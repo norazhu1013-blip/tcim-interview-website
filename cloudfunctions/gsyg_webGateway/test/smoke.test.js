@@ -10,6 +10,9 @@ process.env.WEB_ALLOWED_ORIGIN = 'https://app.example.test';
 const { ACTIONS, createCloudInvoker, createGateway, verifyCloudBaseAccessToken } = require('../index.js');
 
 async function main() {
+  assert.equal(ACTIONS.whoami, 'gsyg_whoami');
+  assert.equal(ACTIONS.exportData, 'gsyg_exportData');
+
   const defaultCalls = [];
   const interviewCalls = [];
   const routedInvoke = createCloudInvoker({
@@ -76,6 +79,18 @@ async function main() {
     assert.equal(forwarded.data.__gsygGateway.actor, 'web:cloudbase_user_123');
     assert.equal(forwarded.data.__gsygGateway.identityType, 'web_anonymous');
     assert.equal(forwarded.timeout, 15000);
+
+    const exportResponse = await fetch(`${endpoint}/call`, {
+      method: 'POST',
+      headers: { ...headers, Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'exportData', data: { format: 'xlsx' } })
+    });
+    const exportBody = await exportResponse.json();
+    assert.equal(exportResponse.status, 200);
+    assert.equal(exportBody.ok, true);
+    assert.equal(forwarded.name, 'gsyg_exportData');
+    assert.equal(forwarded.data.format, 'xlsx');
+    assert.equal(forwarded.data.__gsygGateway.actor, 'web:cloudbase_user_123');
 
     const interviewResponse = await fetch(`${endpoint}/call`, {
       method: 'POST',
