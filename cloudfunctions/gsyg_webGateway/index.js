@@ -11,8 +11,6 @@ const crypto = require('crypto');
 const express = require('express');
 const cloud = require('wx-server-sdk');
 
-cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
-
 const COOKIE_NAME = 'gsyg_web_session';
 const TOKEN = process.env.GSYG_WEB_GATEWAY_TOKEN || '';
 const SESSION_SECRET = process.env.GSYG_WEB_SESSION_SECRET || '';
@@ -26,6 +24,16 @@ const INTERVIEW_UPSTREAM_TIMEOUT_MS = Math.max(
   DEFAULT_UPSTREAM_TIMEOUT_MS,
   Number(process.env.GSYG_WEB_INTERVIEW_TIMEOUT_MS || 65_000)
 );
+
+// wx-server-sdk 4.x 的 provider 调用链不会把 callFunction 参数对象里的 timeout
+// 传给底层请求。必须在 SDK 实例初始化时设置 timeout，否则仍会使用 15 秒默认值。
+// 普通业务与访谈分别使用两个实例，避免为了慢模型放宽所有上游请求。
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV, timeout: DEFAULT_UPSTREAM_TIMEOUT_MS });
+const interviewCloud = cloud.createNewInstance({
+  env: cloud.DYNAMIC_CURRENT_ENV,
+  timeout: INTERVIEW_UPSTREAM_TIMEOUT_MS
+});
+
 const authEnvId = String(process.env.WEB_CLOUDBASE_ENV_ID || '').trim();
 const authRegion = String(process.env.WEB_CLOUDBASE_REGION || 'ap-shanghai').trim();
 const defaultUserInfoUrl = authEnvId
@@ -45,6 +53,18 @@ const ACTIONS = Object.freeze({
   interviewChat: 'gsyg_interviewChat',
   reportInterview: 'gsyg_reportInterview'
 });
+
+function createCloudInvoker({
+  defaultClient = cloud,
+  interviewClient = interviewCloud
+} = {}) {
+  return ({ name, data }) => {
+    const client = name === ACTIONS.interviewChat ? interviewClient : defaultClient;
+    return client.callFunction({ name, data });
+  };
+}
+
+const invokeCloudFunction = createCloudInvoker();
 
 const rateBuckets = new Map();
 
@@ -184,7 +204,7 @@ async function verifyCloudBaseAccessToken(accessToken, fetchImpl = globalThis.fe
 }
 
 function createGateway({
-  invoke = cloud.callFunction.bind(cloud),
+  invoke = invokeCloudFunction,
   verifyAccessToken = verifyCloudBaseAccessToken
 } = {}) {
   const app = express();
@@ -252,8 +272,8 @@ function createGateway({
     delete data.uid;
 
     try {
-      // wx-server-sdk 的 callFunction 默认只等待 15 秒。访谈模型常需 20 秒以上，
-      // 必须为访谈显式放宽，否则下游已成功生成时网关仍会提前返回失败。
+      // timeout 同时留在内部调用契约中，便于注入测试和日志观察；线上真正生效的
+      // 超时来自上方分别初始化的 defaultClient / interviewClient。
       const timeout = action === 'interviewChat'
         ? INTERVIEW_UPSTREAM_TIMEOUT_MS
         : DEFAULT_UPSTREAM_TIMEOUT_MS;
@@ -275,6 +295,7 @@ if (require.main === module) {
 module.exports = {
   ACTIONS,
   COOKIE_NAME,
+  createCloudInvoker,
   createGateway,
   createSessionToken,
   extractUid,

@@ -44,15 +44,23 @@ WEB_COOKIE_SAMESITE=lax
 WEB_SESSION_TTL_SECONDS=21600
 GSYG_WEB_RATE_LIMIT=36
 GSYG_WEB_RATE_WINDOW_MS=600000
+
+# 普通云函数保持 15 秒；访谈模型允许等待 65 秒。
+GSYG_WEB_UPSTREAM_TIMEOUT_MS=15000
+GSYG_WEB_INTERVIEW_TIMEOUT_MS=65000
 NODE_ENV=production
 ```
+
+访谈超时是在独立的 CloudBase SDK 实例初始化时设置的。不要只把 `timeout` 放进
+`cloud.callFunction()` 的参数对象；当前 `wx-server-sdk` 的 provider 调用链不会让该值
+覆盖底层默认的 15 秒等待。
 
 网页和 API 不在同一个站点且确实需要跨站 Cookie 时，设 `WEB_COOKIE_SAMESITE=none`；此时必须保持 HTTPS 和 `WEB_COOKIE_SECURE=1`。`WEB_ALLOWED_ORIGIN` 仅填写精确的网页 Origin，不要使用 `*`。
 
 ## 部署
 
 1. CloudBase 控制台 → 云函数 → 新建 **HTTP 云函数**，名称 `gsyg_webGateway`，Node.js 18+。
-2. 上传本目录并选择「云端安装依赖」。HTTP 云函数通过 `scf_bootstrap` 监听 9000 端口。
+2. 上传本目录并选择「云端安装依赖」。HTTP 云函数通过 `scf_bootstrap` 监听 9000 端口；函数自身超时需设为至少 70 秒。
 3. 配置上述环境变量；在「HTTP 访问服务」绑定 `/gsyg-web` 路径或自定义 API 域名。
 4. 重新上传四个受控事件云函数：`gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal`。它们现在只接受格式为 `web:<CloudBase UID>` 的、带共享网关令牌的调用。
 5. 设置网页构建变量，重新构建并部署 `web/dist`：

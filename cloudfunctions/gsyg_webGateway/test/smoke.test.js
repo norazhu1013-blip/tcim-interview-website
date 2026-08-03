@@ -7,9 +7,20 @@ process.env.GSYG_WEB_SESSION_SECRET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 process.env.WEB_CLOUDBASE_ENV_ID = 'test-env';
 process.env.WEB_ALLOWED_ORIGIN = 'https://app.example.test';
 
-const { createGateway, verifyCloudBaseAccessToken } = require('../index.js');
+const { ACTIONS, createCloudInvoker, createGateway, verifyCloudBaseAccessToken } = require('../index.js');
 
 async function main() {
+  const defaultCalls = [];
+  const interviewCalls = [];
+  const routedInvoke = createCloudInvoker({
+    defaultClient: { callFunction: async (input) => defaultCalls.push(input) },
+    interviewClient: { callFunction: async (input) => interviewCalls.push(input) }
+  });
+  await routedInvoke({ name: ACTIONS.reportSession, data: { sessionId: 'regular' }, timeout: 15000 });
+  await routedInvoke({ name: ACTIONS.interviewChat, data: { sessionId: 'interview' }, timeout: 65000 });
+  assert.deepEqual(defaultCalls, [{ name: ACTIONS.reportSession, data: { sessionId: 'regular' } }]);
+  assert.deepEqual(interviewCalls, [{ name: ACTIONS.interviewChat, data: { sessionId: 'interview' } }]);
+
   let verifiedUrl = '';
   const verifiedUid = await verifyCloudBaseAccessToken('valid-cloudbase-access-token', async (url, options) => {
     verifiedUrl = url;
