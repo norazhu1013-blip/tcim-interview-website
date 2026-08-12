@@ -2,8 +2,8 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ITEMS } from '../generated/data.js'
-import { getSession, saveSession } from '../services/storage.js'
-import { selectFinal } from '../services/api.js'
+import { getProfile, getSession, saveSession } from '../services/storage.js'
+import { reportExam, selectFinal } from '../services/api.js'
 import { requireWebLogin } from '../services/web-auth.js'
 
 const route = useRoute()
@@ -25,6 +25,13 @@ async function loadSelection() {
   let result = await selectFinal(session.value.sessionId)
   if (['not_authenticated', 'cloudbase_token_invalid'].includes(result?.error)) {
     if (await requireWebLogin()) result = await selectFinal(session.value.sessionId)
+  }
+  // 若提交阶段的响应已返回、但服务器会话记录未真正落库，使用本机完整答卷
+  // 幂等补报一次，再重试确定性情境生成。避免要求参与者重新作答。
+  if (result?.error === 'session_not_found') {
+    const reportResult = await reportExam(session.value, getProfile())
+    if (reportResult?.ok) result = await selectFinal(session.value.sessionId)
+    else result = reportResult || result
   }
   loading.value = false
   if (!result.ok) {
