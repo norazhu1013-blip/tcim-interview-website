@@ -5,6 +5,7 @@ import { ITEMS } from '../generated/data.js'
 import { computeScores } from '../core/scoring.js'
 import { getProfile, getSession, saveSession } from '../services/storage.js'
 import { reportExam } from '../services/api.js'
+import { requireWebLogin } from '../services/web-auth.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -83,9 +84,15 @@ async function submit(timeout = false) {
   session.value.examSubmitTs = Date.now()
   session.value.totalExamMs = session.value.examSubmitTs - session.value.examStartTs
   session.value = saveSession(session.value)
-  const reportResult = await reportExam(session.value, getProfile())
+  let reportResult = await reportExam(session.value, getProfile())
+  // 新注册账号完成 CloudBase 登录后，网关的 HttpOnly 会话偶尔尚未建立或已失效。
+  // 只在明确的身份错误时重新同步一次登录态并重试，避免重复写入其他失败请求。
+  if (session.value.studyMode === 'single_trial' && ['not_authenticated', 'cloudbase_token_invalid'].includes(reportResult?.error)) {
+    if (await requireWebLogin()) reportResult = await reportExam(session.value, getProfile())
+  }
   if (session.value.studyMode === 'single_trial' && !reportResult?.ok) {
-    alert('单题作答已保存在本机，但暂时未能上传。请检查网络后重新提交。')
+    const reason = reportResult?.error ? `（${reportResult.error}）` : ''
+    alert(`单题作答已保存在本机，但暂时未能上传${reason}。请稍后重新提交。`)
     session.value.status = 'in_progress'
     session.value = saveSession(session.value)
     return
