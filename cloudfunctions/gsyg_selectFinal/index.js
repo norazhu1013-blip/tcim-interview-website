@@ -30,6 +30,8 @@ const db = cloud.database();
 const SESSIONS = 'gsyg_sessions';
 // v1.2: 每题预生成完整 task_card 并挂到 selection.final[i].task_card。老 session 强制重跑。
 const ALGO_VERSION = 'advisor_v1.2';
+const SINGLE_TRIAL_ALGO_VERSION = 'single_trial_v1';
+const SINGLE_TRIAL_ITEM_ID = 'Q4';
 
 // 2026-07-15 恒等题号:advisor_port 内部题号已重排为「与小程序一致」(见 tools/advisor_port.js 头注),
 // MP_TO_PY 翻译层已移除。mp session 直接喂 advisor,输出题号即小程序题号。
@@ -193,6 +195,58 @@ function toMpSelection(advisorOut, sessionAnswers) {
   };
 }
 
+function buildSingleTrialSelection(sessionDoc) {
+  const itemId = SINGLE_TRIAL_ITEM_ID;
+  const answer = (sessionDoc.answers || {})[itemId] || {};
+  if (!Array.isArray(answer.final_ranking) || answer.final_ranking.length !== 4) {
+    return { error: 'incomplete_answers', message: '缺少题目:' + itemId };
+  }
+  const teacherFinalOrder = answer.final_ranking.join('');
+  const teacherInitialOrder = Array.isArray(answer.first_ranking)
+    ? answer.first_ranking.join('')
+    : teacherFinalOrder;
+  const orderChanged = teacherInitialOrder !== teacherFinalOrder;
+  const seed = {
+    teacherFinalOrder,
+    teacherInitialOrder,
+    orderChanged,
+    orderChangeSummary: orderChanged
+      ? `初始排序${teacherInitialOrder},最终排序${teacherFinalOrder}`
+      : `排序相对稳定,最终排序${teacherFinalOrder}`,
+    sources: ['临时单题试访'],
+    primary_ability_type: 'C2 对游戏行为的分析与回应',
+    secondary_ability_type: 'B2 教师在幼儿游戏中的角色',
+    processTags: []
+  };
+  const taskCard = taskCardBuilder.buildTaskCard(itemId, seed);
+  if (!taskCard) return { error: 'task_card_failed', message: 'Q4任务卡生成失败' };
+  return {
+    selection: {
+      final: [{
+        id: itemId,
+        final_rank: 1,
+        sources: seed.sources,
+        source_summary: '临时单题试访',
+        source_count: 1,
+        primary_ability_type: seed.primary_ability_type,
+        secondary_ability_type: seed.secondary_ability_type,
+        interview_focus: '理解教师如何在幼儿个人材料兴趣、小组共同计划与同伴协商之间作出判断，并选择介入时机和支持方式。',
+        selection_reason: '研究团队临时指定Q4开展单题深度访谈。',
+        coverage_role: 'single_trial',
+        teacherFinalOrder,
+        teacherInitialOrder,
+        orderChanged,
+        orderChangeSummary: seed.orderChangeSummary,
+        task_card: taskCard
+      }],
+      routes: { single_trial: [itemId] },
+      algo: SINGLE_TRIAL_ALGO_VERSION,
+      targetItemId: itemId,
+      generatedAt: Date.now()
+    }
+  };
+}
+
 /* ---------- 主入口 ---------- */
 
 function resolveActor(event) {
@@ -221,6 +275,29 @@ exports.main = async (event) => {
 
   // 权限:必须本人
   if (sessionDoc.openid !== actor.id) return { ok: false, error: 'forbidden' };
+
+  // 临时单题试访只允许服务端固定的 Q4。模式和题号均取数据库中的已上报会话，
+  // 不接受客户端在 selectFinal 调用时临时指定，避免绕过正式确定性筛题流程。
+  if (sessionDoc.studyMode === 'single_trial') {
+    if (sessionDoc.targetItemId !== SINGLE_TRIAL_ITEM_ID) {
+      return { ok: false, error: 'invalid_single_trial_item' };
+    }
+    const cachedSingle = sessionDoc.selection;
+    if (cachedSingle && cachedSingle.algo === SINGLE_TRIAL_ALGO_VERSION && cachedSingle.targetItemId === SINGLE_TRIAL_ITEM_ID) {
+      return { ok: true, selection: cachedSingle, cached: true };
+    }
+    const builtSingle = buildSingleTrialSelection(sessionDoc);
+    if (builtSingle.error) return { ok: false, error: builtSingle.error, message: builtSingle.message };
+    try {
+      const _ = db.command;
+      await db.collection(SESSIONS).doc(sessionDoc._id).update({
+        data: { selection: _.set(builtSingle.selection), selectionUpdatedAt: Date.now() }
+      });
+    } catch (e) {
+      console.warn('write single-trial selection back failed:', e && e.message);
+    }
+    return { ok: true, selection: builtSingle.selection, cached: false };
+  }
 
   // 幂等缓存
   const cached = sessionDoc.selection;

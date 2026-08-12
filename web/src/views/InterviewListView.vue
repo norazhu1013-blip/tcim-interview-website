@@ -14,7 +14,9 @@ const itemById = Object.fromEntries(ITEMS.map((item) => [item.item_id, item]))
 
 const selected = computed(() => session.value?.selection?.final || [])
 const doneCount = computed(() => selected.value.filter((item) => session.value?.interview?.[item.id]?.status === 'done').length)
-const allDone = computed(() => selected.value.length === 3 && doneCount.value === 3)
+const plannedCount = computed(() => selected.value.length)
+const allDone = computed(() => plannedCount.value > 0 && doneCount.value === plannedCount.value)
+const isSingleTrial = computed(() => session.value?.studyMode === 'single_trial')
 
 async function loadSelection() {
   loading.value = true
@@ -39,8 +41,8 @@ function open(item) {
     <div class="page-title">
       <button class="back-link" @click="router.push('/')">← 返回首页</button>
       <p class="eyebrow">幼教慧谈</p>
-      <h1>AI 访谈情境</h1>
-      <p>系统会结合本次排序与过程记录遴选三个情境。访谈内容由 AI 生成，仅供专业反思与研究参考。</p>
+      <h1>{{ isSingleTrial ? '单题 AI 深度访谈' : 'AI 访谈情境' }}</h1>
+      <p>{{ isSingleTrial ? '本次将围绕“未参与小组建构”及您的真实排序开展深度访谈。访谈内容由 AI 生成，仅供专业反思与研究参考。' : '系统会结合本次排序与过程记录遴选三个情境。访谈内容由 AI 生成，仅供专业反思与研究参考。' }}</p>
     </div>
 
     <div v-if="!selected.length" class="empty-card">
@@ -67,7 +69,7 @@ function open(item) {
     </div>
 
     <div v-if="selected.length" class="completion-strip">
-      <div><strong>{{ doneCount }}/3</strong><span>已完成情境</span></div>
+      <div><strong>{{ doneCount }}/{{ plannedCount }}</strong><span>已完成情境</span></div>
       <button v-if="allDone && !session.interviewFeedback" class="button primary" @click="router.push(`/feedback/${session.sessionId}`)">填写访谈反馈</button>
       <button v-else-if="allDone" class="button primary" @click="router.push(`/done/${session.sessionId}`)">完成</button>
     </div>

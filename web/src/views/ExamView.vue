@@ -18,13 +18,16 @@ const dragIndex = ref(null)
 const remaining = ref(20 * 60)
 let timer = null
 
-const item = computed(() => ITEMS[index.value])
-const progress = computed(() => ((index.value + 1) / ITEMS.length) * 100)
+const examItems = computed(() => session.value?.studyMode === 'single_trial'
+  ? ITEMS.filter((entry) => entry.item_id === session.value.targetItemId)
+  : ITEMS)
+const item = computed(() => examItems.value[index.value])
+const progress = computed(() => ((index.value + 1) / examItems.value.length) * 100)
 const timeText = computed(() => `${String(Math.floor(remaining.value / 60)).padStart(2, '0')}:${String(remaining.value % 60).padStart(2, '0')}`)
 
 function loadQuestion(nextIndex) {
   index.value = nextIndex
-  const answer = session.value?.answers?.[ITEMS[nextIndex].item_id]
+  const answer = session.value?.answers?.[examItems.value[nextIndex].item_id]
   order.value = answer?.final_ranking?.slice() || ['A', 'B', 'C', 'D']
   firstOrder.value = answer?.first_ranking?.slice() || order.value.slice()
   moveLog.value = answer?.move_log?.slice() || []
@@ -61,8 +64,8 @@ function navigate(delta) {
 
 async function submit(timeout = false) {
   persist()
-  const itemIds = ITEMS.map((entry) => entry.item_id)
-  for (const entry of ITEMS) {
+  const itemIds = examItems.value.map((entry) => entry.item_id)
+  for (const entry of examItems.value) {
     if (!session.value.answers[entry.item_id]) {
       session.value.answers[entry.item_id] = {
         first_ranking: ['A', 'B', 'C', 'D'],
@@ -80,7 +83,13 @@ async function submit(timeout = false) {
   session.value.examSubmitTs = Date.now()
   session.value.totalExamMs = session.value.examSubmitTs - session.value.examStartTs
   session.value = saveSession(session.value)
-  reportExam(session.value, getProfile())
+  const reportResult = await reportExam(session.value, getProfile())
+  if (session.value.studyMode === 'single_trial' && !reportResult?.ok) {
+    alert('单题作答已保存在本机，但暂时未能上传。请检查网络后重新提交。')
+    session.value.status = 'in_progress'
+    session.value = saveSession(session.value)
+    return
+  }
   router.replace(`/score/${session.value.sessionId}?submitted=1`)
 }
 
@@ -93,7 +102,11 @@ onMounted(() => {
     session.value.examStartTs = Date.now()
     session.value = saveSession(session.value)
   }
-  const firstUnanswered = ITEMS.findIndex((entry) => !session.value.answers[entry.item_id])
+  if (!examItems.value.length) {
+    router.replace('/')
+    return
+  }
+  const firstUnanswered = examItems.value.findIndex((entry) => !session.value.answers[entry.item_id])
   loadQuestion(firstUnanswered >= 0 ? firstUnanswered : 0)
   const elapsed = Math.floor((Date.now() - session.value.examStartTs) / 1000)
   remaining.value = Math.max(0, 20 * 60 - elapsed)
@@ -115,7 +128,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
     <article class="question-card">
       <div class="question-meta">
-        <span>情境 {{ index + 1 }} / {{ ITEMS.length }}</span>
+        <span>情境 {{ index + 1 }} / {{ examItems.length }}</span>
         <strong>{{ item.title }}</strong>
       </div>
       <img class="scenario-image" :src="`./scenarios/${item.item_id}.jpg`" :alt="item.title" />
@@ -146,7 +159,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
     <div class="exam-actions">
       <button class="button secondary" :disabled="index === 0" @click="navigate(-1)">上一题</button>
-      <button v-if="index < ITEMS.length - 1" class="button primary" @click="navigate(1)">下一题</button>
+      <button v-if="index < examItems.length - 1" class="button primary" @click="navigate(1)">下一题</button>
       <button v-else class="button primary" @click="submit(false)">提交答卷</button>
     </div>
   </section>

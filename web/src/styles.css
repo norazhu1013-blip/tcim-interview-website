@@ -72,6 +72,11 @@ h2 { letter-spacing: -.02em; }
 .hero-visual { aspect-ratio: 1; border-radius: 50%; background: var(--primary); color: white; display: grid; place-content: center; text-align: center; box-shadow: 0 22px 60px rgba(63,99,214,.28); }
 .hero-visual span { font-size: 72px; line-height: .9; font-weight: 850; }
 .hero-visual small { margin-top: 10px; font-weight: 700; }
+.single-trial-card { margin-top: 20px; padding: 24px 28px; display: flex; align-items: center; justify-content: space-between; gap: 24px; background: #fff8ed; border: 1px solid #f1d5a9; border-radius: 22px; }
+.single-trial-card h2 { margin: 3px 0 8px; }
+.single-trial-card p:not(.eyebrow) { margin: 0; color: var(--muted); }
+.single-trial-card .button { flex: 0 0 auto; }
+.record-mode { color: #9a5d12 !important; font-weight: 750; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; margin: 54px 0 20px; }
 .section-heading h2 { margin: 0; }
 .section-heading > span { color: var(--muted); }
@@ -191,6 +196,7 @@ h2 { letter-spacing: -.02em; }
   .page { padding: 30px 0; }
   .hero { margin-top: 18px; grid-template-columns: 1fr; padding: 28px; min-height: 0; }
   .hero-visual { display: none; }
+  .single-trial-card { align-items: stretch; flex-direction: column; }
   .record-grid, .form-row, .context-options { grid-template-columns: 1fr; }
   .account-settings-card { align-items: stretch; flex-direction: column; }
   .chat-recovery { align-items: stretch; flex-direction: column; }

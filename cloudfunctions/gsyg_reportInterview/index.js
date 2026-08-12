@@ -27,6 +27,8 @@ exports.main = async (event) => {
       openid: actor.id,
       identityType: actor.identityType,
       sessionId: sessionId,
+      studyMode: event.studyMode === 'single_trial' ? 'single_trial' : 'full_assessment',
+      targetItemId: event.studyMode === 'single_trial' && event.targetItemId === 'Q4' ? 'Q4' : null,
       transcripts: event.transcripts || null,
       updatedAt: now
     };

@@ -29,12 +29,14 @@ export function uuid() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-export function createSession(dataVersion) {
+export function createSession(dataVersion, options = {}) {
   const sessionId = uuid()
   const now = Date.now()
   const session = {
     sessionId,
     dataVersion,
+    studyMode: options.studyMode || 'full_assessment',
+    targetItemId: options.targetItemId || null,
     status: 'in_progress',
     answers: {},
     interview: {},

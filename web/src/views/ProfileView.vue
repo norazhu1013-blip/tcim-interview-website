@@ -107,6 +107,12 @@ async function submit() {
   if (route.query.next === 'start') {
     const session = createSession(QUESTIONS_VERSION)
     router.replace(`/exam/${session.sessionId}`)
+  } else if (route.query.next === 'single-trial') {
+    const session = createSession(QUESTIONS_VERSION, {
+      studyMode: 'single_trial',
+      targetItemId: 'Q4'
+    })
+    router.replace(`/exam/${session.sessionId}`)
   }
 }
 </script>
