@@ -4,6 +4,6 @@
   "description": "R/P/G 遴选云函数:从 gsyg_sessions 拉答卷 → 跑 Python advisor 端口 → 写回 selection",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "~2.6.3"
   }
 }

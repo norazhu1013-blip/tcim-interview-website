@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ITEMS } from '../generated/data.js'
 import { getSession, saveSession } from '../services/storage.js'
 import { selectFinal } from '../services/api.js'
+import { requireWebLogin } from '../services/web-auth.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,10 +22,14 @@ const isSingleTrial = computed(() => session.value?.studyMode === 'single_trial'
 async function loadSelection() {
   loading.value = true
   error.value = ''
-  const result = await selectFinal(session.value.sessionId)
+  let result = await selectFinal(session.value.sessionId)
+  if (['not_authenticated', 'cloudbase_token_invalid'].includes(result?.error)) {
+    if (await requireWebLogin()) result = await selectFinal(session.value.sessionId)
+  }
   loading.value = false
   if (!result.ok) {
-    error.value = '访谈情境生成失败。请确认 CloudBase Web 登录和云函数调用权限已开启。'
+    const reason = result?.error ? `（${result.error}）` : ''
+    error.value = `访谈情境生成失败${reason}，请稍后重试。`
     return
   }
   session.value.selection = result.selection
