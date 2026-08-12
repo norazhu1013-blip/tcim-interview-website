@@ -19,8 +19,7 @@ const form = reactive({
   name: saved.name || '',
   kindergarten: saved.kindergarten || '',
   className: saved.className || '',
-  teachingYears: saved.teachingYears || '',
-  paperCode: saved.paperCode || ''
+  teachingYears: saved.teachingYears || ''
 })
 const message = ref('')
 const isAdmin = ref(false)
@@ -131,7 +130,6 @@ async function submit() {
         <label>班级<input v-model="form.className" placeholder="如：中一班" /></label>
         <label>教龄<span>*</span><input v-model="form.teachingYears" inputmode="decimal" placeholder="如：5年" /></label>
       </div>
-      <label>试卷码<input v-model="form.paperCode" placeholder="如有请填写" /></label>
       <p v-if="message" class="form-message">{{ message }}</p>
       <button class="button primary wide" type="submit">保存资料</button>
     </form>
