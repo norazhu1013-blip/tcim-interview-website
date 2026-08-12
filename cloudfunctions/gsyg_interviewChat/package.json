@@ -4,6 +4,6 @@
   "description": "AI 访谈动态追问（OpenAI 官方 Responses API + wxai + 第三方兼容 profile）；运行时必须 Nodejs18",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "~2.6.3"
   }
 }

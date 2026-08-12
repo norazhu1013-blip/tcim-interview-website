@@ -133,6 +133,7 @@ const INTERVIEW_POLICY = [
   '【首问】',
   '首问不使用固定模板。根据本题选择最能打开教师思考且最容易理解的一个进入点：教师最先注意到什么；怎样理解一个含义开放的儿童表现；排序中真正有解释价值的反差；或情境中需要教师判断的真实教育关系。',
   '首问开放、具体、不预设结论。不要把两个都可能成立的方面强迫成二选一，也不要默认使用“为什么这样排序”。',
+  '页面打开时系统预排的选项顺序不属于教师观点。除非动态输入明确标注初始排序来源为teacher_choice，否则不得称“您一开始把某项放在前面/后面”，也不得把系统默认顺序与最终排序描述成教师改变了想法。',
   '',
   '【每轮先理解，再决定】',
   '只依据教师原话提取其新表达的判断、区别、理由、关切或条件。区分教师明确说出的意思、你的推测、知识库的可能解释。只有教师明确说出的意思可以直接成为下一问前提；只有影响后续理解的关键歧义才需要澄清。',
@@ -227,11 +228,16 @@ function buildUserPrompt(ev, taskCard) {
   const af = (taskCard && taskCard.ability_focus) || {};
   const kb = ev.kbSlice || {};
 
-  // 教师初始排序与变化
+  // 只有明确由教师主动确认过的初始排序，才可作为教师观点提供给模型。
+  // 旧网页数据未记录来源；为避免把系统 A/B/C/D 默认展示误称为教师选择，一律按未知处理。
+  const provenance = ev.rankingProvenance || {};
+  const initialIsTeacherChoice = provenance.initialOrderSource === 'teacher_choice';
   let initLine = '（无记录）';
-  if (tap.teacherInitialOrder) {
+  if (initialIsTeacherChoice && tap.teacherInitialOrder) {
     initLine = String(tap.teacherInitialOrder).split('').join(' > ')
       + (tap.orderChangeSummary ? '（' + tap.orderChangeSummary + '）' : (tap.orderChanged ? '（有调整）' : '（未调整）'));
+  } else {
+    initLine = '（无教师初始排序记录；系统展示顺序不代表教师选择）';
   }
 
   // 同时提供主、次焦点：很多题目的教育张力实际存放在 secondary_focus 中。
@@ -271,6 +277,7 @@ function buildUserPrompt(ev, taskCard) {
     opts ? '【四个做法】\n' + opts : '',
     '【教师最终排序：最理想→最不理想】' + ranking,
     '【教师初始排序与变化，如有】' + initLine,
+    '【排序数据边界】只有最终排序可视为教师明确提交的观点；系统默认展示顺序不得归因于教师。',
     '',
     '【知识库给出的专业准备；以下全部属于可能解释，不是事实，也不是教师观点】',
     '主要访谈焦点：' + mainFocus,

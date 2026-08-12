@@ -30,7 +30,7 @@ const db = cloud.database();
 const SESSIONS = 'gsyg_sessions';
 // v1.2: 每题预生成完整 task_card 并挂到 selection.final[i].task_card。老 session 强制重跑。
 const ALGO_VERSION = 'advisor_v1.2';
-const SINGLE_TRIAL_ALGO_VERSION = 'single_trial_v1';
+const SINGLE_TRIAL_ALGO_VERSION = 'single_trial_v2';
 const SINGLE_TRIAL_ITEM_ID = 'Q4';
 
 // 2026-07-15 恒等题号:advisor_port 内部题号已重排为「与小程序一致」(见 tools/advisor_port.js 头注),
@@ -137,11 +137,12 @@ function toMpSelection(advisorOut, sessionAnswers) {
     // 来源:mp session.answers[mpId] 的 first_ranking(埋点持久,不受重进影响)与 final_ranking。
     const ans = answers[mpId] || {};
     const teacherFinalOrder = Array.isArray(ans.final_ranking) ? ans.final_ranking.join('') : '';
-    const teacherInitialOrder = Array.isArray(ans.first_ranking) ? ans.first_ranking.join('') : teacherFinalOrder;
-    const orderChanged = teacherInitialOrder && teacherFinalOrder && teacherInitialOrder !== teacherFinalOrder;
+    const initialIsTeacherChoice = ans.first_ranking_source === 'teacher_choice';
+    const teacherInitialOrder = initialIsTeacherChoice && Array.isArray(ans.first_ranking) ? ans.first_ranking.join('') : '';
+    const orderChanged = !!(teacherInitialOrder && teacherFinalOrder && teacherInitialOrder !== teacherFinalOrder);
     const orderChangeSummary = orderChanged
       ? `初始排序${teacherInitialOrder},最终排序${teacherFinalOrder}`
-      : `排序相对稳定,最终排序${teacherFinalOrder}`;
+      : `仅记录最终排序${teacherFinalOrder}`;
 
     // v1.2 预生成完整 task_card(002 doc 要求;供 gsyg_interviewChat 直接消费 + 导出)
     // 用 15 表 ai_rules 匹配教师排序特征,拿 hypotheses/evidence/probes/flow 等
@@ -202,17 +203,18 @@ function buildSingleTrialSelection(sessionDoc) {
     return { error: 'incomplete_answers', message: '缺少题目:' + itemId };
   }
   const teacherFinalOrder = answer.final_ranking.join('');
-  const teacherInitialOrder = Array.isArray(answer.first_ranking)
+  const initialIsTeacherChoice = answer.first_ranking_source === 'teacher_choice';
+  const teacherInitialOrder = initialIsTeacherChoice && Array.isArray(answer.first_ranking)
     ? answer.first_ranking.join('')
-    : teacherFinalOrder;
-  const orderChanged = teacherInitialOrder !== teacherFinalOrder;
+    : '';
+  const orderChanged = !!(teacherInitialOrder && teacherInitialOrder !== teacherFinalOrder);
   const seed = {
     teacherFinalOrder,
     teacherInitialOrder,
     orderChanged,
     orderChangeSummary: orderChanged
       ? `初始排序${teacherInitialOrder},最终排序${teacherFinalOrder}`
-      : `排序相对稳定,最终排序${teacherFinalOrder}`,
+      : `仅记录最终排序${teacherFinalOrder}`,
     sources: ['临时单题试访'],
     primary_ability_type: 'C2 对游戏行为的分析与回应',
     secondary_ability_type: 'B2 教师在幼儿游戏中的角色',

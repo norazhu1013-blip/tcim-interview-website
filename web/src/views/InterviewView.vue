@@ -14,13 +14,16 @@ const item = ITEMS.find((entry) => entry.item_id === route.params.itemId)
 const selected = session.value?.selection?.final?.find((entry) => entry.id === route.params.itemId)
 const answer = session.value?.answers?.[route.params.itemId]
 const existing = session.value?.interview?.[route.params.itemId]
-const messages = ref(existing?.messages?.slice() || [])
+const existingMessages = existing?.messages?.slice() || []
+const shouldRegenerateOpening = (existing?.interviewPolicyVersion || 0) < 2
+  && !existingMessages.some((message) => message.role === 'teacher')
+const messages = ref(shouldRegenerateOpening ? [] : existingMessages)
 const input = ref('')
 const sending = ref(false)
 const done = ref(existing?.status === 'done')
 const generationPaused = ref(Boolean(existing?.generationError))
 const generationError = ref(existing?.generationError || '')
-const startedAt = ref(existing?.startedAt || Date.now())
+const startedAt = ref(shouldRegenerateOpening ? Date.now() : (existing?.startedAt || Date.now()))
 const remaining = ref(10 * 60)
 const chatEnd = ref(null)
 const stage = ref(existing?.stage || 'S1_CONTEXT')
@@ -28,6 +31,7 @@ const lastLLMProfile = ref(existing?.llmProfile || '')
 const lastLLMModel = ref(existing?.llmModel || '')
 const generationFailures = ref(Array.isArray(existing?.generationFailures) ? existing.generationFailures.slice() : [])
 const webLLMProfile = String(import.meta.env.VITE_INTERVIEW_LLM_PROFILE || '').trim()
+const interviewPolicyVersion = 2
 let timer = null
 
 const isReview = computed(() => existing?.status === 'done')
@@ -50,6 +54,11 @@ async function requestNext() {
     teacherName: profile.name || '',
     itemContext: { title: item.title, stem: item.stem, options: item.options },
     teacherRanking: answer.final_ranking,
+    rankingProvenance: {
+      initialOrderSource: answer.first_ranking_source || 'unknown',
+      systemDisplayedOrder: answer.first_ranking,
+      interactionCount: Array.isArray(answer.move_log) ? answer.move_log.length : 0
+    },
     taskCard: selected?.task_card || null,
     taskCardSeed: selected || null,
     processTags: [
@@ -169,7 +178,8 @@ function persist(isDone) {
     llmProfile: lastLLMProfile.value,
     llmModel: lastLLMModel.value,
     generationFailures: generationFailures.value.slice(),
-    generationError: generationPaused.value ? generationError.value : ''
+    generationError: generationPaused.value ? generationError.value : '',
+    interviewPolicyVersion
   }
   session.value = saveSession(session.value)
   if (isDone) reportInterview(session.value)

@@ -49,6 +49,8 @@ function persist() {
   const now = Date.now()
   session.value.answers[item.value.item_id] = {
     first_ranking: firstOrder.value.slice(),
+    // 页面打开时的 A/B/C/D 是系统展示顺序，不代表教师已经作出的选择。
+    first_ranking_source: 'system_default',
     final_ranking: order.value.slice(),
     move_log: moveLog.value.slice(),
     enter_ts: questionEnter.value,
@@ -70,6 +72,7 @@ async function submit(timeout = false) {
     if (!session.value.answers[entry.item_id]) {
       session.value.answers[entry.item_id] = {
         first_ranking: ['A', 'B', 'C', 'D'],
+        first_ranking_source: 'system_default',
         final_ranking: ['A', 'B', 'C', 'D'],
         move_log: [],
         enter_ts: Date.now(),
