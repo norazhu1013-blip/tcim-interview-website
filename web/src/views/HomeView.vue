@@ -5,15 +5,14 @@ import { ITEMS, QUESTIONS_VERSION } from '../generated/data.js'
 import { createSession, deleteSession, formatDate, getProfile, listSessions } from '../services/storage.js'
 import { requireWebLogin } from '../services/web-auth.js'
 
-const SINGLE_TRIAL_ITEM_ID = 'Q4'
-
 const router = useRouter()
 const records = ref([])
 const profile = ref(null)
 
 function refresh() {
   profile.value = getProfile()
-  records.value = listSessions()
+  // 临时单题试访已下线；历史数据仍保留在本地和后端，仅不再作为教师端模块展示。
+  records.value = listSessions().filter((session) => session.studyMode !== 'single_trial')
 }
 onMounted(refresh)
 onActivated(refresh)
@@ -36,20 +35,6 @@ async function start() {
   router.push(`/exam/${session.sessionId}`)
 }
 
-async function startSingleTrial() {
-  if (!profile.value?.name || !profile.value?.kindergarten || !profile.value?.teachingYears) {
-    router.push('/profile?next=single-trial')
-    return
-  }
-  if (blockStart.value) return
-  if (!await requireWebLogin()) return
-  const session = createSession(QUESTIONS_VERSION, {
-    studyMode: 'single_trial',
-    targetItemId: SINGLE_TRIAL_ITEM_ID
-  })
-  router.push(`/exam/${session.sessionId}`)
-}
-
 function remove(session) {
   if (session.status !== 'in_progress') return
   if (confirm('确定删除这条未完成的答题记录？')) {
@@ -62,9 +47,6 @@ function interviewProgress(session) {
   const planned = session.selection?.final?.length || 3
   const done = Object.values(session.interview || {}).filter((item) => item?.status === 'done').length
   return `${done}/${planned}`
-}
-function isSingleTrial(session) {
-  return session.studyMode === 'single_trial'
 }
 </script>
 
@@ -83,17 +65,6 @@ function isSingleTrial(session) {
         <span>20</span><small>分钟</small>
       </div>
     </div>
-    <section class="single-trial-card">
-      <div>
-        <p class="eyebrow">临时单题试访</p>
-        <h2>未参与小组建构</h2>
-        <p>只完成 1 个情境排序，随后直接进入 AI 深度访谈，约 10–15 分钟。</p>
-      </div>
-      <button class="button secondary" :disabled="blockStart" @click="startSingleTrial">
-        {{ blockStart ? '请先完成尚未结束的 AI 访谈' : '开始单题访谈' }}
-      </button>
-    </section>
-
     <div class="section-heading">
       <div>
         <p class="eyebrow">历史记录</p>
@@ -116,11 +87,10 @@ function isSingleTrial(session) {
           <time>{{ formatDate(session.createdAt) }}</time>
         </div>
         <h3>{{ session.status === 'in_progress' ? '情境判断测验' : '测评与访谈记录' }}</h3>
-        <p v-if="isSingleTrial(session)" class="record-mode">单题试访 · 未参与小组建构</p>
         <p v-if="session.status === 'in_progress'">
-          已完成 {{ Object.keys(session.answers || {}).length }}/{{ isSingleTrial(session) ? 1 : ITEMS.length }} 题
+          已完成 {{ Object.keys(session.answers || {}).length }}/{{ ITEMS.length }} 题
         </p>
-        <p v-else>{{ isSingleTrial(session) ? 1 : ITEMS.length }} 题 · 已提交</p>
+        <p v-else>{{ ITEMS.length }} 题 · 已提交</p>
         <div class="actions">
           <template v-if="session.status === 'in_progress'">
             <button class="button secondary" @click="router.push(`/exam/${session.sessionId}`)">继续答题</button>
