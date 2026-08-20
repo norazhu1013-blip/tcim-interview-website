@@ -11,6 +11,28 @@ function isAnonymousLogin(scope, state) {
   return scope === 'anonymous' || loginType.includes('anonymous')
 }
 
+let pendingRegistration = null
+
+async function finishAccountLogin(auth, authResult = null) {
+  const tokenResult = await auth.getAccessToken()
+  if (!tokenResult?.accessToken) return { ok: false, error: 'account_login_failed' }
+  const session = await createGatewaySession(tokenResult.accessToken)
+  if (!session.ok) {
+    await auth.signOut().catch(() => {})
+    return session
+  }
+  const state = await auth.getLoginState().catch(() => null)
+  const uid = String(authResult?.data?.user?.uid || state?.user?.uid || '').trim()
+  if (!uid) {
+    await clearGatewaySession().catch(() => {})
+    await auth.signOut().catch(() => {})
+    return { ok: false, error: 'account_login_failed' }
+  }
+  activateLocalAccount(uid)
+  notifyAuthState('signed_in')
+  return session
+}
+
 async function getExistingAccountSession() {
   const auth = getCloudAuth()
   const [scope, state] = await Promise.all([
@@ -64,27 +86,59 @@ export async function signInWebUser(account, password) {
   await auth.signOut().catch(() => {})
 
   try {
-    const result = await auth.signInWithPassword({ username, password })
+    const credentials = username.includes('@') ? { email: username.toLowerCase(), password } : { username, password }
+    const result = await auth.signInWithPassword(credentials)
     if (result?.error) return { ok: false, error: 'invalid_account_or_password' }
-    const tokenResult = await auth.getAccessToken()
-    if (!tokenResult?.accessToken) return { ok: false, error: 'account_login_failed' }
-    const session = await createGatewaySession(tokenResult.accessToken)
-    if (!session.ok) {
-      await auth.signOut().catch(() => {})
-      return session
-    }
-    const state = await auth.getLoginState().catch(() => null)
-    const uid = String(result?.data?.user?.uid || state?.user?.uid || '').trim()
-    if (!uid) {
-      await clearGatewaySession().catch(() => {})
-      await auth.signOut().catch(() => {})
-      return { ok: false, error: 'account_login_failed' }
-    }
-    activateLocalAccount(uid)
-    notifyAuthState('signed_in')
-    return session
+    return finishAccountLogin(auth, result)
   } catch {
     return { ok: false, error: 'invalid_account_or_password' }
+  }
+}
+
+export async function beginWebRegistration({ username, email, password }) {
+  if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
+  const account = String(username || '').trim()
+  const mailbox = String(email || '').trim().toLowerCase()
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:+@-]{4,23}$/.test(account)) {
+    return { ok: false, error: 'invalid_registration_username' }
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mailbox)) return { ok: false, error: 'invalid_registration_email' }
+  if (String(password || '').length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return { ok: false, error: 'weak_registration_password' }
+  }
+
+  const auth = getCloudAuth()
+  await clearGatewaySession().catch(() => {})
+  await auth.signOut().catch(() => {})
+  pendingRegistration = null
+  try {
+    const result = await auth.signUp({ username: account, email: mailbox, password })
+    if (result?.error) {
+      const code = String(result.error.code || '')
+      if (/already|exist|registered/i.test(code)) return { ok: false, error: 'registration_account_exists' }
+      return { ok: false, error: 'registration_send_failed' }
+    }
+    const verifyOtp = result?.data?.verifyOtp
+    if (typeof verifyOtp !== 'function') return { ok: false, error: 'registration_send_failed' }
+    pendingRegistration = { auth, verifyOtp, email: mailbox }
+    return { ok: true, email: mailbox }
+  } catch {
+    return { ok: false, error: 'registration_send_failed' }
+  }
+}
+
+export async function completeWebRegistration(code) {
+  const token = String(code || '').trim()
+  if (!pendingRegistration) return { ok: false, error: 'registration_expired' }
+  if (!/^\d{4,8}$/.test(token)) return { ok: false, error: 'invalid_verification_code' }
+  try {
+    const result = await pendingRegistration.verifyOtp({ token })
+    if (result?.error) return { ok: false, error: 'invalid_verification_code' }
+    const auth = pendingRegistration.auth
+    pendingRegistration = null
+    return finishAccountLogin(auth, result)
+  } catch {
+    return { ok: false, error: 'invalid_verification_code' }
   }
 }
 

@@ -34,7 +34,7 @@ npm run build
 
 ## 网页 CloudBase 账号登录
 
-网页使用研究者发放的 CloudBase 用户名和密码登录；已有正式账号凭证时可直接恢复网关 `HttpOnly` 会话 Cookie。不会自动创建匿名身份。SDK 保存的短期 access token 只用于换取网关 Cookie；后续业务请求不携带可伪造的 `openid`、`uid` 或 access token。
+网页支持教师用用户名、邮箱验证码和密码自行注册，之后可用用户名或邮箱配合密码登录；已有正式账号凭证时可直接恢复网关 `HttpOnly` 会话 Cookie。不会自动创建匿名身份。SDK 保存的短期 access token 只用于换取网关 Cookie；后续业务请求不携带可伪造的 `openid`、`uid` 或 access token。
 
 在 `.env.production` 中配置：
 
@@ -46,7 +46,7 @@ VITE_CLOUDBASE_REGION=ap-shanghai
 VITE_INTERVIEW_LLM_PROFILE=openai-official
 ```
 
-登录前需要在 CloudBase 控制台启用「用户名密码登录」、发放账号，并在环境安全配置中加入网页域名。详见 `cloudfunctions/gsyg_webGateway/README.md`。
+登录前需要在 CloudBase 控制台启用「用户名密码登录」和邮箱验证码注册，并在环境安全配置中加入网页域名。详见 `cloudfunctions/gsyg_webGateway/README.md`。
 
 ## 后端安全边界（上线前必做）
 

@@ -1,12 +1,12 @@
 # `gsyg_webGateway`：网页账号登录网关
 
-这是网页端身份入口。教师使用研究者发放的 **CloudBase 用户名和密码**登录，再由 SDK 取得短期 CloudBase access token。该 token 只提交给本函数的 `/auth/session` 一次。本函数调用 CloudBase 的已登录用户信息接口反查 UID，并确认不是匿名身份后，再签发一个带 HMAC 的 `HttpOnly` Cookie。之后所有网页业务请求只使用 Cookie，不能从请求 JSON 伪造 `openid`、`uid` 或 CloudBase token。
+这是网页端身份入口。教师验证邮箱后自行创建 **CloudBase 用户名和密码**，再用用户名或邮箱登录并由 SDK 取得短期 CloudBase access token。该 token 只提交给本函数的 `/auth/session` 一次。本函数调用 CloudBase 的已登录用户信息接口反查 UID，并确认不是匿名身份后，再签发一个带 HMAC 的 `HttpOnly` Cookie。之后所有网页业务请求只使用 Cookie，不能从请求 JSON 伪造 `openid`、`uid` 或 CloudBase token。
 
 > 原有匿名会话 Cookie 不再被接受。历史匿名研究数据保留，不按姓名自动合并到新账号。
 
 ## CloudBase 控制台配置
 
-1. 在「身份认证 → 登录方式」开启**用户名密码登录**，由研究者在用户管理中发放账号。
+1. 在「身份认证 → 登录方式」开启**用户名密码登录**和**邮箱验证码**，允许教师验证邮箱后自行注册。
 2. 在 CloudBase 环境安全配置中加入网页域名，例如 `https://app.example.com`。
 3. 网页域名和 API 网关域名按 CORS/Cookie 规则配置；网页端不使用默认登录页、`redirect_uri` 或微信开放平台回调域。
 
@@ -74,7 +74,7 @@ VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 VITE_CLOUDBASE_REGION=ap-shanghai
 ```
 
-6. 上线前验证：打开网页 → 输入发放的账号密码 → 网关 `/auth/session` 返回 `identityType: web_account` → 完成一次资料保存、答题上报和访谈调用。可先运行 `npm test` 验证正式账号通过、匿名身份拒绝、会话签发和伪造身份拦截逻辑。
+6. 上线前验证：打开网页 → 注册并输入邮箱验证码 → 自动登录 → 网关 `/auth/session` 返回 `identityType: web_account` → 完成一次资料保存、答题上报和访谈调用。可先运行 `npm test` 验证正式账号通过、匿名身份拒绝、会话签发和伪造身份拦截逻辑。
 
 ## 安全边界
 
