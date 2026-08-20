@@ -1,0 +1,49 @@
+{
+  "item_id": "Q3",
+  "rules": [
+    {
+      "scope": "Q3-S1~S3 表征/观察/原因",
+      "sufficient_condition": "能把短停留视为待解释现象，提出多原因并说明具体观察证据。",
+      "no_gain_threshold": "连续1轮只说‘观察’无新增，换反例1次。",
+      "prune_condition": "达到2级后剪枝。",
+      "reopen_condition": "后续又回到规则/专注单一归因时重开。",
+      "shift_condition": "转Q3-S4。",
+      "stop_condition": "不能单独停止。",
+      "forbidden_stop": "没有原因证据时不得停止。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q3-S4~S5 时机/支架",
+      "sufficient_condition": "能说明C/D式观察与参与的条件，并形成原因—支架—渐退。",
+      "no_gain_threshold": "连续2轮只有策略名无条件，记录不足。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "新原因使策略失配时重开。",
+      "shift_condition": "转Q3-S6边界。",
+      "stop_condition": "核心充分时可准备停止。",
+      "forbidden_stop": "把陪伴或观察绝对化时不得停止。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q3-S6 管理边界",
+      "sufficient_condition": "能说明任务/规则的有限适用条件，同时不把停留时长当唯一目标。",
+      "no_gain_threshold": "1轮无新增剪枝。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续又以任务/规则为首要时重开。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "非必须。",
+      "forbidden_stop": "A/B价值完全未分化且核心诊断仍不清时不宜停止。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "整题",
+      "sufficient_condition": "Q3-S1~S5至少4个2级，形成‘持续观察—原因判断—条件化介入—支架渐退’链条。",
+      "no_gain_threshold": "连续2轮核心无提升。",
+      "prune_condition": "充分分支剪枝。",
+      "reopen_condition": "新冲突重开。",
+      "shift_condition": "无。",
+      "stop_condition": "满足充分或时间上限且边际增益低时停止。",
+      "forbidden_stop": "仍无法解释C/D高分逻辑时不得过早停止。",
+      "calibration_note": ""
+    }
+  ]
+}

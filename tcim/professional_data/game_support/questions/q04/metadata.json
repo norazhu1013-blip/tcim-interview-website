@@ -1,0 +1,47 @@
+{
+  "item_id": "Q4",
+  "title": "未参与小组建构",
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜对幼儿游戏行为的分析判断；介入方式的适宜有效性",
+  "secondary_indicator": "游戏条件的保障 → 教师在幼儿游戏中的角色｜基本定位：支持者、合作者与引导者",
+  "diagnostic_focus": "考察教师能否理解幼儿个体兴趣与小组共同任务之间的关系，并以支持者、合作者的方式把个人发现转化为共同建构资源。",
+  "empirical": {
+    "4": [
+      "BACD"
+    ],
+    "3": [
+      "ABCD",
+      "ABDC",
+      "BADC",
+      "BCAD"
+    ],
+    "2": [
+      "ACBD",
+      "ADBC",
+      "BCDA",
+      "BDAC",
+      "BDCA",
+      "CABD",
+      "CBAD",
+      "DBAC",
+      "DBCA"
+    ],
+    "1": [
+      "ACDB",
+      "ADCB",
+      "CADB",
+      "CBDA",
+      "CDBA",
+      "DABC",
+      "DACB",
+      "DCBA"
+    ],
+    "0": [
+      "CDAB",
+      "DCAB"
+    ]
+  },
+  "scoring_note": "唯一4分为BACD，3分也多以B或A居前；D通常靠后。说明高水平最重视把幼儿对长木板的新兴趣即时桥接回共同建构，同时保留观察/后续分享价值；单纯延后到下一次活动的支持价值较低。",
+  "review_note": "暂无特别疑点；仍需领域专家结合赋分原理、真实作答过程和访谈资料复核。",
+  "source_version": "2026-08-21-tcim-v0.1-ai-draft",
+  "source": "DOC/数据表 5个.zip"
+}

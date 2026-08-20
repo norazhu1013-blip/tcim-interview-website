@@ -1,0 +1,136 @@
+{
+  "item_id": "Q1",
+  "title": "篮球架玩水",
+  "stem": "操场上新安装了一些篮球架，幼儿经常在这里投篮。某天户外活动时，几名幼儿带着画笔和水桶来到这里，他们先是快乐地粉刷篮球架，之后开始往篮框里灌水，有的从上面灌，有的在下面接，忙的不亦乐乎，俨然这里成为了玩水的场地。",
+  "options": {
+    "A": "看到幼儿玩得很开心，不干预他们的玩水行为，待兴趣减弱后再讨论玩水的适宜性。",
+    "B": "表扬幼儿的新发现，并询问在篮球架旁玩水是否合适，提议幼儿可以换个地方玩水。",
+    "C": "参与到幼儿的“粉刷”游戏中，逐步引导幼儿到适宜玩水的地方继续开展游戏。",
+    "D": "提醒幼儿篮球架是用于开展运动的，与其他幼儿一起召唤他们打篮球，转移他们的关注点。"
+  },
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜介入时机的把握；介入方式的适宜有效性",
+  "secondary_indicator": "对游戏的特点、价值的理解 → 对游戏特点的理解｜对游戏本质特征的理解",
+  "diagnostic_focus": "考察教师能否在幼儿自主生成的玩水游戏与规则、安全、场地适宜性之间作出专业判断：既不简单禁止，也不放任风险，而是顺应游戏兴趣并以适宜方式回应。",
+  "slots": [
+    {
+      "slot_id": "Q1-S1",
+      "dimension": "C2 介入时机",
+      "name": "自主游戏意义识别",
+      "definition": "识别‘粉刷—灌水—接水’是幼儿自主生成并持续发展的游戏情节，不因场地原用途不同就直接否定。",
+      "diagnostic_meaning": "判断教师能否从游戏框架而非成人用途逻辑理解行为。",
+      "core": true,
+      "prerequisites": [],
+      "allowed_actions": [
+        "澄清/理由追问"
+      ],
+      "forbidden_actions": [
+        "直接要求回篮球活动"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "对应A/B/C能保留游戏意义；D主要把注意重新拉回成人预设用途。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q1-S2",
+      "dimension": "C2 行为分析",
+      "name": "场地适宜性与风险判断",
+      "definition": "同时评估篮球架设备、地面湿滑、其他幼儿使用权、用水范围等实际风险，区分‘规则不符’与‘需要立即处理的安全/公共性问题’。",
+      "diagnostic_meaning": "决定是可短暂继续、协商转场还是必须立即中止。",
+      "core": true,
+      "prerequisites": [
+        "Q1-S1"
+      ],
+      "allowed_actions": [
+        "证据追问/边界"
+      ],
+      "forbidden_actions": [
+        "抽象说‘规则就是规则’"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "是解释A/B/C先后差异的关键Slot。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q1-S3",
+      "dimension": "C2 介入时机",
+      "name": "介入时机的条件化判断",
+      "definition": "若风险可控，可允许游戏继续一段并择机讨论；若地面湿滑、设备受损或妨碍他人，则应及时轻介入。",
+      "diagnostic_meaning": "把‘不干预’与‘及时干预’都从固定立场转为情境判断。",
+      "core": true,
+      "prerequisites": [
+        "Q1-S2"
+      ],
+      "allowed_actions": [
+        "条件边界/反例"
+      ],
+      "forbidden_actions": [
+        "默认越少介入越专业"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "实证4分允许A或C居首，说明高水平不对应单一固定时机。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q1-S4",
+      "dimension": "C2 介入方式",
+      "name": "保持游戏连续性的转场支持",
+      "definition": "介入时承接‘粉刷/玩水’情节，通过参与、协商、共同寻找适宜地点等方式把游戏迁移，而不是突然取消游戏主题。",
+      "diagnostic_meaning": "检验教师能否以低控制方式同时维护规则/安全与游戏连续性。",
+      "core": true,
+      "prerequisites": [
+        "Q1-S1",
+        "Q1-S2"
+      ],
+      "allowed_actions": [
+        "策略生成/话术"
+      ],
+      "forbidden_actions": [
+        "转移注意、命令停止"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "C最直接体现；B也可能做到，取决于问法和儿童参与。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q1-S5",
+      "dimension": "A1 游戏特点",
+      "name": "规则与自主性的协调",
+      "definition": "能向幼儿说明场地边界的理由，并允许幼儿参与寻找替代地点/方式；规则服务于共同安全和持续游戏，而非恢复成人原定用途。",
+      "diagnostic_meaning": "检验教师对游戏自主性与公共规则关系的理解。",
+      "core": true,
+      "prerequisites": [
+        "Q1-S2",
+        "Q1-S4"
+      ],
+      "allowed_actions": [
+        "比较权衡/迁移"
+      ],
+      "forbidden_actions": [
+        "把自主等同完全放任"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "实证低分集中于D前置，提示‘以用途压制自主生成’是重要低水平特征。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q1-S6",
+      "dimension": "C2 动态回应",
+      "name": "介入后的观察与再调整",
+      "definition": "观察转场后游戏是否延续、幼儿是否理解理由、是否出现新的安全问题，并据此调整支持。",
+      "diagnostic_meaning": "形成回应闭环，避免一次性处理。",
+      "core": false,
+      "prerequisites": [
+        "Q1-S4"
+      ],
+      "allowed_actions": [
+        "反思/迁移"
+      ],
+      "forbidden_actions": [
+        "只看是否服从"
+      ],
+      "default_priority": "P3",
+      "empirical_relation": "用于高水平扩展。",
+      "calibration_note": ""
+    }
+  ]
+}

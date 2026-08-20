@@ -1,0 +1,87 @@
+{
+  "item_id": "Q2",
+  "rules": [
+    {
+      "condition": "实证4分：ACDB/DACB",
+      "hypothesis": "A或D居首、B居末；总体已偏向自主支持和目标分解。",
+      "target_slots": [
+        "Q2-S1",
+        "Q2-S3",
+        "Q2-S4"
+      ],
+      "priority": "P2",
+      "preferred_action": "迁移/反例",
+      "forbidden_question": "“4分说明完全不需要再问。”",
+      "rationale": "验证A/D排序是否基于真实求助功能，而非固定偏好。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分",
+      "hypothesis": "多数把B放后，但A/C/D的先后不稳定。",
+      "target_slots": [
+        "Q2-S2",
+        "Q2-S4",
+        "Q2-S5"
+      ],
+      "priority": "P2",
+      "preferred_action": "过程比较",
+      "forbidden_question": "“只要不示范就算高水平。”",
+      "rationale": "查观察、反馈、小目标三者的关系。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "具备部分自主支持意识，但对求助功能、反馈或退出时机可能不清楚。",
+      "target_slots": [
+        "Q2-S1",
+        "Q2-S3",
+        "Q2-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "证据追问",
+      "forbidden_question": "“他明明会，为什么还求助？”",
+      "rationale": "避免直接给‘依赖’结论。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分或B居前",
+      "hypothesis": "可能把求助自动等同技能缺失，偏向示范。",
+      "target_slots": [
+        "Q2-S1",
+        "Q2-S3",
+        "Q2-S6"
+      ],
+      "priority": "P1",
+      "preferred_action": "反例＋边界",
+      "forbidden_question": "“孩子求助时先示范不是最有效吗？”",
+      "rationale": "核心查最小必要支架。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "D居首但过程数据犹豫大",
+      "hypothesis": "可能知道小目标法是理想表述，但不清楚如何从观察证据决定小目标。",
+      "target_slots": [
+        "Q2-S2",
+        "Q2-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "具体化",
+      "forbidden_question": "“设小目标一定适合所有求助吗？”",
+      "rationale": "验证策略不是记忆答案。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "A居首且教师只谈‘独立性’",
+      "hypothesis": "可能过度强调独立，忽略幼儿对陪伴/共同关注的真实需要。",
+      "target_slots": [
+        "Q2-S3",
+        "Q2-S5"
+      ],
+      "priority": "P2",
+      "preferred_action": "反例",
+      "forbidden_question": "“如果他真正需要的是确认和陪伴，仍只鼓励独立吗？”",
+      "rationale": "防止把高分策略僵化。",
+      "calibration_note": ""
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "item_id": "Q2",
+  "title": "频繁求助",
+  "stem": "中班区域活动时，小明选择了建构区。玩了一会儿，他跑到老师面前说“老师，我不会搭……帮帮我吧”，教师问他需要什么帮助时，他一边说我不会搭，一边却很快地将房子从一层积木加高到了两层。看小明专注搭建后，老师就离开建构区了。可是没一会，小明又找了老师好几次，说“老师，帮帮我吧，我不会搭”。",
+  "options": {
+    "A": "鼓励小明独立搭建，引导他思考接下来如何搭建，及时表扬他的努力。",
+    "B": "先示范搭建关键部分，请小明观察方法，再鼓励他照着继续搭建。",
+    "C": "在旁观察小明的搭建过程，并适时反馈，帮助他理清搭建步骤。",
+    "D": "帮小明回顾已搭建完成的部分，指导他设定小目标，尝试自己实现。"
+  },
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜对幼儿游戏行为的分析判断；介入方式的适宜有效性",
+  "secondary_indicator": "游戏支持与指导 → 游戏中的观察｜观察游戏的意识和角度；对幼儿游戏状态的观察与识别",
+  "diagnostic_focus": "考察教师能否透过“我不会、帮帮我”的表面求助，判断幼儿真实需要，并以小目标、提问或材料支架支持其自主尝试，而不是直接代做或过度示范。",
+  "slots": [
+    {
+      "slot_id": "Q2-S1",
+      "dimension": "C2 行为分析",
+      "name": "表面求助与真实能力区分",
+      "definition": "从‘我不会、帮帮我’与幼儿实际能迅速加高房子的矛盾中，判断求助不必然等于技能不会。",
+      "diagnostic_meaning": "检验教师是否能透过语言表面识别真实需要。",
+      "core": true,
+      "prerequisites": [],
+      "allowed_actions": [
+        "证据追问/对比"
+      ],
+      "forbidden_actions": [
+        "直接示范"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "高分组合把B稳定放后。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q2-S2",
+      "dimension": "C1 观察",
+      "name": "持续观察求助模式",
+      "definition": "观察幼儿何时求助、求助后能否独立继续、遇到什么节点再次求助、是否寻求确认/陪伴/计划支持。",
+      "diagnostic_meaning": "建立关于求助功能的证据，而非一次判断。",
+      "core": true,
+      "prerequisites": [
+        "Q2-S1"
+      ],
+      "allowed_actions": [
+        "过程追问/具体化"
+      ],
+      "forbidden_actions": [
+        "只看作品完成结果"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "C体现过程观察和适时反馈。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q2-S3",
+      "dimension": "C2 分析回应",
+      "name": "求助功能与学习需要判断",
+      "definition": "区分技能缺失、任务规划困难、信心不足、依赖成人确认、需要共同关注等可能功能。",
+      "diagnostic_meaning": "决定支架类型和强度。",
+      "core": true,
+      "prerequisites": [
+        "Q2-S1",
+        "Q2-S2"
+      ],
+      "allowed_actions": [
+        "假设比较/理由追问"
+      ],
+      "forbidden_actions": [
+        "给心理标签"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "A/D高分潜力来自对自主尝试和目标分解的支持。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q2-S4",
+      "dimension": "C2 介入方式",
+      "name": "小目标与自我调节支架",
+      "definition": "通过回顾已有成果、设定下一小目标、自我提问、步骤整理等，把解决权还给幼儿。",
+      "diagnostic_meaning": "检验是否促进自主问题解决而非代替完成。",
+      "core": true,
+      "prerequisites": [
+        "Q2-S3"
+      ],
+      "allowed_actions": [
+        "策略生成/迁移"
+      ],
+      "forbidden_actions": [
+        "直接完成关键部分"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "D在4分组合中可居首。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q2-S5",
+      "dimension": "C2 介入方式",
+      "name": "反馈与渐退",
+      "definition": "提供过程性反馈、确认努力和策略，在幼儿重新进入自主搭建后逐步退出，避免形成反复求助—成人回应循环。",
+      "diagnostic_meaning": "判断支架是否真正减少依赖、增强效能感。",
+      "core": true,
+      "prerequisites": [
+        "Q2-S4"
+      ],
+      "allowed_actions": [
+        "过程追问/边界"
+      ],
+      "forbidden_actions": [
+        "泛化表扬或持续陪同"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "A/C的价值需落到反馈质量和退出。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q2-S6",
+      "dimension": "C2 边界",
+      "name": "示范的最小必要边界",
+      "definition": "只有在确认具体技能缺口且更低强度支架无效时，才考虑局部示范；示范后仍让幼儿自己操作。",
+      "diagnostic_meaning": "避免把求助自动转成教师示范。",
+      "core": false,
+      "prerequisites": [
+        "Q2-S3"
+      ],
+      "allowed_actions": [
+        "反例/边界"
+      ],
+      "forbidden_actions": [
+        "把B绝对判错"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "实证B在4分组合均居末，提示示范不宜作为首选。",
+      "calibration_note": ""
+    }
+  ]
+}

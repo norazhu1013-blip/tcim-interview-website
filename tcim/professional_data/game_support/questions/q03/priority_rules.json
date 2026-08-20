@@ -1,0 +1,86 @@
+{
+  "item_id": "Q3",
+  "rules": [
+    {
+      "condition": "实证4分：CDAB/DBCA/DCBA",
+      "hypothesis": "C/D居前、A/B居后；总体已抓住观察和低控制参与。",
+      "target_slots": [
+        "Q3-S3",
+        "Q3-S4",
+        "Q3-S5"
+      ],
+      "priority": "P2",
+      "preferred_action": "边界/迁移",
+      "forbidden_question": "“C一定必须第一吗？”",
+      "rationale": "验证教师是否理解C/D可因证据和介入时机互换。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分",
+      "hypothesis": "C/D仍多在前，但A/B位置较高，可能对任务/规则边界不稳定。",
+      "target_slots": [
+        "Q3-S4",
+        "Q3-S6"
+      ],
+      "priority": "P2",
+      "preferred_action": "对比",
+      "forbidden_question": "“规则管理完全不能用吗？”",
+      "rationale": "看是否能说明适用条件。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "部分观察意识，但原因—支架闭环不足。",
+      "target_slots": [
+        "Q3-S2",
+        "Q3-S3",
+        "Q3-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "具体化",
+      "forbidden_question": "“观察一下之后呢？”",
+      "rationale": "推动从观察口号到证据/回应。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分或A/B居前",
+      "hypothesis": "可能把短停留直接视为需纠正的行为。",
+      "target_slots": [
+        "Q3-S1",
+        "Q3-S3",
+        "Q3-S6"
+      ],
+      "priority": "P1",
+      "preferred_action": "游戏状态反例",
+      "forbidden_question": "“停留短就等于没有投入吗？”",
+      "rationale": "核心诊断成人规范逻辑。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "D居首但C靠后",
+      "hypothesis": "可能把陪伴当通用答案，原因诊断不足。",
+      "target_slots": [
+        "Q3-S2",
+        "Q3-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "边界",
+      "forbidden_question": "“什么时候陪伴反而不需要？”",
+      "rationale": "验证D不是机械策略。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "C居首但教师无法生成后续支持",
+      "hypothesis": "观察能力与回应能力脱节。",
+      "target_slots": [
+        "Q3-S3",
+        "Q3-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "策略生成",
+      "forbidden_question": "“如果观察发现她不知道怎么玩，您接下来怎么做？”",
+      "rationale": "查从观察到支持。",
+      "calibration_note": ""
+    }
+  ]
+}

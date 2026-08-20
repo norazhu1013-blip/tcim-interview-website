@@ -1,0 +1,80 @@
+{
+  "item_id": "Q10",
+  "probes": [
+    {
+      "slot_id": "Q10-S1",
+      "allowed_actions": [
+        "问题识别"
+      ],
+      "preferred_action": "证据追问",
+      "typical_question": "“您看到这个跳绳场面时，觉得真正需要解决的有哪几类问题？”",
+      "followup_question": "“碰撞风险和‘柱子’等太久，性质一样吗？”",
+      "forbidden_actions": [
+        "纪律化"
+      ],
+      "forbidden_question": "“是不是先让大家安静下来？”",
+      "non_inducing_boundary": "识别安全、秩序、公平。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q10-S2",
+      "allowed_actions": [
+        "时机边界"
+      ],
+      "preferred_action": "条件判断",
+      "typical_question": "“什么情况会让您现在就暂停或调整，什么情况可以继续观察？”",
+      "followup_question": "“怎样做到先降风险，又不把后面都替幼儿决定？”",
+      "forbidden_actions": [
+        "完全延后"
+      ],
+      "forbidden_question": "“等分享时再看视频更尊重吧？”",
+      "non_inducing_boundary": "安全是即时底线，自主是后续目标。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q10-S3",
+      "allowed_actions": [
+        "规则共建"
+      ],
+      "preferred_action": "协商过程",
+      "typical_question": "“如果把孩子们先召集一下，您会怎样让他们自己说出问题并一起想规则？”",
+      "followup_question": "“哪些规则最需要先试：人数、区域、轮换还是别的？”",
+      "forbidden_actions": [
+        "成人宣布"
+      ],
+      "forbidden_question": "“老师规定每组五个人。”",
+      "non_inducing_boundary": "让幼儿参与形成、试行和修订。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q10-S4",
+      "allowed_actions": [
+        "成人支架边界"
+      ],
+      "preferred_action": "角色反思",
+      "typical_question": "“如果为了安全您先分了几个小组，接下来怎样把这件事慢慢还给孩子？”",
+      "followup_question": "“什么表现说明以后可以让他们自己组织？”",
+      "forbidden_actions": [
+        "永久组织"
+      ],
+      "forbidden_question": "“以后都由老师分组最省事。”",
+      "non_inducing_boundary": "成人组织只能是临时支架。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q10-S5",
+      "allowed_actions": [
+        "材料/空间功能"
+      ],
+      "preferred_action": "对比",
+      "typical_question": "“多放跳绳、分开场地分别能解决什么，又解决不了什么？”",
+      "followup_question": "“如果还是有人等很久，下一步要改什么？”",
+      "forbidden_actions": [
+        "材料万能"
+      ],
+      "forbidden_question": "“器材够多就不会乱了吧？”",
+      "non_inducing_boundary": "查结构性规则问题。",
+      "calibration_note": ""
+    }
+  ]
+}

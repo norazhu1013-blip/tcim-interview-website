@@ -1,0 +1,86 @@
+{
+  "item_id": "Q10",
+  "rules": [
+    {
+      "condition": "实证4分：BADC/BDAC/BDCA",
+      "hypothesis": "全部B居首，A/D次位变化，突出共同识别问题和规则共建。",
+      "target_slots": [
+        "Q10-S2",
+        "Q10-S3",
+        "Q10-S4"
+      ],
+      "priority": "P2",
+      "preferred_action": "迁移/边界",
+      "forbidden_question": "“B第一就等于完全让幼儿自己解决。”",
+      "rationale": "验证教师是否同时处理即时安全。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分",
+      "hypothesis": "B/C/D/A顺序更分散，但多仍保留协商或反思价值。",
+      "target_slots": [
+        "Q10-S3",
+        "Q10-S5",
+        "Q10-S6"
+      ],
+      "priority": "P2",
+      "preferred_action": "比较",
+      "forbidden_question": "“材料增加和规则共建分别解决什么？”",
+      "rationale": "查环境支持边界。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "部分认识到问题，但可能由成人组织或材料调整替代幼儿规则形成。",
+      "target_slots": [
+        "Q10-S1",
+        "Q10-S3",
+        "Q10-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "功能追问",
+      "forbidden_question": "“分组以后，幼儿需要学会什么？”",
+      "rationale": "从秩序管理转共同治理。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分或ABCD",
+      "hypothesis": "可能以成人暂停分组为主，之后材料/反思不足，幼儿共建规则价值低。",
+      "target_slots": [
+        "Q10-S3",
+        "Q10-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "反例",
+      "forbidden_question": "“如果以后每次都由老师分组，孩子会形成共同规则吗？”",
+      "rationale": "核心查教师角色转换。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "D居前",
+      "hypothesis": "可能过度延后现场介入，安全风险处理不足。",
+      "target_slots": [
+        "Q10-S1",
+        "Q10-S2"
+      ],
+      "priority": "P1",
+      "preferred_action": "时机边界",
+      "forbidden_question": "“已经很容易碰撞时，还等到分享吗？”",
+      "rationale": "区分视频反思与即时安全。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "C居前",
+      "hypothesis": "可能把混乱主要解释为器材不足，忽略轮换和公平规则。",
+      "target_slots": [
+        "Q10-S1",
+        "Q10-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "机制追问",
+      "forbidden_question": "“多几根跳绳能解决当‘柱子’等太久吗？”",
+      "rationale": "查材料与结构问题。",
+      "calibration_note": ""
+    }
+  ]
+}

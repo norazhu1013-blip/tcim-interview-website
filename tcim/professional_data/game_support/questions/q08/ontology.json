@@ -1,0 +1,136 @@
+{
+  "item_id": "Q8",
+  "title": "引水难题未解",
+  "stem": "中班上学期，幼儿在“引水游戏”中遇到了难题——水无法被引到竹片管道上。他们不断调整竹片拼接的方式，却始终没能成功，即竹片一头高于出水管道，阻碍了引流。渐渐地幼儿的探索兴趣也减弱了，有的开始玩水，有的甚至离开了水池。",
+  "options": {
+    "A": "示范正确的引水方法，请幼儿注意观察并说说引水的要领，再自己试一试。",
+    "B": "加入幼儿的探索，引导他们观察水流受阻的位置，一起尝试调整竹片的摆放方式。",
+    "C": "组织幼儿就游戏困难进行讨论，寻找解决问题的方案，引导幼儿再次尝试。",
+    "D": "投放更多辅助引水的材料，重新激起幼儿的探索兴趣，继续观察游戏进展。"
+  },
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜介入时机的把握；介入方式的适宜有效性",
+  "secondary_indicator": "游戏条件的保障 → 游戏环境创设｜对游戏材料的分析和投放",
+  "diagnostic_focus": "考察教师能否在幼儿探究兴趣减弱时，判断困难来源，选择适当介入时机，并通过材料、问题或示范支架恢复探索，而不是急于替幼儿完成。",
+  "slots": [
+    {
+      "slot_id": "Q8-S1",
+      "dimension": "C2 行为分析",
+      "name": "困难机制与关键关系识别",
+      "definition": "识别水流受阻与竹片相对高度/坡度关系，把问题转成幼儿可观察的‘哪里堵住、哪边高低’。",
+      "diagnostic_meaning": "决定支架能否精准。",
+      "core": true,
+      "prerequisites": [],
+      "allowed_actions": [
+        "机制追问"
+      ],
+      "forbidden_actions": [
+        "直接告诉答案"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "B高分关键。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q8-S2",
+      "dimension": "C1/C2 状态判断",
+      "name": "已有尝试、兴趣下降与ZPD判断",
+      "definition": "看到幼儿已反复调整却没抓住关键关系，且兴趣下降，说明仅继续自由试误的边际收益变低。",
+      "diagnostic_meaning": "用于决定介入时机和强度。",
+      "core": true,
+      "prerequisites": [
+        "Q8-S1"
+      ],
+      "allowed_actions": [
+        "证据追问/状态判断"
+      ],
+      "forbidden_actions": [
+        "把失败归能力不足"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "对应介入时机。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q8-S3",
+      "dimension": "C2 介入方式",
+      "name": "分级支架而非直接示范",
+      "definition": "先引导观察受阻点、比较高低，再共同试验；只有更低强度支架无效时才考虑局部示范。",
+      "diagnostic_meaning": "检验最小必要支架。",
+      "core": true,
+      "prerequisites": [
+        "Q8-S1",
+        "Q8-S2"
+      ],
+      "allowed_actions": [
+        "层级比较/边界"
+      ],
+      "forbidden_actions": [
+        "完整示范"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "A在高分中靠后。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q8-S4",
+      "dimension": "C2 探究支持",
+      "name": "观察—假设—尝试循环",
+      "definition": "支持幼儿看现象、猜原因、调整一处、观察结果、继续修正，而非只追成功。",
+      "diagnostic_meaning": "体现问题解决和学习品质。",
+      "core": true,
+      "prerequisites": [
+        "Q8-S3"
+      ],
+      "allowed_actions": [
+        "过程追问"
+      ],
+      "forbidden_actions": [
+        "只追最终成功"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "B/C均可能支持，B更贴机制。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q8-S5",
+      "dimension": "B1 材料支持",
+      "name": "材料投放的功能性",
+      "definition": "新增材料必须帮助比较、连接、支撑或观察水流，并与已诊断的困难相关；不能只靠新奇材料重新激趣。",
+      "diagnostic_meaning": "对应次指标材料投放。",
+      "core": true,
+      "prerequisites": [
+        "Q8-S1",
+        "Q8-S2"
+      ],
+      "allowed_actions": [
+        "具体化/反例"
+      ],
+      "forbidden_actions": [
+        "材料越多越好"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "D中位，价值取决于功能性。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q8-S6",
+      "dimension": "C2 动机调节",
+      "name": "兴趣下降时的挑战调节",
+      "definition": "通过缩小问题、共同探索、制造可见进展恢复可达成感，同时保留核心难题。",
+      "diagnostic_meaning": "把认知支架和情绪支持联动。",
+      "core": false,
+      "prerequisites": [
+        "Q8-S2"
+      ],
+      "allowed_actions": [
+        "策略生成"
+      ],
+      "forbidden_actions": [
+        "奖励坚持"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "高水平扩展。",
+      "calibration_note": ""
+    }
+  ]
+}

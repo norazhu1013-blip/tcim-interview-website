@@ -1,0 +1,135 @@
+{
+  "item_id": "Q3",
+  "title": "区域停留短",
+  "stem": "小班幼儿瑶瑶在区域活动时，一会儿在娃娃家切切菜，一会儿到美工区搓搓橡皮泥，一会儿又开心地跑到其它区域游戏，在任何一个区域停留时间都不超过三分钟。",
+  "options": {
+    "A": "提议瑶瑶完成某项游戏任务，如在娃娃家做菜，请他活动小结时分享。",
+    "B": "游戏前提醒区域活动规则，活动结束后表扬区域游戏规则遵守得好的小朋友。",
+    "C": "仔细观察瑶瑶在不同区域的游戏情况，分析他发生迅速转移的原因。",
+    "D": "以同伴的身份陪伴瑶瑶在某一区域游戏，待他专注游戏后再离开。"
+  },
+  "primary_indicator": "游戏支持与指导 → 游戏中的观察｜观察游戏的意识和角度；对幼儿游戏状态的观察与识别",
+  "secondary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜对幼儿游戏行为的分析判断；介入时机的把握",
+  "diagnostic_focus": "考察教师能否持续观察幼儿频繁转换区域背后的原因，识别其是否真正投入、有无游戏目标或材料困难，再决定是否需要陪伴、任务支架或环境调整。",
+  "slots": [
+    {
+      "slot_id": "Q3-S1",
+      "dimension": "C1 观察",
+      "name": "短停留的专业表征",
+      "definition": "把频繁换区视为需要持续观察和解释的游戏状态，而非直接视为规则或专注问题。",
+      "diagnostic_meaning": "主指标直接对应‘观察游戏的意识和角度’。",
+      "core": true,
+      "prerequisites": [],
+      "allowed_actions": [
+        "澄清/理由追问"
+      ],
+      "forbidden_actions": [
+        "规则纠正"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "高分C/D居前，低分A/B居前。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q3-S2",
+      "dimension": "C1 游戏状态",
+      "name": "跨区域连续观察",
+      "definition": "观察进入/离开触发、活动内容、同伴、情绪、操作深度、跨区主题连续性。",
+      "diagnostic_meaning": "判断幼儿是否真正没有投入，还是以流动方式探索。",
+      "core": true,
+      "prerequisites": [
+        "Q3-S1"
+      ],
+      "allowed_actions": [
+        "具体化/证据追问"
+      ],
+      "forbidden_actions": [
+        "只记录停留时间"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "C的核心价值。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q3-S3",
+      "dimension": "C2 行为分析",
+      "name": "多重原因假设",
+      "definition": "区分兴趣广泛、材料不匹配、游戏经验不足、同伴吸引、刺激过多等原因。",
+      "diagnostic_meaning": "从观察走向专业判断。",
+      "core": true,
+      "prerequisites": [
+        "Q3-S2"
+      ],
+      "allowed_actions": [
+        "假设比较"
+      ],
+      "forbidden_actions": [
+        "贴专注力标签"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "决定D是否适宜。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q3-S4",
+      "dimension": "C2 介入时机",
+      "name": "观察与参与的动态转换",
+      "definition": "可以先观察，也可以在低控制共同游戏中边参与边观察；关键是介入有依据、能获得新证据且不接管。",
+      "diagnostic_meaning": "与实证C/D均可居前相一致。",
+      "core": true,
+      "prerequisites": [
+        "Q3-S2",
+        "Q3-S3"
+      ],
+      "allowed_actions": [
+        "边界/反例"
+      ],
+      "forbidden_actions": [
+        "把‘先观察’机械化"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "4分包括C首和D首。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q3-S5",
+      "dimension": "C2 介入方式",
+      "name": "匹配原因的支架与渐退",
+      "definition": "若缺游戏线索可陪玩/示范情节；若材料不适可调整；进入状态后逐步退出。",
+      "diagnostic_meaning": "检验低控制度支架及原因—策略匹配。",
+      "core": true,
+      "prerequisites": [
+        "Q3-S3"
+      ],
+      "allowed_actions": [
+        "策略生成/迁移"
+      ],
+      "forbidden_actions": [
+        "统一安排任务"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "D高分潜力来自陪伴+渐退。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q3-S6",
+      "dimension": "C2 边界",
+      "name": "任务/规则管理边界",
+      "definition": "任务和规则可有局部作用，但不能替代对原因和游戏质量的判断，也不应把停留时长作为唯一目标。",
+      "diagnostic_meaning": "解释A/B为何在高分组合中靠后。",
+      "core": false,
+      "prerequisites": [
+        "Q3-S1"
+      ],
+      "allowed_actions": [
+        "对比"
+      ],
+      "forbidden_actions": [
+        "把A/B绝对判错"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "用于辨别教师是否过度管理。",
+      "calibration_note": ""
+    }
+  ]
+}

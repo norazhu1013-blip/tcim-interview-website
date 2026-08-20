@@ -1,0 +1,49 @@
+{
+  "item_id": "Q9",
+  "rules": [
+    {
+      "scope": "Q9-S1~S2 性质/时机",
+      "sufficient_condition": "能区分规则知识与共同规则协调，并说明短暂体验的介入阈值。",
+      "no_gain_threshold": "1轮仍只说不守规则，换反例。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续成人讲解成为唯一策略时重开。",
+      "shift_condition": "转Q9-S3。",
+      "stop_condition": "不能单独停止。",
+      "forbidden_stop": "无限等待/立即接管任一极端未澄清不得停止。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q9-S3~S5 反思/协商/环境",
+      "sufficient_condition": "能从体验引出规则功能，支持幼儿共同商议，并正确使用环境约束。",
+      "no_gain_threshold": "连续2轮只说‘让他们商量’无过程支架，记录不足。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "新冲突使规则无法维持时重开。",
+      "shift_condition": "转Q9-S6或总结。",
+      "stop_condition": "核心充分可准备停止。",
+      "forbidden_stop": "拿骰子作为惩罚不得高判。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q9-S6 小结边界",
+      "sufficient_condition": "能说明小结适合反思但不能替代必要即时支持。",
+      "no_gain_threshold": "1轮无新增剪枝。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续完全推迟支持时重开。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "非必须。",
+      "forbidden_stop": "若核心介入时机仍不清不可用小结替代。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "整题",
+      "sufficient_condition": "Q9-S1~S5至少4个2级，形成‘识别共同规则失效—有界体验—反思规则功能—协商重建—教师退出’链条。",
+      "no_gain_threshold": "连续2轮核心无提升。",
+      "prune_condition": "充分分支剪枝。",
+      "reopen_condition": "新冲突重开。",
+      "shift_condition": "无。",
+      "stop_condition": "满足充分或时间上限低增益停止。",
+      "forbidden_stop": "仍把规则教育等同成人讲解时不得提前停止。",
+      "calibration_note": ""
+    }
+  ]
+}

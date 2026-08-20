@@ -1,0 +1,135 @@
+{
+  "item_id": "Q4",
+  "title": "未参与小组建构",
+  "stem": "大班建构活动中，睿睿和其他幼儿计划一起搭积木大桥，他们讨论了搭建方法，并进入区域开始搭建。就在其他幼儿在认真搭建时，睿睿发现了一块长条木板，他一会儿在地上推着走，一会儿当枪使，没有再参与小组的搭建。",
+  "options": {
+    "A": "继续观察，后续分享中支持睿睿思考如何把长条木板融入小组的建构中。",
+    "B": "肯定睿睿的创造性玩法，询问他长条板能否当桥面，引导他参与到搭桥任务中。",
+    "C": "引导睿睿回顾计划，建议他先完成共同任务，长条木板可以等自由游戏时再玩。",
+    "D": "看到睿睿玩得开心，暂不介入，等下一次活动时再提醒他根据计划开展游戏。"
+  },
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜对幼儿游戏行为的分析判断；介入方式的适宜有效性",
+  "secondary_indicator": "游戏条件的保障 → 教师在幼儿游戏中的角色｜基本定位：支持者、合作者与引导者",
+  "diagnostic_focus": "考察教师能否理解幼儿个体兴趣与小组共同任务之间的关系，并以支持者、合作者的方式把个人发现转化为共同建构资源。",
+  "slots": [
+    {
+      "slot_id": "Q4-S1",
+      "dimension": "C2 行为分析",
+      "name": "个体探索与共同计划双重理解",
+      "definition": "同时看见长木板的新用途探索与睿睿已经参与共同搭桥计划。",
+      "diagnostic_meaning": "避免把行为简化为不合作或纯创造性。",
+      "core": true,
+      "prerequisites": [],
+      "allowed_actions": [
+        "双面证据/澄清"
+      ],
+      "forbidden_actions": [
+        "贴标签"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "B高分核心。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q4-S2",
+      "dimension": "C2 介入方式",
+      "name": "兴趣桥接共同建构",
+      "definition": "利用长木板的新意义，通过提问/共同想象把它变成共同作品资源。",
+      "diagnostic_meaning": "检验将个体生成内容转化为合作资源的能力。",
+      "core": true,
+      "prerequisites": [
+        "Q4-S1"
+      ],
+      "allowed_actions": [
+        "策略生成/具体化"
+      ],
+      "forbidden_actions": [
+        "直接要求先完成任务"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "实证唯一4分B首。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q4-S3",
+      "dimension": "B2 教师角色",
+      "name": "低控制支持者/合作者角色",
+      "definition": "以邀请、问题、同伴协商支持睿睿重新连接小组，不由教师指定唯一用途。",
+      "diagnostic_meaning": "对应支持者、合作者与引导者。",
+      "core": true,
+      "prerequisites": [
+        "Q4-S2"
+      ],
+      "allowed_actions": [
+        "话术比较"
+      ],
+      "forbidden_actions": [
+        "成人指定玩法"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "B本身带一定指向，访谈需看教师能否进一步开放。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q4-S4",
+      "dimension": "C2 介入时机",
+      "name": "即时轻介入与后续分享协调",
+      "definition": "判断何时当下桥接、何时继续观察、何时用分享回顾；不能把支持整体延后到下一次。",
+      "diagnostic_meaning": "解释A有价值而D偏低。",
+      "core": true,
+      "prerequisites": [
+        "Q4-S1"
+      ],
+      "allowed_actions": [
+        "时机边界"
+      ],
+      "forbidden_actions": [
+        "一律延后"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "A通常中高，D较弱。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q4-S5",
+      "dimension": "C2/合作",
+      "name": "共同计划的可修订性与同伴视角",
+      "definition": "共同计划不是成人任务清单，可在同伴协商中吸纳新材料和新想法，并关注伙伴分工与感受。",
+      "diagnostic_meaning": "把合作理解为共同建构而非服从计划。",
+      "core": true,
+      "prerequisites": [
+        "Q4-S1",
+        "Q4-S2"
+      ],
+      "allowed_actions": [
+        "视角转换/迁移"
+      ],
+      "forbidden_actions": [
+        "强调先完成计划"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "C的主要局限。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q4-S6",
+      "dimension": "C2 反思",
+      "name": "分享中的计划反思",
+      "definition": "后续分享帮助幼儿回看计划怎样变化、新材料怎样进入共同作品，而非只用来纠正偏离。",
+      "diagnostic_meaning": "保留A的专业价值。",
+      "core": false,
+      "prerequisites": [
+        "Q4-S4"
+      ],
+      "allowed_actions": [
+        "反思"
+      ],
+      "forbidden_actions": [
+        "把分享替代即时支持"
+      ],
+      "default_priority": "P3",
+      "empirical_relation": "高水平扩展。",
+      "calibration_note": ""
+    }
+  ]
+}

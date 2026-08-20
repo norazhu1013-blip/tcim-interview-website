@@ -1,0 +1,80 @@
+{
+  "item_id": "Q5",
+  "probes": [
+    {
+      "slot_id": "Q5-S1",
+      "allowed_actions": [
+        "游戏框架澄清"
+      ],
+      "preferred_action": "澄清",
+      "typical_question": "“您听到‘着火了，好开心’时，第一步会怎样理解这句话？”",
+      "followup_question": "“游戏里的‘开心’和现实里赞成火灾，是一回事吗？”",
+      "forbidden_actions": [
+        "价值判定"
+      ],
+      "forbidden_question": "“这句话是不是不正确？”",
+      "non_inducing_boundary": "先获取游戏框架理解。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q5-S2",
+      "allowed_actions": [
+        "聚焦澄清"
+      ],
+      "preferred_action": "对比＋开放出口",
+      "typical_question": "“如果您想很快弄清‘开心’指什么，您会怎么问，同时给孩子留出别的解释？”",
+      "followup_question": "“如果孩子说两个都不是，您接下来怎么问？”",
+      "forbidden_actions": [
+        "强制二选一"
+      ],
+      "forbidden_question": "“你是因为救人才开心，对吗？”",
+      "non_inducing_boundary": "尊重实证B，但防止诱导。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q5-S3",
+      "allowed_actions": [
+        "开放叙事"
+      ],
+      "preferred_action": "叙事追问",
+      "typical_question": "“如果让阳阳把这个游戏讲下去，您最想先听哪一段？”",
+      "followup_question": "“哪些细节能帮助您理解他的体验？”",
+      "forbidden_actions": [
+        "成人代解释"
+      ],
+      "forbidden_question": "“你一定是消防员救人成功才开心吧？”",
+      "non_inducing_boundary": "从儿童叙事取证。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q5-S4",
+      "allowed_actions": [
+        "教育时机"
+      ],
+      "preferred_action": "条件边界",
+      "typical_question": "“什么证据会让您觉得现在确实需要谈真实火灾的危险？”",
+      "followup_question": "“如果孩子很清楚现实危险，您还会怎样支持这个游戏？”",
+      "forbidden_actions": [
+        "固定教育脚本"
+      ],
+      "forbidden_question": "“分享时必须抓住教育契机，对吗？”",
+      "non_inducing_boundary": "价值支持由证据决定。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q5-S5",
+      "allowed_actions": [
+        "话术比较"
+      ],
+      "preferred_action": "非评价沟通",
+      "typical_question": "“如果确实要谈现实危险，怎样说既讲清事实，又不让孩子觉得刚才的分享是‘说错了’？”",
+      "followup_question": "“您会避免哪些词？”",
+      "forbidden_actions": [
+        "羞辱/道德审判"
+      ],
+      "forbidden_question": "“娃娃家着火值得开心吗？”",
+      "non_inducing_boundary": "保护表达关系。",
+      "calibration_note": ""
+    }
+  ]
+}

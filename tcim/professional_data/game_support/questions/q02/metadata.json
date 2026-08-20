@@ -1,0 +1,47 @@
+{
+  "item_id": "Q2",
+  "title": "频繁求助",
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜对幼儿游戏行为的分析判断；介入方式的适宜有效性",
+  "secondary_indicator": "游戏支持与指导 → 游戏中的观察｜观察游戏的意识和角度；对幼儿游戏状态的观察与识别",
+  "diagnostic_focus": "考察教师能否透过“我不会、帮帮我”的表面求助，判断幼儿真实需要，并以小目标、提问或材料支架支持其自主尝试，而不是直接代做或过度示范。",
+  "empirical": {
+    "4": [
+      "ACDB",
+      "DACB"
+    ],
+    "3": [
+      "ACBD",
+      "ADCB",
+      "CADB",
+      "DCAB"
+    ],
+    "2": [
+      "ABCD",
+      "ABDC",
+      "ADBC",
+      "BACD",
+      "CABD",
+      "CBAD",
+      "CDAB",
+      "CDBA",
+      "DABC"
+    ],
+    "1": [
+      "BADC",
+      "BCAD",
+      "BCDA",
+      "BDAC",
+      "CBDA",
+      "DBAC",
+      "DBCA",
+      "DCBA"
+    ],
+    "0": [
+      "BDCA"
+    ]
+  },
+  "scoring_note": "4分仅ACDB、DACB，A或D居首、B（教师先示范）居末；3分也大多保持B靠后。说明高水平更重视自主尝试、目标分解、过程观察与反馈，而不是把‘求助’直接理解为技能不足并马上示范。",
+  "review_note": "暂无特别疑点；仍需领域专家结合赋分原理、真实作答过程和访谈资料复核。",
+  "source_version": "2026-08-21-tcim-v0.1-ai-draft",
+  "source": "DOC/数据表 5个.zip"
+}

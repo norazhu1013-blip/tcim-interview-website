@@ -1,0 +1,47 @@
+{
+  "item_id": "Q3",
+  "title": "区域停留短",
+  "primary_indicator": "游戏支持与指导 → 游戏中的观察｜观察游戏的意识和角度；对幼儿游戏状态的观察与识别",
+  "secondary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜对幼儿游戏行为的分析判断；介入时机的把握",
+  "diagnostic_focus": "考察教师能否持续观察幼儿频繁转换区域背后的原因，识别其是否真正投入、有无游戏目标或材料困难，再决定是否需要陪伴、任务支架或环境调整。",
+  "empirical": {
+    "4": [
+      "CDAB",
+      "DBCA",
+      "DCBA"
+    ],
+    "3": [
+      "CADB",
+      "CDBA",
+      "DCAB"
+    ],
+    "2": [
+      "ACDB",
+      "BDAC",
+      "CBAD",
+      "DBAC"
+    ],
+    "1": [
+      "ACBD",
+      "ADBC",
+      "BCAD",
+      "BCDA",
+      "CABD",
+      "CBDA",
+      "DABC",
+      "DACB"
+    ],
+    "0": [
+      "ABCD",
+      "ABDC",
+      "ADCB",
+      "BACD",
+      "BADC",
+      "BDCA"
+    ]
+  },
+  "scoring_note": "4分均由C/D居前、A/B居后；0分多为A/B居前。说明实证区分非常清楚：高水平以观察原因、低控制度陪伴为核心，低水平更易以任务和规则管理直接处理‘停留短’。",
+  "review_note": "暂无特别疑点；仍需领域专家结合赋分原理、真实作答过程和访谈资料复核。",
+  "source_version": "2026-08-21-tcim-v0.1-ai-draft",
+  "source": "DOC/数据表 5个.zip"
+}

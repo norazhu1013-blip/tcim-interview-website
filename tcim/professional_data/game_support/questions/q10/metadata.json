@@ -1,0 +1,47 @@
+{
+  "item_id": "Q10",
+  "title": "跳绳秩序混乱",
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜介入时机的把握；介入方式的适宜有效性",
+  "secondary_indicator": "游戏条件的保障 → 教师在幼儿游戏中的角色｜基本定位：支持者、合作者与引导者",
+  "diagnostic_focus": "考察教师能否在集体游戏秩序和安全风险中作出适时回应，并引导幼儿参与规则形成，逐步建立安全、公平、可持续的共同游戏文化。",
+  "empirical": {
+    "4": [
+      "BADC",
+      "BDAC",
+      "BDCA"
+    ],
+    "3": [
+      "BCDA",
+      "CDBA",
+      "DBAC",
+      "DBCA",
+      "DCBA"
+    ],
+    "2": [
+      "ABDC",
+      "ADCB",
+      "BCAD",
+      "CBAD",
+      "CDAB",
+      "DCAB"
+    ],
+    "1": [
+      "ACBD",
+      "ACDB",
+      "ADBC",
+      "BACD",
+      "CABD",
+      "CADB",
+      "CBDA",
+      "DABC",
+      "DACB"
+    ],
+    "0": [
+      "ABCD"
+    ]
+  },
+  "scoring_note": "4分为BADC、BDAC、BDCA，全部以B居首；3分也多保持B/C/D在前。说明高水平首先让幼儿共同识别秩序、安全与轮候问题，并参与规则形成；成人直接分组可作为安全性支架，但不能替代幼儿共同建构规则。",
+  "review_note": "暂无特别疑点；仍需领域专家结合赋分原理、真实作答过程和访谈资料复核。",
+  "source_version": "2026-08-21-tcim-v0.1-ai-draft",
+  "source": "DOC/数据表 5个.zip"
+}

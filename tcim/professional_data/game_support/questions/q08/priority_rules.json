@@ -1,0 +1,83 @@
+{
+  "item_id": "Q8",
+  "rules": [
+    {
+      "condition": "实证4分：BCDA",
+      "hypothesis": "B首、C次、D三、A末；共同探究和机制支架最强。",
+      "target_slots": [
+        "Q8-S1",
+        "Q8-S3",
+        "Q8-S4"
+      ],
+      "priority": "P2",
+      "preferred_action": "迁移/层级",
+      "forbidden_question": "“B第一就说明处理完美。”",
+      "rationale": "验证教师能否说清‘引导到什么程度’。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分",
+      "hypothesis": "B多居前，C/D顺序变化；核心较成熟但材料和讨论边界不稳。",
+      "target_slots": [
+        "Q8-S4",
+        "Q8-S5"
+      ],
+      "priority": "P2",
+      "preferred_action": "比较",
+      "forbidden_question": "“讨论和加材料什么时候有用？”",
+      "rationale": "查是否服务于已诊断机制。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "部分支持探究，但可能提示过宽或材料泛化。",
+      "target_slots": [
+        "Q8-S2",
+        "Q8-S3"
+      ],
+      "priority": "P1",
+      "preferred_action": "支架阶梯",
+      "forbidden_question": "“自由试多久以后该多帮一点？”",
+      "rationale": "查ZPD和升级阈值。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分或A居前",
+      "hypothesis": "可能重效率和示范，压缩幼儿发现过程。",
+      "target_slots": [
+        "Q8-S3",
+        "Q8-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "反例/边界",
+      "forbidden_question": "“最快示范成功会失去什么？”",
+      "rationale": "核心查最小必要支架。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "D居前",
+      "hypothesis": "可能把兴趣下降主要看成材料刺激问题。",
+      "target_slots": [
+        "Q8-S1",
+        "Q8-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "机制追问",
+      "forbidden_question": "“新增材料具体要解决哪个困难？”",
+      "rationale": "防止材料替代诊断。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "B居首但教师直接指出‘竹片高了’",
+      "hypothesis": "排序高但问题仍可能过强。",
+      "target_slots": [
+        "Q8-S3"
+      ],
+      "priority": "P1",
+      "preferred_action": "话术重构",
+      "forbidden_question": "“怎样提示到受阻位置，而不把高度答案直接说出来？”",
+      "rationale": "细化支架强度。",
+      "calibration_note": ""
+    }
+  ]
+}

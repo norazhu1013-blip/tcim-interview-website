@@ -1,0 +1,47 @@
+{
+  "item_id": "Q9",
+  "title": "飞行棋各走各的",
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜介入时机的把握；介入方式的适宜有效性",
+  "secondary_indicator": "游戏支持与指导 → 游戏中的观察｜对幼儿游戏框架的观察与理解",
+  "diagnostic_focus": "考察教师能否理解幼儿对共同游戏规则的实际体验水平，通过短时体验、反思提问和规则协商帮助幼儿理解共同规则的意义。",
+  "empirical": {
+    "4": [
+      "DCAB",
+      "DCBA"
+    ],
+    "3": [
+      "BCDA",
+      "CBAD",
+      "CDAB",
+      "CDBA",
+      "DBCA"
+    ],
+    "2": [
+      "BACD",
+      "BADC",
+      "BCAD",
+      "CABD",
+      "CADB",
+      "CBDA"
+    ],
+    "1": [
+      "ABCD",
+      "ACDB",
+      "ADCB",
+      "DACB",
+      "DBAC"
+    ],
+    "0": [
+      "ABDC",
+      "ACBD",
+      "ADBC",
+      "BDAC",
+      "BDCA",
+      "DABC"
+    ]
+  },
+  "scoring_note": "4分为DCAB、DCBA，3分多由D/C居前。A/B居前的组合大量落入低分。说明高水平重视让幼儿短暂体验共同规则失效的后果，再通过反思与协商重建规则；成人讲解或延后到小结均较弱。",
+  "review_note": "暂无特别疑点；仍需领域专家结合赋分原理、真实作答过程和访谈资料复核。",
+  "source_version": "2026-08-21-tcim-v0.1-ai-draft",
+  "source": "DOC/数据表 5个.zip"
+}

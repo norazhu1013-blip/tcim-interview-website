@@ -1,0 +1,49 @@
+{
+  "item_id": "Q5",
+  "rules": [
+    {
+      "scope": "Q5-S1~S3 游戏理解/澄清",
+      "sufficient_condition": "能区分游戏与现实，兼具聚焦澄清和开放叙事，并保留儿童修正权。",
+      "no_gain_threshold": "1轮仍直接价值判断则换反例1次。",
+      "prune_condition": "达到2级后剪枝。",
+      "reopen_condition": "后续语言出现强诱导时重开。",
+      "shift_condition": "转Q5-S4。",
+      "stop_condition": "不能单独停止。",
+      "forbidden_stop": "只会B式二选一但无开放出口时不宜判高质量。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q5-S4~S5 价值边界",
+      "sufficient_condition": "能依据真实误解证据决定是否安全教育，并保持非评价沟通。",
+      "no_gain_threshold": "连续2轮仍坚持‘最后必须纠正’，记录冲突。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续出现审判式语言重开。",
+      "shift_condition": "转Q5-S6或总结。",
+      "stop_condition": "核心充分可准备停止。",
+      "forbidden_stop": "无法区分游戏兴趣与现实价值误解时不得停止。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q5-S6 游戏延伸",
+      "sufficient_condition": "能举出至少1种把安全经验转回游戏的方式。",
+      "no_gain_threshold": "1轮无新增剪枝。",
+      "prune_condition": "可选充分后剪枝。",
+      "reopen_condition": "无。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "非必须。",
+      "forbidden_stop": "不得用其替代前面游戏框架诊断。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "整题",
+      "sufficient_condition": "Q5-S1~S5至少4个2级，形成‘理解游戏—聚焦/开放澄清—按证据决定价值支持—保持表达关系’链条。",
+      "no_gain_threshold": "连续2轮核心无提升。",
+      "prune_condition": "充分分支剪枝。",
+      "reopen_condition": "新冲突重开。",
+      "shift_condition": "无。",
+      "stop_condition": "满足充分或时间上限低增益停止。",
+      "forbidden_stop": "仍把C式价值审判视为必要步骤时不得提前停止。",
+      "calibration_note": ""
+    }
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "item_id": "Q6",
+  "title": "材料选择无层次",
+  "stem": "大班上学期，张老师在建构区投放了按图搭建的游戏材料，并提供了不同星级难度的任务卡供幼儿选择，但有的幼儿一上来就选择高难度的三星级任务卡，结果不能顺利完成任务；而有的幼儿始终选择低难度的一星级任务卡。这天，浩浩又连续选择了几张一星级任务卡，很快就完成了任务。",
+  "options": {
+    "A": "调整任务卡提供方式，在游戏开始前根据幼儿的能力水平有针对性地发放任务卡。",
+    "B": "暂不介入，尊重幼儿的自主选择和游戏体验，只要完成任务就是一种经验积累。",
+    "C": "调整任务卡呈现方式，如增加“我想挑战”等提示，鼓励幼儿选择不同星级的挑战。",
+    "D": "和浩浩回顾已完成的任务，比较不同星级的难度，邀请他选择稍有挑战的任务。"
+  },
+  "primary_indicator": "游戏条件的保障 → 游戏环境创设｜对游戏材料的分析和投放",
+  "secondary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜对幼儿游戏行为的分析判断；介入方式的适宜有效性",
+  "diagnostic_focus": "考察教师能否从幼儿发展和学习经验角度分析任务材料的层次，动态调整材料呈现方式，并通过适度挑战支持幼儿在游戏中继续发展。",
+  "slots": [
+    {
+      "slot_id": "Q6-S1",
+      "dimension": "B1 材料分析",
+      "name": "任务难度层次与材料功能判断",
+      "definition": "理解星级任务卡不仅是材料分类，而是支持幼儿在适宜挑战中逐步发展；需要结合能力、成功经验、选择习惯动态看难度。",
+      "diagnostic_meaning": "对应主指标‘对游戏材料的分析和投放’。",
+      "core": true,
+      "prerequisites": [],
+      "allowed_actions": [
+        "澄清/证据追问"
+      ],
+      "forbidden_actions": [
+        "按能力直接分配"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "实证A在4分组合均居末。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q6-S2",
+      "dimension": "C2 行为分析",
+      "name": "选择行为背后的发展状态",
+      "definition": "区分‘总选一星’可能来自信心不足、偏好成功、不了解难度、缺乏挑战意识等；‘一上来选三星’也可能是自我判断不足或追求刺激。",
+      "diagnostic_meaning": "决定材料调整与教师回应。",
+      "core": true,
+      "prerequisites": [
+        "Q6-S1"
+      ],
+      "allowed_actions": [
+        "假设比较"
+      ],
+      "forbidden_actions": [
+        "把低难度选择等同能力低"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "需要从行为解释发展需要。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q6-S3",
+      "dimension": "B1 材料呈现",
+      "name": "环境提示促进自我选择",
+      "definition": "通过‘我想挑战’、分层展示、进阶路径、完成记录等方式提高难度可见性和挑战意愿，而不剥夺选择权。",
+      "diagnostic_meaning": "检验材料环境能否支持自我调节。",
+      "core": true,
+      "prerequisites": [
+        "Q6-S1",
+        "Q6-S2"
+      ],
+      "allowed_actions": [
+        "策略生成/比较"
+      ],
+      "forbidden_actions": [
+        "按能力预先发卡"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "C在高分组合中稳定居前。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q6-S4",
+      "dimension": "C2 介入方式",
+      "name": "回顾—比较—邀请适度挑战",
+      "definition": "和幼儿回顾已完成任务、比较难度和自己的表现，邀请选择‘比现在稍难一点’的任务。",
+      "diagnostic_meaning": "把教师支持落到最近发展区和自我评价。",
+      "core": true,
+      "prerequisites": [
+        "Q6-S2"
+      ],
+      "allowed_actions": [
+        "反思/小目标"
+      ],
+      "forbidden_actions": [
+        "直接命令升星"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "D在4分组合中可居首。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q6-S5",
+      "dimension": "C2/A1 自主性",
+      "name": "自主选择与挑战发展的平衡",
+      "definition": "尊重自主选择，但不把‘只要完成就是经验积累’作为长期不介入理由；教师可以通过环境和对话扩展选择空间。",
+      "diagnostic_meaning": "解释B中‘尊重’的价值与局限。",
+      "core": true,
+      "prerequisites": [
+        "Q6-S2",
+        "Q6-S3"
+      ],
+      "allowed_actions": [
+        "比较权衡"
+      ],
+      "forbidden_actions": [
+        "把自主等同完全不支持"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "实证B多位于中间。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q6-S6",
+      "dimension": "B1/C2 动态调整",
+      "name": "根据选择结果持续校准",
+      "definition": "观察幼儿是否逐步尝试更高难度、失败后如何调整，并据此改进任务卡层次、提示和支架。",
+      "diagnostic_meaning": "形成材料—行为—再投放闭环。",
+      "core": false,
+      "prerequisites": [
+        "Q6-S3",
+        "Q6-S4"
+      ],
+      "allowed_actions": [
+        "反思/迁移"
+      ],
+      "forbidden_actions": [
+        "一次调整后不再观察"
+      ],
+      "default_priority": "P3",
+      "empirical_relation": "高水平扩展。",
+      "calibration_note": ""
+    }
+  ]
+}

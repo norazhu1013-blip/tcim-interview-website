@@ -1,0 +1,85 @@
+{
+  "item_id": "Q6",
+  "rules": [
+    {
+      "condition": "实证4分：CBDA/DBCA/DCBA",
+      "hypothesis": "C/D居前、A居末；总体已偏向环境提示和个别化挑战邀请。",
+      "target_slots": [
+        "Q6-S2",
+        "Q6-S3",
+        "Q6-S4"
+      ],
+      "priority": "P2",
+      "preferred_action": "迁移/边界",
+      "forbidden_question": "“4分说明选C或D就够了。”",
+      "rationale": "验证是否真正基于幼儿选择历史而非固定策略。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分",
+      "hypothesis": "多数C/D/B居前，但材料提示、尊重选择与个别对话的先后不稳。",
+      "target_slots": [
+        "Q6-S3",
+        "Q6-S5"
+      ],
+      "priority": "P2",
+      "preferred_action": "比较权衡",
+      "forbidden_question": "“尊重自主是不是意味着暂不介入？”",
+      "rationale": "查B的边界。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "有部分层次意识，但可能重完成率或只会一般性鼓励挑战。",
+      "target_slots": [
+        "Q6-S1",
+        "Q6-S2",
+        "Q6-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "证据追问",
+      "forbidden_question": "“浩浩一直选一星，您怎么判断原因？”",
+      "rationale": "从材料管理转向发展诊断。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分或A居前",
+      "hypothesis": "可能把个体差异简单转成教师分配，削弱幼儿自我选择和自评。",
+      "target_slots": [
+        "Q6-S1",
+        "Q6-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "反例/价值权衡",
+      "forbidden_question": "“按能力发任务卡虽然有效率，会失去什么？”",
+      "rationale": "核心查材料支持与自主性。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "D居首但教师只说‘鼓励挑战’",
+      "hypothesis": "可能缺少材料环境层面的系统调整。",
+      "target_slots": [
+        "Q6-S3",
+        "Q6-S6"
+      ],
+      "priority": "P2",
+      "preferred_action": "迁移",
+      "forbidden_question": "“如果班里很多幼儿都有类似选择，单独谈话够吗？”",
+      "rationale": "检验个体回应与环境设计结合。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "C居首但把‘我想挑战’变成竞争排名",
+      "hypothesis": "环境提示可能产生外在比较。",
+      "target_slots": [
+        "Q6-S3",
+        "Q6-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "边界",
+      "forbidden_question": "“怎样避免星级提示变成‘越高越好’？”",
+      "rationale": "保护适度挑战而非难度崇拜。",
+      "calibration_note": ""
+    }
+  ]
+}

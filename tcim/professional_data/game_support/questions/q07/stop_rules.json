@@ -1,0 +1,49 @@
+{
+  "item_id": "Q7",
+  "rules": [
+    {
+      "scope": "Q7-S1 原因诊断",
+      "sufficient_condition": "能提出多原因并说明不同儿童需要不同判断。",
+      "no_gain_threshold": "1轮只说‘先问原因’无证据，换反例。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续策略完全忽视原因时重开。",
+      "shift_condition": "转Q7-S2。",
+      "stop_condition": "不能单独停止。",
+      "forbidden_stop": "仅凭兴趣假定原因已知不得停止。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q7-S2~S4 兴趣融合/参与",
+      "sufficient_condition": "能从角色游戏生成真实身体活动，并以伙伴身份低压力加入、渐退。",
+      "no_gain_threshold": "连续2轮只说‘借兴趣’无情节/动作细节，记录不足。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "儿童拒绝或运动性不足时重开。",
+      "shift_condition": "转Q7-S5。",
+      "stop_condition": "核心充分可准备停止。",
+      "forbidden_stop": "只是把项目换名字不得判高质量。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q7-S5 目标/自主平衡",
+      "sufficient_condition": "能说明运动目标需要实现但方式弹性，并给出个体差异边界。",
+      "no_gain_threshold": "1轮无新增剪枝。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续用时间纪律强制时重开。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "与核心共同满足时停止。",
+      "forbidden_stop": "把尊重自主等同完全不支持也不得高判。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "整题",
+      "sufficient_condition": "Q7-S1~S5至少4个2级，形成‘理解原因—提取兴趣—生成运动—伙伴进入—动态调整’链条。",
+      "no_gain_threshold": "连续2轮核心无提升。",
+      "prune_condition": "充分分支剪枝。",
+      "reopen_condition": "新冲突重开。",
+      "shift_condition": "无。",
+      "stop_condition": "满足充分或时间上限低增益停止。",
+      "forbidden_stop": "仍无法解释C高分核心机制时不宜过早停止。",
+      "calibration_note": ""
+    }
+  ]
+}

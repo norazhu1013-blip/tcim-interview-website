@@ -1,0 +1,80 @@
+{
+  "item_id": "Q7",
+  "probes": [
+    {
+      "slot_id": "Q7-S1",
+      "allowed_actions": [
+        "原因假设"
+      ],
+      "preferred_action": "证据追问",
+      "typical_question": "“她们一直坐着玩公主时，您会先想了解哪些可能的原因？”",
+      "followup_question": "“如果其中一个孩子是鞋子不方便跑，您的做法会怎么变？”",
+      "forbidden_actions": [
+        "性别归因"
+      ],
+      "forbidden_question": "“女孩子是不是本来就不爱运动？”",
+      "non_inducing_boundary": "避免群体化判断。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q7-S2",
+      "allowed_actions": [
+        "兴趣资源提取"
+      ],
+      "preferred_action": "资源提取",
+      "typical_question": "“她们这个艾莎游戏里，哪些东西可以自然变成身体活动的入口？”",
+      "followup_question": "“除了鞋子，还有哪些情节？”",
+      "forbidden_actions": [
+        "直接给C答案"
+      ],
+      "forbidden_question": "“用鞋子设计走跑跳就行吧？”",
+      "non_inducing_boundary": "先由教师识别游戏资源。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q7-S3",
+      "allowed_actions": [
+        "策略生成"
+      ],
+      "preferred_action": "游戏融合",
+      "typical_question": "“如果让她们继续是‘艾莎公主’，同时真正动起来，您会怎样发展这个游戏？”",
+      "followup_question": "“怎样看出它不是只换了一个名字？”",
+      "forbidden_actions": [
+        "动作清单化"
+      ],
+      "forbidden_question": "“请安排走、跑、跳三个项目。”",
+      "non_inducing_boundary": "保持游戏生成性。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q7-S4",
+      "allowed_actions": [
+        "角色进入"
+      ],
+      "preferred_action": "参与者身份",
+      "typical_question": "“如果您以游戏伙伴身份进去，会怎么邀请，才不像在叫她们完成运动任务？”",
+      "followup_question": "“什么时候您会退出？”",
+      "forbidden_actions": [
+        "外部命令"
+      ],
+      "forbidden_question": "“现在跟老师来做运动。”",
+      "non_inducing_boundary": "检验共同游戏与渐退。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q7-S5",
+      "allowed_actions": [
+        "价值权衡"
+      ],
+      "preferred_action": "比较",
+      "typical_question": "“户外运动有身体活动目标，孩子又有自己的角色游戏，您会怎样同时照顾？”",
+      "followup_question": "“身体状态不佳时会怎样变化？”",
+      "forbidden_actions": [
+        "时间规则绝对化"
+      ],
+      "forbidden_question": "“运动时间就必须运动，对吗？”",
+      "non_inducing_boundary": "查目标与自主的整合。",
+      "calibration_note": ""
+    }
+  ]
+}

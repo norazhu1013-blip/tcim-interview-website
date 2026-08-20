@@ -1,0 +1,49 @@
+{
+  "item_id": "Q2",
+  "rules": [
+    {
+      "scope": "Q2-S1~S3 求助诊断",
+      "sufficient_condition": "能识别语言—行为矛盾，提出至少2类求助功能并说明区分证据。",
+      "no_gain_threshold": "连续1次只说‘他会/他依赖’无证据，换反例1次。",
+      "prune_condition": "达到2级后剪枝。",
+      "reopen_condition": "后续策略与其诊断不一致时重开。",
+      "shift_condition": "转Q2-S4支架。",
+      "stop_condition": "不能单独停止。",
+      "forbidden_stop": "只给标签不做证据判断时不得停止。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q2-S4~S5 支架/渐退",
+      "sufficient_condition": "能提供小目标、步骤整理或过程反馈，并说明幼儿自主后如何减少帮助。",
+      "no_gain_threshold": "连续2轮只给泛化鼓励，无支架细节则记录不足。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "求助频率未下降的反例出现时重开。",
+      "shift_condition": "转Q2-S6示范边界。",
+      "stop_condition": "核心充分时可准备停止。",
+      "forbidden_stop": "没有退出机制不得判高质量。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q2-S6 示范边界",
+      "sufficient_condition": "能说出至少1个真正需要局部示范的条件，并说明示范后归还操作权。",
+      "no_gain_threshold": "1轮无新增即可剪枝。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "教师又把求助自动转示范时重开。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "不作为必须停止条件。",
+      "forbidden_stop": "把‘绝不示范’当原则同样不能判最高。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "整题",
+      "sufficient_condition": "Q2-S1~S5至少4个达到2级，形成‘观察求助—判断功能—匹配支架—反馈渐退’链条。",
+      "no_gain_threshold": "连续2轮核心证据无提升。",
+      "prune_condition": "充分分支剪枝。",
+      "reopen_condition": "新冲突证据重开。",
+      "shift_condition": "无。",
+      "stop_condition": "满足充分条件或时间上限且边际增益低时停止。",
+      "forbidden_stop": "仍不清楚为何B应靠后时不宜过早停止。",
+      "calibration_note": ""
+    }
+  ]
+}

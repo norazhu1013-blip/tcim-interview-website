@@ -1,0 +1,80 @@
+{
+  "item_id": "Q6",
+  "probes": [
+    {
+      "slot_id": "Q6-S1",
+      "allowed_actions": [
+        "材料功能澄清"
+      ],
+      "preferred_action": "澄清",
+      "typical_question": "“这些一星、二星、三星任务卡，您觉得最重要的教育作用是什么？”",
+      "followup_question": "“如果只是按能力发给幼儿，会有什么得失？”",
+      "forbidden_actions": [
+        "直接肯定C/D"
+      ],
+      "forbidden_question": "“教师当然不能分配任务卡，对吗？”",
+      "non_inducing_boundary": "先查材料观。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q6-S2",
+      "allowed_actions": [
+        "原因假设"
+      ],
+      "preferred_action": "证据追问",
+      "typical_question": "“浩浩连续选一星，可能分别意味着什么？您会看什么来区分？”",
+      "followup_question": "“如果另一个孩子总选三星却频繁失败，您会怎么判断？”",
+      "forbidden_actions": [
+        "能力贴标签"
+      ],
+      "forbidden_question": "“他是不是能力弱、没信心？”",
+      "non_inducing_boundary": "要求可观察证据。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q6-S3",
+      "allowed_actions": [
+        "环境策略"
+      ],
+      "preferred_action": "策略生成",
+      "typical_question": "“如果不直接给他指定星级，您会怎么改任务卡的呈现，让他更愿意试一点挑战？”",
+      "followup_question": "“怎样避免变成比谁星级高？”",
+      "forbidden_actions": [
+        "提供C原话"
+      ],
+      "forbidden_question": "“加‘我想挑战’就可以吧？”",
+      "non_inducing_boundary": "看教师能否形成环境机制。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q6-S4",
+      "allowed_actions": [
+        "回顾与挑战邀请"
+      ],
+      "preferred_action": "反思",
+      "typical_question": "“您会怎样和浩浩回看刚才的一星任务，再决定下一张选什么？”",
+      "followup_question": "“怎样让这个决定越来越变成他自己会做的判断？”",
+      "forbidden_actions": [
+        "直接命令升星"
+      ],
+      "forbidden_question": "“下一张必须二星。”",
+      "non_inducing_boundary": "目标是自我评价。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q6-S5",
+      "allowed_actions": [
+        "价值权衡"
+      ],
+      "preferred_action": "比较",
+      "typical_question": "“尊重他反复选一星，和支持他往前挑战，您会怎样找到平衡？”",
+      "followup_question": "“偶尔重复熟悉任务是不是也可以？”",
+      "forbidden_actions": [
+        "极端化"
+      ],
+      "forbidden_question": "“只要自主选择就不要介入，对吗？”",
+      "non_inducing_boundary": "检验长期发展视角。",
+      "calibration_note": ""
+    }
+  ]
+}

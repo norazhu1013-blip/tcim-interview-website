@@ -1,0 +1,47 @@
+{
+  "item_id": "Q6",
+  "title": "材料选择无层次",
+  "primary_indicator": "游戏条件的保障 → 游戏环境创设｜对游戏材料的分析和投放",
+  "secondary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜对幼儿游戏行为的分析判断；介入方式的适宜有效性",
+  "diagnostic_focus": "考察教师能否从幼儿发展和学习经验角度分析任务材料的层次，动态调整材料呈现方式，并通过适度挑战支持幼儿在游戏中继续发展。",
+  "empirical": {
+    "4": [
+      "CBDA",
+      "DBCA",
+      "DCBA"
+    ],
+    "3": [
+      "BCDA",
+      "BDCA",
+      "CDBA",
+      "DABC",
+      "DBAC",
+      "DCAB"
+    ],
+    "2": [
+      "BDAC",
+      "CBAD",
+      "CDAB",
+      "DACB"
+    ],
+    "1": [
+      "ADCB",
+      "BCAD",
+      "CABD",
+      "CADB"
+    ],
+    "0": [
+      "ABCD",
+      "ABDC",
+      "ACBD",
+      "ACDB",
+      "ADBC",
+      "BACD",
+      "BADC"
+    ]
+  },
+  "scoring_note": "4分为CBDA、DBCA、DCBA，A均居末；3分也多由C/D/B居前。说明高水平倾向通过材料呈现、回顾比较和邀请挑战来帮助幼儿形成适宜难度选择，而不是教师按能力直接分配任务卡。",
+  "review_note": "暂无特别疑点；仍需领域专家结合赋分原理、真实作答过程和访谈资料复核。",
+  "source_version": "2026-08-21-tcim-v0.1-ai-draft",
+  "source": "DOC/数据表 5个.zip"
+}

@@ -1,0 +1,80 @@
+{
+  "item_id": "Q8",
+  "probes": [
+    {
+      "slot_id": "Q8-S1",
+      "allowed_actions": [
+        "机制追问"
+      ],
+      "preferred_action": "具体化",
+      "typical_question": "“您觉得孩子真正卡住的关键点是什么？”",
+      "followup_question": "“如果让孩子自己看到这个关键点，您会先让他们观察哪里？”",
+      "forbidden_actions": [
+        "直接给答案"
+      ],
+      "forbidden_question": "“是不是因为竹片高于出水口？”",
+      "non_inducing_boundary": "看教师能否自主提取题干机制。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q8-S2",
+      "allowed_actions": [
+        "状态判断"
+      ],
+      "preferred_action": "证据追问",
+      "typical_question": "“他们已经反复调整又开始失去兴趣，这说明现在需要什么程度的帮助？”",
+      "followup_question": "“哪些表现说明继续自由试可能收获不大？”",
+      "forbidden_actions": [
+        "能力评价"
+      ],
+      "forbidden_question": "“他们是不是不会思考？”",
+      "non_inducing_boundary": "围绕当前证据判断支架。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q8-S3",
+      "allowed_actions": [
+        "支架层级"
+      ],
+      "preferred_action": "层级比较",
+      "typical_question": "“如果从最轻的帮助开始，第一步会提示什么？没效果时下一步呢？”",
+      "followup_question": "“什么情况下您才会考虑示范？”",
+      "forbidden_actions": [
+        "绝对禁止示范"
+      ],
+      "forbidden_question": "“专业教师是不是不能示范？”",
+      "non_inducing_boundary": "检验阶梯与边界。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q8-S4",
+      "allowed_actions": [
+        "探究过程"
+      ],
+      "preferred_action": "过程追问",
+      "typical_question": "“您希望孩子接下来经历怎样一轮‘看—猜—试—再看’？”",
+      "followup_question": "“调整一次后会比较什么？”",
+      "forbidden_actions": [
+        "追成功效率"
+      ],
+      "forbidden_question": "“怎样最快把水引过去？”",
+      "non_inducing_boundary": "过程优先。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q8-S5",
+      "allowed_actions": [
+        "材料功能"
+      ],
+      "preferred_action": "具体化",
+      "typical_question": "“如果要增加材料，您会加什么，它具体帮助幼儿发现或解决什么？”",
+      "followup_question": "“如果材料只是让他们重新玩水，您会怎么判断？”",
+      "forbidden_actions": [
+        "材料泛化"
+      ],
+      "forbidden_question": "“多放材料就能激发兴趣吧？”",
+      "non_inducing_boundary": "材料必须有机制依据。",
+      "calibration_note": ""
+    }
+  ]
+}

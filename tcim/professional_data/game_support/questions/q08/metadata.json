@@ -1,0 +1,47 @@
+{
+  "item_id": "Q8",
+  "title": "引水难题未解",
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜介入时机的把握；介入方式的适宜有效性",
+  "secondary_indicator": "游戏条件的保障 → 游戏环境创设｜对游戏材料的分析和投放",
+  "diagnostic_focus": "考察教师能否在幼儿探究兴趣减弱时，判断困难来源，选择适当介入时机，并通过材料、问题或示范支架恢复探索，而不是急于替幼儿完成。",
+  "empirical": {
+    "4": [
+      "BCDA"
+    ],
+    "3": [
+      "BCAD",
+      "BDCA",
+      "CBAD",
+      "CBDA"
+    ],
+    "2": [
+      "BACD",
+      "BADC",
+      "BDAC",
+      "CDBA",
+      "DBAC",
+      "DBCA",
+      "DCBA"
+    ],
+    "1": [
+      "ABCD",
+      "ABDC",
+      "ACBD",
+      "ADBC",
+      "CABD",
+      "CDAB",
+      "DABC",
+      "DCAB"
+    ],
+    "0": [
+      "ACDB",
+      "ADCB",
+      "CADB",
+      "DACB"
+    ]
+  },
+  "scoring_note": "唯一4分为BCDA，3分为BCAD、BDCA、CBAD、CBDA。B稳定居前，A多居后。说明高水平强调教师进入共同探究、抓住关键受阻关系并提供适量支架；直接完整示范通常属于较低层级支持。",
+  "review_note": "暂无特别疑点；仍需领域专家结合赋分原理、真实作答过程和访谈资料复核。",
+  "source_version": "2026-08-21-tcim-v0.1-ai-draft",
+  "source": "DOC/数据表 5个.zip"
+}

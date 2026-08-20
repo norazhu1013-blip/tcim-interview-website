@@ -1,0 +1,47 @@
+{
+  "item_id": "Q5",
+  "title": "消防员救火开心",
+  "primary_indicator": "对游戏的特点、价值的理解 → 对游戏特点的理解｜对游戏本质特征的理解",
+  "secondary_indicator": "对游戏的特点、价值的理解 → 对游戏价值实现的认识｜对游戏价值发挥机制和规律的认识",
+  "diagnostic_focus": "考察教师能否区分幼儿游戏中的角色体验、情节表达与成人现实价值判断，先理解游戏意义，再以发展适宜的方式进行安全和价值澄清。",
+  "empirical": {
+    "4": [
+      "BDAC"
+    ],
+    "3": [
+      "BACD",
+      "BADC",
+      "BDCA",
+      "DBAC"
+    ],
+    "2": [
+      "ABCD",
+      "ABDC",
+      "ACBD",
+      "BCAD",
+      "DABC",
+      "DACB",
+      "DCBA"
+    ],
+    "1": [
+      "ACDB",
+      "ADBC",
+      "BCDA",
+      "CABD",
+      "CBDA",
+      "CDAB",
+      "CDBA",
+      "DBCA"
+    ],
+    "0": [
+      "ADCB",
+      "CADB",
+      "CBAD",
+      "DCAB"
+    ]
+  },
+  "scoring_note": "唯一4分为BDAC；3分为BACD、BADC、BDCA、DBAC。B/D稳定居前，C常居后。实证更支持‘有针对性的意义澄清＋开放理解游戏体验’，而不是先做价值判断；A式现实安全解释可有位置，但通常不应早于理解幼儿的游戏意义。",
+  "review_note": "暂无特别疑点；仍需领域专家结合赋分原理、真实作答过程和访谈资料复核。",
+  "source_version": "2026-08-21-tcim-v0.1-ai-draft",
+  "source": "DOC/数据表 5个.zip"
+}

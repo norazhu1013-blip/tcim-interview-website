@@ -1,0 +1,49 @@
+{
+  "item_id": "Q8",
+  "rules": [
+    {
+      "scope": "Q8-S1~S2 机制/状态",
+      "sufficient_condition": "能识别高度/坡度关系，并结合反复尝试和兴趣下降判断需要定向支架。",
+      "no_gain_threshold": "1轮仍只说‘观察原因’无关键现象则记录不足。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续策略与机制无关时重开。",
+      "shift_condition": "转Q8-S3。",
+      "stop_condition": "不能单独停止。",
+      "forbidden_stop": "不知道卡点不得高判。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q8-S3~S4 支架/探究",
+      "sufficient_condition": "能给至少2级由轻到重支架，并保持观察—假设—尝试循环。",
+      "no_gain_threshold": "连续2轮只说‘引导观察’无升级条件，记录不足。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "遇失败即示范时重开。",
+      "shift_condition": "转Q8-S5。",
+      "stop_condition": "核心充分可准备停止。",
+      "forbidden_stop": "只有‘不告诉答案’口号不得停止。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q8-S5 材料",
+      "sufficient_condition": "能说明材料与困难机制的功能关系。",
+      "no_gain_threshold": "1轮无新增剪枝。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续又以新奇刺激替代问题解决时重开。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "与核心共同满足时停止。",
+      "forbidden_stop": "材料数量被当主要策略时不得判高质量。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "整题",
+      "sufficient_condition": "Q8-S1~S5至少4个2级，形成‘识别机制—判断ZPD—分级支架—儿童验证—环境调整’链条。",
+      "no_gain_threshold": "连续2轮核心无提升。",
+      "prune_condition": "充分分支剪枝。",
+      "reopen_condition": "新冲突重开。",
+      "shift_condition": "无。",
+      "stop_condition": "满足充分或时间上限低增益停止。",
+      "forbidden_stop": "仍无法解释A为何低分时不宜过早停止。",
+      "calibration_note": ""
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "item_id": "Q5",
+  "title": "消防员救火开心",
+  "stem": "近几天，中班的幼儿十分热衷于在区域游戏时间玩“消防员救火”的游戏。游戏结束后的交流活动中，老师问幼儿最想分享什么时，阳阳说“娃娃家着火了，好开心啊！”。",
+  "options": {
+    "A": "抓住教育契机，向幼儿耐心解释真实的火灾会造成物品损失和人员伤亡。",
+    "B": "询问幼儿开心的是“着火”本身，还是消防员成功救火、娃娃家的人得救？",
+    "C": "引导幼儿思考“娃娃家着火”值不值得开心，帮助他们认识真实火灾是危险的。",
+    "D": "请阳阳讲讲娃娃家着火后发生了什么、为什么开心，借此理解幼儿的游戏体验。"
+  },
+  "primary_indicator": "对游戏的特点、价值的理解 → 对游戏特点的理解｜对游戏本质特征的理解",
+  "secondary_indicator": "对游戏的特点、价值的理解 → 对游戏价值实现的认识｜对游戏价值发挥机制和规律的认识",
+  "diagnostic_focus": "考察教师能否区分幼儿游戏中的角色体验、情节表达与成人现实价值判断，先理解游戏意义，再以发展适宜的方式进行安全和价值澄清。",
+  "slots": [
+    {
+      "slot_id": "Q5-S1",
+      "dimension": "A1 游戏特点",
+      "name": "游戏框架与现实逻辑区分",
+      "definition": "把‘着火好开心’放在消防员角色游戏、情节张力和救援成功的游戏框架中理解，不直接等同现实价值判断。",
+      "diagnostic_meaning": "对应主指标‘游戏本质特征理解’。",
+      "core": true,
+      "prerequisites": [],
+      "allowed_actions": [
+        "澄清/反例"
+      ],
+      "forbidden_actions": [
+        "立即道德纠偏"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "实证B/D居前、C靠后。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q5-S2",
+      "dimension": "A1/C1 理解",
+      "name": "有针对性的意义澄清",
+      "definition": "可以用B式对比帮助区分开心对象，但应允许幼儿说‘都不是’或提出第三种解释，避免把对比变成正确答案提示。",
+      "diagnostic_meaning": "尊重实证B首优势，同时保留非诱导原则。",
+      "core": true,
+      "prerequisites": [
+        "Q5-S1"
+      ],
+      "allowed_actions": [
+        "聚焦澄清/复述确认"
+      ],
+      "forbidden_actions": [
+        "强制二选一"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "唯一4分BDAC。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q5-S3",
+      "dimension": "C1 游戏理解",
+      "name": "开放叙事理解",
+      "definition": "通过‘发生了什么、为什么开心、最喜欢哪段’等问题获取幼儿角色、情节、同伴互动和成功感证据。",
+      "diagnostic_meaning": "补充B式快速澄清的开放性。",
+      "core": true,
+      "prerequisites": [
+        "Q5-S1"
+      ],
+      "allowed_actions": [
+        "叙事追问"
+      ],
+      "forbidden_actions": [
+        "先解释儿童体验"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "D稳定处于高分前部。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q5-S4",
+      "dimension": "A3 价值实现",
+      "name": "安全/价值支持的证据与时机",
+      "definition": "只有在发现幼儿确实混淆现实火灾危险时，再做必要事实澄清；可通过游戏延伸实现，而非每次都立即上安全课。",
+      "diagnostic_meaning": "对应次指标‘游戏价值实现的规律’。",
+      "core": true,
+      "prerequisites": [
+        "Q5-S2",
+        "Q5-S3"
+      ],
+      "allowed_actions": [
+        "条件边界"
+      ],
+      "forbidden_actions": [
+        "教育契机自动化"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "A通常中位，C价值判断更低。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q5-S5",
+      "dimension": "A1/关系伦理",
+      "name": "非评价性价值沟通",
+      "definition": "不要求幼儿承认‘开心是不对的’，不羞辱、不贴标签；讨论现实危险针对事实而非情绪和人格。",
+      "diagnostic_meaning": "保证真实表达和游戏分享的持续性。",
+      "core": true,
+      "prerequisites": [
+        "Q5-S4"
+      ],
+      "allowed_actions": [
+        "话术比较"
+      ],
+      "forbidden_actions": [
+        "‘值不值得开心’式审判"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "C在0分组合频繁出现。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q5-S6",
+      "dimension": "A3 游戏延伸",
+      "name": "把安全经验转化为游戏发展",
+      "definition": "在理解儿童兴趣后，可扩展报警、疏散、救援、照顾伤员、重建等情节，让安全经验进入游戏而不替代游戏。",
+      "diagnostic_meaning": "体现游戏价值的渐进实现。",
+      "core": false,
+      "prerequisites": [
+        "Q5-S3",
+        "Q5-S4"
+      ],
+      "allowed_actions": [
+        "策略生成/迁移"
+      ],
+      "forbidden_actions": [
+        "把游戏变知识课"
+      ],
+      "default_priority": "P3",
+      "empirical_relation": "高水平扩展。",
+      "calibration_note": ""
+    }
+  ]
+}

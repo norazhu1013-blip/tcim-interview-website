@@ -1,0 +1,80 @@
+{
+  "item_id": "Q9",
+  "probes": [
+    {
+      "slot_id": "Q9-S1",
+      "allowed_actions": [
+        "性质澄清"
+      ],
+      "preferred_action": "对比",
+      "typical_question": "“您觉得他们现在主要是‘不知道规则’，还是‘两个人没有共同的玩法’？您怎么看出来的？”",
+      "followup_question": "“如果他们都知道飞行棋规则，却仍争谁先走呢？”",
+      "forbidden_actions": [
+        "预设不懂规则"
+      ],
+      "forbidden_question": "“他们显然规则意识差吧？”",
+      "non_inducing_boundary": "开放判断问题性质。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q9-S2",
+      "allowed_actions": [
+        "时机边界"
+      ],
+      "preferred_action": "体验阈值",
+      "typical_question": "“如果让他们先各走一小会儿，您会观察什么，什么时候会觉得该介入？”",
+      "followup_question": "“情绪升高时会怎么变化？”",
+      "forbidden_actions": [
+        "无限等待"
+      ],
+      "forbidden_question": "“让他们自己玩到结束。”",
+      "non_inducing_boundary": "专业等待必须有阈值。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q9-S3",
+      "allowed_actions": [
+        "体验反思"
+      ],
+      "preferred_action": "功能追问",
+      "typical_question": "“各走各的以后，您会怎样问，帮助他们自己说出这种玩法的问题？”",
+      "followup_question": "“共同规则对他们的游戏到底有什么用？”",
+      "forbidden_actions": [
+        "背诵规则"
+      ],
+      "forbidden_question": "“飞行棋正确规则是什么？”",
+      "non_inducing_boundary": "从经验中理解规则功能。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q9-S4",
+      "allowed_actions": [
+        "协商支架"
+      ],
+      "preferred_action": "过程追问",
+      "typical_question": "“如果要让他们自己重新约定玩法，您会怎样把争议变成可以商量的问题？”",
+      "followup_question": "“两个人提出不同方案时怎么办？”",
+      "forbidden_actions": [
+        "教师宣布"
+      ],
+      "forbidden_question": "“应该轮流掷骰子，就这样玩。”",
+      "non_inducing_boundary": "提供结构不代替决定。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q9-S5",
+      "allowed_actions": [
+        "环境支架"
+      ],
+      "preferred_action": "理由追问",
+      "typical_question": "“如果您拿走一个骰子，您希望这个动作帮助他们发生什么？”",
+      "followup_question": "“哪些决定还应留给幼儿？”",
+      "forbidden_actions": [
+        "惩罚"
+      ],
+      "forbidden_question": "“谁抢骰子就没收谁的。”",
+      "non_inducing_boundary": "环境调整服务于协商。",
+      "calibration_note": ""
+    }
+  ]
+}

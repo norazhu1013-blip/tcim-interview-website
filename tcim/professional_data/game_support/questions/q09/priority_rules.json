@@ -1,0 +1,86 @@
+{
+  "item_id": "Q9",
+  "rules": [
+    {
+      "condition": "实证4分：DCAB/DCBA",
+      "hypothesis": "D首、C次，A/B靠后，体验—反思—协商逻辑清晰。",
+      "target_slots": [
+        "Q9-S2",
+        "Q9-S3",
+        "Q9-S4"
+      ],
+      "priority": "P2",
+      "preferred_action": "迁移/边界",
+      "forbidden_question": "“D第一就可以让他们随便玩一轮。”",
+      "rationale": "验证体验的安全/情绪阈值。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分",
+      "hypothesis": "多数D/C居前，整体较成熟但C/D先后或A/B边界不稳。",
+      "target_slots": [
+        "Q9-S4",
+        "Q9-S5",
+        "Q9-S6"
+      ],
+      "priority": "P2",
+      "preferred_action": "比较",
+      "forbidden_question": "“先拿走骰子和先让他们体验，什么时候不同？”",
+      "rationale": "查环境支架与自然后果。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "部分理解协商，但规则功能或介入时机不够清楚。",
+      "target_slots": [
+        "Q9-S1",
+        "Q9-S3",
+        "Q9-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "功能追问",
+      "forbidden_question": "“为什么一定要有共同规则？”",
+      "rationale": "从规则条款转功能。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分或A居前",
+      "hypothesis": "可能把问题当规则知识缺失，偏向成人讲解示范。",
+      "target_slots": [
+        "Q9-S1",
+        "Q9-S3"
+      ],
+      "priority": "P1",
+      "preferred_action": "反例",
+      "forbidden_question": "“如果他们知道规则却仍争先后，讲一遍够吗？”",
+      "rationale": "核心区分规则知识与共同规则。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "B居前",
+      "hypothesis": "可能把等待和后续小结泛化，错过共同游戏瓦解时的即时支持。",
+      "target_slots": [
+        "Q9-S2",
+        "Q9-S6"
+      ],
+      "priority": "P1",
+      "preferred_action": "时机边界",
+      "forbidden_question": "“什么时候等到小结就太晚了？”",
+      "rationale": "查延后反思边界。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "C居前但把拿骰子当处罚",
+      "hypothesis": "排序可能不低但专业机制错误。",
+      "target_slots": [
+        "Q9-S4",
+        "Q9-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "理由追问",
+      "forbidden_question": "“拿走一个骰子是为了制止，还是为了帮助发生什么？”",
+      "rationale": "区分环境支架与控制。",
+      "calibration_note": ""
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "item_id": "Q5",
+  "rules": [
+    {
+      "condition": "实证4分：BDAC",
+      "hypothesis": "B首、D次、A三、C末。",
+      "target_slots": [
+        "Q5-S1",
+        "Q5-S2",
+        "Q5-S3"
+      ],
+      "priority": "P2",
+      "preferred_action": "问法质量/迁移",
+      "forbidden_question": "“B既然4分，就只能用二选一。”",
+      "rationale": "验证聚焦澄清是否仍保留第三解释和儿童修正权。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分：BACD/BADC/BDCA/DBAC",
+      "hypothesis": "B/D稳定居前，A/C先后有差异。",
+      "target_slots": [
+        "Q5-S2",
+        "Q5-S4",
+        "Q5-S5"
+      ],
+      "priority": "P2",
+      "preferred_action": "条件边界",
+      "forbidden_question": "“最后都要讲真实火灾危险吗？”",
+      "rationale": "查安全教育是否证据驱动。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "已有部分游戏框架理解，但聚焦澄清、开放叙事或价值边界不稳定。",
+      "target_slots": [
+        "Q5-S1",
+        "Q5-S3",
+        "Q5-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "具体化",
+      "forbidden_question": "“您怎么知道他到底在开心什么？”",
+      "rationale": "从直觉转证据。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分且C居前",
+      "hypothesis": "可能把成人现实价值判断直接压到游戏表达上。",
+      "target_slots": [
+        "Q5-S1",
+        "Q5-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "游戏框架反例",
+      "forbidden_question": "“孩子喜欢玩消防员，是否就说明喜欢真实火灾？”",
+      "rationale": "核心纠正成人现实逻辑。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "A居首",
+      "hypothesis": "可能把‘教育契机’理解为先讲知识。",
+      "target_slots": [
+        "Q5-S1",
+        "Q5-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "时序比较",
+      "forbidden_question": "“如果孩子本来就知道真实火灾很危险，还需要先讲吗？”",
+      "rationale": "查理解—教育时序。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "B居首但教师不给幼儿否定空间",
+      "hypothesis": "排序高但谈话策略仍可能诱导。",
+      "target_slots": [
+        "Q5-S2"
+      ],
+      "priority": "P1",
+      "preferred_action": "话术重构",
+      "forbidden_question": "“除了这两个解释，孩子还能不能说别的？”",
+      "rationale": "把实证B优势转成非诱导澄清。",
+      "calibration_note": ""
+    }
+  ]
+}

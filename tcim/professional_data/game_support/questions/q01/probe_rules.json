@@ -1,0 +1,80 @@
+{
+  "item_id": "Q1",
+  "probes": [
+    {
+      "slot_id": "Q1-S1",
+      "allowed_actions": [
+        "澄清、游戏框架追问"
+      ],
+      "preferred_action": "澄清",
+      "typical_question": "“您怎么看幼儿把篮球架慢慢玩成一个‘玩水场地’这件事？”",
+      "followup_question": "“这个变化里，哪些是您觉得值得保留的？”",
+      "forbidden_actions": [
+        "立即评价规则对错"
+      ],
+      "forbidden_question": "“篮球架不是玩水的，所以要不要马上叫停？”",
+      "non_inducing_boundary": "先获取教师对自主游戏生成的解释。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q1-S2",
+      "allowed_actions": [
+        "证据追问、风险分层"
+      ],
+      "preferred_action": "证据追问",
+      "typical_question": "“在决定要不要马上介入前，您会先看哪些具体情况？”",
+      "followup_question": "“如果地面已经很滑，和只是少量接水，您的做法会一样吗？”",
+      "forbidden_actions": [
+        "泛化安全提示"
+      ],
+      "forbidden_question": "“是不是有水就不安全？”",
+      "non_inducing_boundary": "用具体风险改变情境，避免固定答案。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q1-S3",
+      "allowed_actions": [
+        "条件边界、反例"
+      ],
+      "preferred_action": "条件边界",
+      "typical_question": "“什么情况下您会允许他们再玩一会儿，什么情况下会现在就介入？”",
+      "followup_question": "“您会怎样判断已经到了该转场的时候？”",
+      "forbidden_actions": [
+        "暗示A/C固定优先"
+      ],
+      "forbidden_question": "“先不干预是不是更尊重幼儿？”",
+      "non_inducing_boundary": "目标是获得介入阈值。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q1-S4",
+      "allowed_actions": [
+        "策略生成、角色进入"
+      ],
+      "preferred_action": "策略生成",
+      "typical_question": "“如果您既想保留这个玩水游戏，又觉得篮球架旁不太合适，您会怎么接进去？”",
+      "followup_question": "“怎样说能让换地方不是一次中断？”",
+      "forbidden_actions": [
+        "直接提供C式答案"
+      ],
+      "forbidden_question": "“您会不会扮成粉刷工把他们带走？”",
+      "non_inducing_boundary": "先让教师自主生成转场支架。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q1-S5",
+      "allowed_actions": [
+        "价值权衡、迁移"
+      ],
+      "preferred_action": "比较权衡",
+      "typical_question": "“这里的规则您觉得要让幼儿理解的究竟是什么？”",
+      "followup_question": "“如果换成一个完全不影响安全和他人的新玩法，您还会要求回到原用途吗？”",
+      "forbidden_actions": [
+        "成人用途绝对化"
+      ],
+      "forbidden_question": "“器材用途就是规则，对吧？”",
+      "non_inducing_boundary": "区分公共边界与成人预设。",
+      "calibration_note": ""
+    }
+  ]
+}

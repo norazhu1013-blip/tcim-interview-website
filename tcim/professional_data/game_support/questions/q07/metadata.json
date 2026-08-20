@@ -1,0 +1,47 @@
+{
+  "item_id": "Q7",
+  "title": "艾莎公主不运动",
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜对幼儿游戏行为的分析判断；介入方式的适宜有效性",
+  "secondary_indicator": "对游戏的特点、价值的理解 → 对游戏价值的理解（游戏中的学习）｜对游戏独特的学习和发展价值的认识",
+  "diagnostic_focus": "考察教师能否理解幼儿角色兴趣和审美经验，并把“艾莎公主”的游戏兴趣转化为符合年龄特点的运动参与，而不是简单要求儿童回到运动任务。",
+  "empirical": {
+    "4": [
+      "CADB"
+    ],
+    "3": [
+      "ACBD",
+      "CABD",
+      "CDBA"
+    ],
+    "2": [
+      "ABCD",
+      "ABDC",
+      "ACDB",
+      "BACD",
+      "BCAD",
+      "BDAC",
+      "CBAD",
+      "DACB",
+      "DCAB"
+    ],
+    "1": [
+      "ADCB",
+      "BADC",
+      "BCDA",
+      "BDCA",
+      "CBDA",
+      "CDAB",
+      "DABC",
+      "DCBA"
+    ],
+    "0": [
+      "ADBC",
+      "DBAC",
+      "DBCA"
+    ]
+  },
+  "scoring_note": "唯一4分为CADB，3分为ACBD、CABD、CDBA。C稳定最强，B/D多居后。说明高水平能把角色兴趣直接转化为身体活动，同时保留原因诊断；单纯用时间规则把游戏推迟到自由活动价值较低。",
+  "review_note": "暂无特别疑点；仍需领域专家结合赋分原理、真实作答过程和访谈资料复核。",
+  "source_version": "2026-08-21-tcim-v0.1-ai-draft",
+  "source": "DOC/数据表 5个.zip"
+}

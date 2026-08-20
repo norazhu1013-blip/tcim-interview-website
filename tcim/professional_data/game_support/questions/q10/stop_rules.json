@@ -1,0 +1,49 @@
+{
+  "item_id": "Q10",
+  "rules": [
+    {
+      "scope": "Q10-S1~S2 问题/时机",
+      "sufficient_condition": "能同时识别安全、秩序、公平问题，并说明明显碰撞风险需要及时处理。",
+      "no_gain_threshold": "1轮只说‘乱/安全’无结构，换公平反例。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续又坚持完全延后或全面接管时重开。",
+      "shift_condition": "转Q10-S3。",
+      "stop_condition": "不能单独停止。",
+      "forbidden_stop": "即时安全阈值不清不得停止。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q10-S3~S4 规则共建/教师角色",
+      "sufficient_condition": "能支持幼儿共同识别问题、形成规则，并把成人分组等组织作为临时支架逐步退出。",
+      "no_gain_threshold": "连续2轮只有成人方案无幼儿参与，记录不足。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "试行失败或教师重新接管时重开。",
+      "shift_condition": "转Q10-S5。",
+      "stop_condition": "核心充分可准备停止。",
+      "forbidden_stop": "没有规则共建机制不得判高质量。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "Q10-S5~S6 环境/后续反思",
+      "sufficient_condition": "能说明材料/空间的有限功能，并把视频回放用于后续修订而非替代即时处理。",
+      "no_gain_threshold": "1轮无新增剪枝。",
+      "prune_condition": "充分后剪枝。",
+      "reopen_condition": "后续材料万能或完全延后时重开。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "与核心共同满足时停止。",
+      "forbidden_stop": "不能用环境或视频代替共同治理。",
+      "calibration_note": ""
+    },
+    {
+      "scope": "整题",
+      "sufficient_condition": "Q10-S1~S5至少4个2级，形成‘识别风险与公平—即时最小介入—幼儿共建规则—成人渐退—环境/规则再调整’链条。",
+      "no_gain_threshold": "连续2轮核心无提升。",
+      "prune_condition": "充分分支剪枝。",
+      "reopen_condition": "新冲突重开。",
+      "shift_condition": "无。",
+      "stop_condition": "满足充分或时间上限低增益停止。",
+      "forbidden_stop": "仍把B式共建理解为不需即时安全处理时不得提前停止。",
+      "calibration_note": ""
+    }
+  ]
+}

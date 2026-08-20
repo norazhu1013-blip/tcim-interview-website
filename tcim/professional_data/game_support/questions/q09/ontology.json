@@ -1,0 +1,134 @@
+{
+  "item_id": "Q9",
+  "title": "飞行棋各走各的",
+  "stem": "大班区域游戏中，轩轩和小宇一起玩飞行棋，他们将棋子摆好后，各自拿了一个骰子开始投，小宇说：“该我走。”轩轩说：“明明该我走！”相持不下，于是两人各拿一个骰子，自顾自地走自己的棋。",
+  "options": {
+    "A": "耐心讲解共同游戏的规则，再以“棋手”身份加入游戏进行示范引导。",
+    "B": "暂不介入，继续观察游戏进展，待区域小结时请幼儿分享游戏中的体验和问题。",
+    "C": "拿走一个骰子，请幼儿商量只有一个骰子的共同游戏规则，达成一致后再开始游戏。",
+    "D": "待幼儿体验一轮各走各的游戏后，询问幼儿的游戏体验，提示共同游戏规则的作用。"
+  },
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜介入时机的把握；介入方式的适宜有效性",
+  "secondary_indicator": "游戏支持与指导 → 游戏中的观察｜对幼儿游戏框架的观察与理解",
+  "diagnostic_focus": "考察教师能否理解幼儿对共同游戏规则的实际体验水平，通过短时体验、反思提问和规则协商帮助幼儿理解共同规则的意义。",
+  "slots": [
+    {
+      "slot_id": "Q9-S1",
+      "dimension": "C1 游戏框架",
+      "name": "共同规则失效的性质判断",
+      "definition": "区分‘不知道飞行棋正式规则’与‘双方没有形成可共同维持的轮次/规则’；当前已从共同游戏变成并行游戏。",
+      "diagnostic_meaning": "对应次指标对游戏规则与意图的理解。",
+      "core": true,
+      "prerequisites": [],
+      "allowed_actions": [
+        "澄清/对比"
+      ],
+      "forbidden_actions": [
+        "直接讲规则"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "D/C高分核心。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q9-S2",
+      "dimension": "C2 介入时机",
+      "name": "短暂体验自然后果的边界",
+      "definition": "可允许幼儿短暂体验各走各的造成无法共同互动、无法判断输赢等后果，但要有情绪和持续时间边界。",
+      "diagnostic_meaning": "检验专业等待而非放任。",
+      "core": true,
+      "prerequisites": [
+        "Q9-S1"
+      ],
+      "allowed_actions": [
+        "条件边界"
+      ],
+      "forbidden_actions": [
+        "无限不介入"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "D4分。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q9-S3",
+      "dimension": "C2 反思回应",
+      "name": "从体验中理解规则功能",
+      "definition": "通过询问游戏体验，引导幼儿说出共同规则对轮流、公平、共同预期和游戏持续的作用。",
+      "diagnostic_meaning": "规则教育从外部要求转为经验理解。",
+      "core": true,
+      "prerequisites": [
+        "Q9-S2"
+      ],
+      "allowed_actions": [
+        "体验回顾/功能追问"
+      ],
+      "forbidden_actions": [
+        "背诵规则"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "D高分机制。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q9-S4",
+      "dimension": "C2 介入方式",
+      "name": "共同规则协商与重建",
+      "definition": "支持幼儿围绕骰子数量、谁先、轮流方式等商量并形成双方认可规则，再继续游戏。",
+      "diagnostic_meaning": "检验协商支架而非成人宣布。",
+      "core": true,
+      "prerequisites": [
+        "Q9-S3"
+      ],
+      "allowed_actions": [
+        "协商过程/替代方案"
+      ],
+      "forbidden_actions": [
+        "教师定规则"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "C高分机制。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q9-S5",
+      "dimension": "C2 介入方式",
+      "name": "环境约束的支持性使用",
+      "definition": "临时拿走一个骰子可减少并行行动，促进共同协商，但不能作为惩罚或代替规则理解。",
+      "diagnostic_meaning": "解释C的环境支架边界。",
+      "core": true,
+      "prerequisites": [
+        "Q9-S4"
+      ],
+      "allowed_actions": [
+        "理由追问/反例"
+      ],
+      "forbidden_actions": [
+        "没收作为控制"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "C高分但需看后续协商质量。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q9-S6",
+      "dimension": "C2 时机",
+      "name": "即时支持与小结反思的区别",
+      "definition": "小结可回顾经验，但共同游戏已瓦解时仅延后到小结可能错失即时学习机会。",
+      "diagnostic_meaning": "解释B较低。",
+      "core": false,
+      "prerequisites": [
+        "Q9-S2"
+      ],
+      "allowed_actions": [
+        "时机比较"
+      ],
+      "forbidden_actions": [
+        "绝对否定小结"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "B并非无价值，只是不宜成为唯一支持。",
+      "calibration_note": ""
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "item_id": "Q7",
+  "rules": [
+    {
+      "condition": "实证4分：CADB",
+      "hypothesis": "C首、A次、D三、B末，兴趣融合最清晰。",
+      "target_slots": [
+        "Q7-S2",
+        "Q7-S3",
+        "Q7-S4"
+      ],
+      "priority": "P2",
+      "preferred_action": "迁移/细化",
+      "forbidden_question": "“C第一就说明很好，不用再问。”",
+      "rationale": "验证C不是成人包装的运动任务。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分：ACBD/CABD/CDBA",
+      "hypothesis": "C/A多居前，整体较成熟但原因诊断与兴趣融合先后不稳。",
+      "target_slots": [
+        "Q7-S1",
+        "Q7-S3"
+      ],
+      "priority": "P2",
+      "preferred_action": "条件比较",
+      "forbidden_question": "“先问原因和直接加入游戏，什么时候各自更合适？”",
+      "rationale": "允许A/C条件性变化。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "部分理解兴趣和运动，但支持可能泛化。",
+      "target_slots": [
+        "Q7-S2",
+        "Q7-S4",
+        "Q7-S6"
+      ],
+      "priority": "P1",
+      "preferred_action": "具体化",
+      "forbidden_question": "“怎么让角色游戏真正变成运动？”",
+      "rationale": "从口号到操作。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分或B居前",
+      "hypothesis": "可能把运动时间规则置于游戏兴趣和个体原因之前。",
+      "target_slots": [
+        "Q7-S1",
+        "Q7-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "反例/价值权衡",
+      "forbidden_question": "“运动时间必须停止角色游戏吗？”",
+      "rationale": "核心查课程目标与自主性。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "D居前但C较后",
+      "hypothesis": "可能停留在言语引导，缺少教师作为共同参与者和情境生成。",
+      "target_slots": [
+        "Q7-S3",
+        "Q7-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "角色迁移",
+      "forbidden_question": "“如果只说‘穿漂亮鞋子去运动’，为什么孩子一定会动起来？”",
+      "rationale": "查真正活动设计。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "C居首但A末",
+      "hypothesis": "可能兴趣融合强，但忽略身体不适/服饰等真正原因。",
+      "target_slots": [
+        "Q7-S1"
+      ],
+      "priority": "P2",
+      "preferred_action": "反例",
+      "forbidden_question": "“如果有孩子其实是因为鞋子不方便呢？”",
+      "rationale": "防止兴趣万能论。",
+      "calibration_note": ""
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "item_id": "Q10",
+  "title": "跳绳秩序混乱",
+  "stem": "周三下午，大五班的幼儿正自发进行跳绳游戏。李老师观察后发现，挤在一起跳绳的幼儿人数较多，整个场面十分混乱，幼儿很容易出现碰撞现象。此外，由于当“柱子”的幼儿很久才能轮上跳绳，因此也显得很不耐烦。",
+  "options": {
+    "A": "请幼儿暂停游戏，将幼儿分成多个小组并引导他们以小组为单位分区域开展游戏。",
+    "B": "请幼儿说一说跳绳活动中存在的问题，并邀请幼儿一起设置跳绳的规则。",
+    "C": "提供更多数量和不同种类的跳绳，并言语引导幼儿分组分区同时进行跳绳游戏。",
+    "D": "暂不介入，活动分享时通过照片或视频回放引导幼儿发现问题并商议解决办法。"
+  },
+  "primary_indicator": "游戏支持与指导 → 对游戏行为的分析与回应｜介入时机的把握；介入方式的适宜有效性",
+  "secondary_indicator": "游戏条件的保障 → 教师在幼儿游戏中的角色｜基本定位：支持者、合作者与引导者",
+  "diagnostic_focus": "考察教师能否在集体游戏秩序和安全风险中作出适时回应，并引导幼儿参与规则形成，逐步建立安全、公平、可持续的共同游戏文化。",
+  "slots": [
+    {
+      "slot_id": "Q10-S1",
+      "dimension": "C2 行为分析",
+      "name": "安全、秩序与公平问题综合识别",
+      "definition": "从拥挤碰撞、等待过久、角色负担不均等判断共同游戏已出现安全和公平问题，而不只看‘场面乱’。",
+      "diagnostic_meaning": "决定介入必要性和目标。",
+      "core": true,
+      "prerequisites": [],
+      "allowed_actions": [
+        "证据追问/澄清"
+      ],
+      "forbidden_actions": [
+        "只强调纪律"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "主指标介入时机。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q10-S2",
+      "dimension": "C2/B2 介入时机",
+      "name": "即时介入与自主协商的平衡",
+      "definition": "存在明显碰撞风险时需要及时暂停/组织对话，但介入目标应是创造可协商条件，而不是由教师直接永久接管。",
+      "diagnostic_meaning": "把安全性与共同治理结合。",
+      "core": true,
+      "prerequisites": [
+        "Q10-S1"
+      ],
+      "allowed_actions": [
+        "条件边界"
+      ],
+      "forbidden_actions": [
+        "完全延后"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "D可有反思价值，但不能替代即时安全回应。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q10-S3",
+      "dimension": "C2/B2 介入方式",
+      "name": "幼儿共同识别问题与形成规则",
+      "definition": "邀请幼儿说出拥挤、等待、角色不公平等问题，共同讨论人数、区域、轮换、角色时长等规则。",
+      "diagnostic_meaning": "实证B首的核心专业机制。",
+      "core": true,
+      "prerequisites": [
+        "Q10-S2"
+      ],
+      "allowed_actions": [
+        "协商过程/功能追问"
+      ],
+      "forbidden_actions": [
+        "教师单方面宣布"
+      ],
+      "default_priority": "P1",
+      "empirical_relation": "所有4分组合B居首。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q10-S4",
+      "dimension": "B2 教师角色",
+      "name": "成人组织作为临时支架",
+      "definition": "必要时教师可先分组/分区降低即时风险，但应把理由说明清楚，并逐步让幼儿参与调整和维持规则。",
+      "diagnostic_meaning": "解释A有安全价值但不应成为最终治理方式。",
+      "core": true,
+      "prerequisites": [
+        "Q10-S1",
+        "Q10-S3"
+      ],
+      "allowed_actions": [
+        "边界/迁移"
+      ],
+      "forbidden_actions": [
+        "长期由教师分组"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "A在4分中可2/3/4位。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q10-S5",
+      "dimension": "B1/C2 环境支持",
+      "name": "材料与空间调整的功能边界",
+      "definition": "更多跳绳、分区可以缓解拥挤，但材料增加本身不能解决轮候公平、角色规则和共同协商。",
+      "diagnostic_meaning": "解释C在实证高分中较少居前。",
+      "core": true,
+      "prerequisites": [
+        "Q10-S1"
+      ],
+      "allowed_actions": [
+        "具体化/对比"
+      ],
+      "forbidden_actions": [
+        "材料越多越好"
+      ],
+      "default_priority": "P2",
+      "empirical_relation": "环境支持必须和规则共建配套。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q10-S6",
+      "dimension": "C2 反思",
+      "name": "即时反思与视频回放的连续支持",
+      "definition": "照片/视频适合后续回顾、规则修订和共同文化建设，但应建立在即时安全处理之后。",
+      "diagnostic_meaning": "保留D的专业价值。",
+      "core": false,
+      "prerequisites": [
+        "Q10-S2",
+        "Q10-S3"
+      ],
+      "allowed_actions": [
+        "时机比较/反思"
+      ],
+      "forbidden_actions": [
+        "把回放替代现场支持"
+      ],
+      "default_priority": "P3",
+      "empirical_relation": "D在4分中多为2/3位。",
+      "calibration_note": ""
+    }
+  ]
+}

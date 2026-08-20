@@ -1,0 +1,365 @@
+{
+  "version": "2026-08-21-tcim-v0.1-ai-draft",
+  "empirical": {
+    "Q1": {
+      "4": [
+        "ABCD",
+        "ACBD",
+        "CABD"
+      ],
+      "3": [
+        "ABDC",
+        "BCAD",
+        "CBAD"
+      ],
+      "2": [
+        "ACDB",
+        "BACD",
+        "CADB",
+        "CDAB"
+      ],
+      "1": [
+        "ADBC",
+        "ADCB",
+        "BADC",
+        "BCDA",
+        "BDAC",
+        "CBDA",
+        "CDBA",
+        "DABC"
+      ],
+      "0": [
+        "BDCA",
+        "DACB",
+        "DBAC",
+        "DBCA",
+        "DCAB",
+        "DCBA"
+      ]
+    },
+    "Q2": {
+      "4": [
+        "ACDB",
+        "DACB"
+      ],
+      "3": [
+        "ACBD",
+        "ADCB",
+        "CADB",
+        "DCAB"
+      ],
+      "2": [
+        "ABCD",
+        "ABDC",
+        "ADBC",
+        "BACD",
+        "CABD",
+        "CBAD",
+        "CDAB",
+        "CDBA",
+        "DABC"
+      ],
+      "1": [
+        "BADC",
+        "BCAD",
+        "BCDA",
+        "BDAC",
+        "CBDA",
+        "DBAC",
+        "DBCA",
+        "DCBA"
+      ],
+      "0": [
+        "BDCA"
+      ]
+    },
+    "Q3": {
+      "4": [
+        "CDAB",
+        "DBCA",
+        "DCBA"
+      ],
+      "3": [
+        "CADB",
+        "CDBA",
+        "DCAB"
+      ],
+      "2": [
+        "ACDB",
+        "BDAC",
+        "CBAD",
+        "DBAC"
+      ],
+      "1": [
+        "ACBD",
+        "ADBC",
+        "BCAD",
+        "BCDA",
+        "CABD",
+        "CBDA",
+        "DABC",
+        "DACB"
+      ],
+      "0": [
+        "ABCD",
+        "ABDC",
+        "ADCB",
+        "BACD",
+        "BADC",
+        "BDCA"
+      ]
+    },
+    "Q4": {
+      "4": [
+        "BACD"
+      ],
+      "3": [
+        "ABCD",
+        "ABDC",
+        "BADC",
+        "BCAD"
+      ],
+      "2": [
+        "ACBD",
+        "ADBC",
+        "BCDA",
+        "BDAC",
+        "BDCA",
+        "CABD",
+        "CBAD",
+        "DBAC",
+        "DBCA"
+      ],
+      "1": [
+        "ACDB",
+        "ADCB",
+        "CADB",
+        "CBDA",
+        "CDBA",
+        "DABC",
+        "DACB",
+        "DCBA"
+      ],
+      "0": [
+        "CDAB",
+        "DCAB"
+      ]
+    },
+    "Q5": {
+      "4": [
+        "BDAC"
+      ],
+      "3": [
+        "BACD",
+        "BADC",
+        "BDCA",
+        "DBAC"
+      ],
+      "2": [
+        "ABCD",
+        "ABDC",
+        "ACBD",
+        "BCAD",
+        "DABC",
+        "DACB",
+        "DCBA"
+      ],
+      "1": [
+        "ACDB",
+        "ADBC",
+        "BCDA",
+        "CABD",
+        "CBDA",
+        "CDAB",
+        "CDBA",
+        "DBCA"
+      ],
+      "0": [
+        "ADCB",
+        "CADB",
+        "CBAD",
+        "DCAB"
+      ]
+    },
+    "Q6": {
+      "4": [
+        "CBDA",
+        "DBCA",
+        "DCBA"
+      ],
+      "3": [
+        "BCDA",
+        "BDCA",
+        "CDBA",
+        "DABC",
+        "DBAC",
+        "DCAB"
+      ],
+      "2": [
+        "BDAC",
+        "CBAD",
+        "CDAB",
+        "DACB"
+      ],
+      "1": [
+        "ADCB",
+        "BCAD",
+        "CABD",
+        "CADB"
+      ],
+      "0": [
+        "ABCD",
+        "ABDC",
+        "ACBD",
+        "ACDB",
+        "ADBC",
+        "BACD",
+        "BADC"
+      ]
+    },
+    "Q7": {
+      "4": [
+        "CADB"
+      ],
+      "3": [
+        "ACBD",
+        "CABD",
+        "CDBA"
+      ],
+      "2": [
+        "ABCD",
+        "ABDC",
+        "ACDB",
+        "BACD",
+        "BCAD",
+        "BDAC",
+        "CBAD",
+        "DACB",
+        "DCAB"
+      ],
+      "1": [
+        "ADCB",
+        "BADC",
+        "BCDA",
+        "BDCA",
+        "CBDA",
+        "CDAB",
+        "DABC",
+        "DCBA"
+      ],
+      "0": [
+        "ADBC",
+        "DBAC",
+        "DBCA"
+      ]
+    },
+    "Q8": {
+      "4": [
+        "BCDA"
+      ],
+      "3": [
+        "BCAD",
+        "BDCA",
+        "CBAD",
+        "CBDA"
+      ],
+      "2": [
+        "BACD",
+        "BADC",
+        "BDAC",
+        "CDBA",
+        "DBAC",
+        "DBCA",
+        "DCBA"
+      ],
+      "1": [
+        "ABCD",
+        "ABDC",
+        "ACBD",
+        "ADBC",
+        "CABD",
+        "CDAB",
+        "DABC",
+        "DCAB"
+      ],
+      "0": [
+        "ACDB",
+        "ADCB",
+        "CADB",
+        "DACB"
+      ]
+    },
+    "Q9": {
+      "4": [
+        "DCAB",
+        "DCBA"
+      ],
+      "3": [
+        "BCDA",
+        "CBAD",
+        "CDAB",
+        "CDBA",
+        "DBCA"
+      ],
+      "2": [
+        "BACD",
+        "BADC",
+        "BCAD",
+        "CABD",
+        "CADB",
+        "CBDA"
+      ],
+      "1": [
+        "ABCD",
+        "ACDB",
+        "ADCB",
+        "DACB",
+        "DBAC"
+      ],
+      "0": [
+        "ABDC",
+        "ACBD",
+        "ADBC",
+        "BDAC",
+        "BDCA",
+        "DABC"
+      ]
+    },
+    "Q10": {
+      "4": [
+        "BADC",
+        "BDAC",
+        "BDCA"
+      ],
+      "3": [
+        "BCDA",
+        "CDBA",
+        "DBAC",
+        "DBCA",
+        "DCBA"
+      ],
+      "2": [
+        "ABDC",
+        "ADCB",
+        "BCAD",
+        "CBAD",
+        "CDAB",
+        "DCAB"
+      ],
+      "1": [
+        "ACBD",
+        "ACDB",
+        "ADBC",
+        "BACD",
+        "CABD",
+        "CADB",
+        "CBDA",
+        "DABC",
+        "DACB"
+      ],
+      "0": [
+        "ABCD"
+      ]
+    }
+  }
+}

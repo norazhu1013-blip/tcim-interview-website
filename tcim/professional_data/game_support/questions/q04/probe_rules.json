@@ -1,0 +1,80 @@
+{
+  "item_id": "Q4",
+  "probes": [
+    {
+      "slot_id": "Q4-S1",
+      "allowed_actions": [
+        "双面澄清"
+      ],
+      "preferred_action": "澄清",
+      "typical_question": "“睿睿玩长木板这件事，您觉得既说明了什么，又带来了什么问题？”",
+      "followup_question": "“他之前和伙伴一起做过计划，这一点会怎样进入您的判断？”",
+      "forbidden_actions": [
+        "单一标签"
+      ],
+      "forbidden_question": "“他是不是不合作？”",
+      "non_inducing_boundary": "让两类价值同时出现。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q4-S2",
+      "allowed_actions": [
+        "策略生成"
+      ],
+      "preferred_action": "桥接",
+      "typical_question": "“如果顺着他对木板的新兴趣，把它变成小组资源，您会怎么做？”",
+      "followup_question": "“除了桥面，还可能怎样让他和伙伴一起决定？”",
+      "forbidden_actions": [
+        "直接给B答案"
+      ],
+      "forbidden_question": "“问他能不能当桥面就行吧？”",
+      "non_inducing_boundary": "避免让题面答案代替教师生成。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q4-S3",
+      "allowed_actions": [
+        "话术比较"
+      ],
+      "preferred_action": "低控制",
+      "typical_question": "“怎样问，既能提醒共同建构，又不把木板用途替他决定？”",
+      "followup_question": "“如果他提出完全不同的用途，您怎么回应？”",
+      "forbidden_actions": [
+        "命令式问句"
+      ],
+      "forbidden_question": "“先把任务完成再玩，可以吗？”",
+      "non_inducing_boundary": "检查选择权和同伴协商。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q4-S4",
+      "allowed_actions": [
+        "时机边界"
+      ],
+      "preferred_action": "时机",
+      "typical_question": "“什么情况下您会现在介入，什么情况下会留到分享时再谈？”",
+      "followup_question": "“伙伴已经明显受影响时会变化吗？”",
+      "forbidden_actions": [
+        "一律延后"
+      ],
+      "forbidden_question": "“等分享最尊重吧？”",
+      "non_inducing_boundary": "即时支持与反思互补。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q4-S5",
+      "allowed_actions": [
+        "视角转换"
+      ],
+      "preferred_action": "合作/计划",
+      "typical_question": "“如果把这件事问另外几个搭桥的幼儿，他们的需要会影响您的做法吗？”",
+      "followup_question": "“共同计划能不能在游戏中被改？”",
+      "forbidden_actions": [
+        "成人任务化"
+      ],
+      "forbidden_question": "“计划定了就应该完成吧？”",
+      "non_inducing_boundary": "检验共同建构逻辑。",
+      "calibration_note": ""
+    }
+  ]
+}

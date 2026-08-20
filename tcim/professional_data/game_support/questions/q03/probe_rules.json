@@ -1,0 +1,80 @@
+{
+  "item_id": "Q3",
+  "probes": [
+    {
+      "slot_id": "Q3-S1",
+      "allowed_actions": [
+        "澄清"
+      ],
+      "preferred_action": "问题表征",
+      "typical_question": "“看到她每个区域都待得很短，您最想先判断的是什么？”",
+      "followup_question": "“您会不会直接把它看成规则或专注问题？”",
+      "forbidden_actions": [
+        "诱导标准答案"
+      ],
+      "forbidden_question": "“是不是应该先观察？”",
+      "non_inducing_boundary": "探查教师如何定义现象。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q3-S2",
+      "allowed_actions": [
+        "具体化"
+      ],
+      "preferred_action": "观察",
+      "typical_question": "“您如果跟着她看十分钟，会特别记下哪些事情？”",
+      "followup_question": "“她离开前发生了什么，对您判断有帮助吗？”",
+      "forbidden_actions": [
+        "清单提示"
+      ],
+      "forbidden_question": "“您会看同伴、材料、情绪吧？”",
+      "non_inducing_boundary": "先自主生成观察维度。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q3-S3",
+      "allowed_actions": [
+        "假设比较"
+      ],
+      "preferred_action": "原因",
+      "typical_question": "“同样是三分钟就走，可能有哪些不同原因？”",
+      "followup_question": "“哪种证据会让您改变原来的猜测？”",
+      "forbidden_actions": [
+        "贴标签"
+      ],
+      "forbidden_question": "“她是不是注意力差？”",
+      "non_inducing_boundary": "强调可检验性。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q3-S4",
+      "allowed_actions": [
+        "时机边界"
+      ],
+      "preferred_action": "观察/参与转换",
+      "typical_question": "“什么情况下您会继续看，什么情况下会进去陪她玩一会儿？”",
+      "followup_question": "“如果进去以后发现她其实有自己的跨区玩法，您会怎么调整？”",
+      "forbidden_actions": [
+        "固定顺序"
+      ],
+      "forbidden_question": "“一定先观察再介入，对吗？”",
+      "non_inducing_boundary": "允许C/D条件性互换。",
+      "calibration_note": ""
+    },
+    {
+      "slot_id": "Q3-S5",
+      "allowed_actions": [
+        "策略生成"
+      ],
+      "preferred_action": "匹配支架",
+      "typical_question": "“如果原因分别是‘不知道怎么继续’和‘材料太简单’，您的支持会一样吗？”",
+      "followup_question": "“她开始自己玩起来后，您会怎样退出？”",
+      "forbidden_actions": [
+        "策略菜单"
+      ],
+      "forbidden_question": "“陪玩还是加材料？”",
+      "non_inducing_boundary": "要求原因—策略对应。",
+      "calibration_note": ""
+    }
+  ]
+}

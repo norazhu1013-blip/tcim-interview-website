@@ -1,0 +1,85 @@
+{
+  "item_id": "Q1",
+  "rules": [
+    {
+      "condition": "实证4分：ABCD/ACBD/CABD",
+      "hypothesis": "总体判断较成熟：A/C可居首、D稳定居末；可能已理解自主游戏和低控制回应。",
+      "target_slots": [
+        "Q1-S2",
+        "Q1-S3",
+        "Q1-S4"
+      ],
+      "priority": "P2",
+      "preferred_action": "边界反例",
+      "forbidden_question": "“既然4分，就不需要再问了。”",
+      "rationale": "重点验证：教师把A或C放前是基于风险判断，还是仅凭‘少干预’直觉。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分：ABDC/BCAD/CBAD",
+      "hypothesis": "已有较好判断，但A/B/C之间的介入时机或转场方式可能不够稳定。",
+      "target_slots": [
+        "Q1-S3",
+        "Q1-S4",
+        "Q1-S5"
+      ],
+      "priority": "P2",
+      "preferred_action": "比较权衡",
+      "forbidden_question": "“A、B、C谁绝对最好？”",
+      "rationale": "用风险变化情境看排序理由能否动态调整。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "部分理解自主性，但可能在‘讨论规则、转场、等待’之间缺少清晰条件。",
+      "target_slots": [
+        "Q1-S2",
+        "Q1-S3"
+      ],
+      "priority": "P1",
+      "preferred_action": "条件边界",
+      "forbidden_question": "“玩得开心就应该继续，对吗？”",
+      "rationale": "先查风险—时机逻辑。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分且D排前",
+      "hypothesis": "可能以成人场地用途/转移注意为主要管理手段，游戏框架理解不足。",
+      "target_slots": [
+        "Q1-S1",
+        "Q1-S5"
+      ],
+      "priority": "P1",
+      "preferred_action": "游戏意义澄清＋反例",
+      "forbidden_question": "“篮球架当然只能打篮球吧？”",
+      "rationale": "核心诊断低控制回应与游戏自主性。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "A居首但教师低确信/反复修改",
+      "hypothesis": "可能直觉支持‘不干预’，但不清楚延后讨论的安全边界。",
+      "target_slots": [
+        "Q1-S2",
+        "Q1-S3"
+      ],
+      "priority": "P1",
+      "preferred_action": "边界追问",
+      "forbidden_question": "“A既然尊重自主，就一定最好吗？”",
+      "rationale": "避免把实证高分排列简单等同专业理由充分。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "D居末但A/B/C理由几乎相同",
+      "hypothesis": "可能只知道‘不要直接制止’，但缺少差异化分析。",
+      "target_slots": [
+        "Q1-S2",
+        "Q1-S4"
+      ],
+      "priority": "P2",
+      "preferred_action": "对比",
+      "forbidden_question": "“B和C的专业差别在哪里？”",
+      "rationale": "检验是否真正掌握介入方式层级。",
+      "calibration_note": ""
+    }
+  ]
+}

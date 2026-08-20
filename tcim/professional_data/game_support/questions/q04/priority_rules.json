@@ -1,0 +1,84 @@
+{
+  "item_id": "Q4",
+  "rules": [
+    {
+      "condition": "实证4分：BACD",
+      "hypothesis": "B首、A次、C三、D末，表现出即时桥接最优先。",
+      "target_slots": [
+        "Q4-S2",
+        "Q4-S3",
+        "Q4-S4"
+      ],
+      "priority": "P2",
+      "preferred_action": "迁移/开放化",
+      "forbidden_question": "“B就是唯一正确问法吗？”",
+      "rationale": "验证是否理解B背后的桥接机制，而非记忆桥面答案。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证3分",
+      "hypothesis": "多以B/A居前，整体较成熟但C与A边界可能不稳。",
+      "target_slots": [
+        "Q4-S4",
+        "Q4-S5"
+      ],
+      "priority": "P2",
+      "preferred_action": "对比",
+      "forbidden_question": "“先完成共同任务到底什么时候合理？”",
+      "rationale": "厘清计划责任与灵活性。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证2分",
+      "hypothesis": "部分重视创造/合作，但桥接方式或时机不足。",
+      "target_slots": [
+        "Q4-S1",
+        "Q4-S2"
+      ],
+      "priority": "P1",
+      "preferred_action": "具体化",
+      "forbidden_question": "“怎么把长木板变成共同资源？”",
+      "rationale": "查从价值口号到策略。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "实证0—1分或D居前",
+      "hypothesis": "可能把‘不介入’等同尊重，或者支持延迟。",
+      "target_slots": [
+        "Q4-S1",
+        "Q4-S4"
+      ],
+      "priority": "P1",
+      "preferred_action": "时机反例",
+      "forbidden_question": "“如果伙伴正等他负责的一部分，还等到下次吗？”",
+      "rationale": "检验同伴与即时学习机会。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "C居前",
+      "hypothesis": "可能把共同计划理解成成人任务完成。",
+      "target_slots": [
+        "Q4-S5",
+        "Q4-S3"
+      ],
+      "priority": "P1",
+      "preferred_action": "价值权衡",
+      "forbidden_question": "“计划可以被幼儿自己改吗？”",
+      "rationale": "核心查合作≠服从。",
+      "calibration_note": ""
+    },
+    {
+      "condition": "B居首但理由是‘老师要把他拉回来’",
+      "hypothesis": "表面高分但仍可能高控制。",
+      "target_slots": [
+        "Q4-S2",
+        "Q4-S3"
+      ],
+      "priority": "P1",
+      "preferred_action": "话术比较",
+      "forbidden_question": "“直接告诉他当桥面是不是最快？”",
+      "rationale": "识别高分排序下的不同专业水平。",
+      "calibration_note": ""
+    }
+  ]
+}
