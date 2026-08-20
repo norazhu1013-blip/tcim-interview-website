@@ -156,7 +156,7 @@ onBeforeUnmount(() => window.removeEventListener('gsyg:web-auth-changed', handle
             </label>
             <p v-if="authError" class="login-error" role="alert">{{ authError }}</p>
             <button class="button primary wide" type="submit">登录</button>
-            <small>还没有账号？点击上方“注册”。</small>
+            <button class="button secondary wide register-cta" type="button" @click="switchAuthMode('register')">首次使用？立即注册</button>
           </template>
 
           <template v-else-if="registrationStep === 'form'">
