@@ -7,6 +7,7 @@ import {
   clearAllLocalDataForLogout,
   createSession,
   getProfile,
+  isProfileComplete,
   saveProfile
 } from '../services/storage.js'
 import { exportData, reportProfile, whoami } from '../services/api.js'
@@ -30,6 +31,7 @@ const showLogout = ref(false)
 const clearLocalData = ref(false)
 const loggingOut = ref(false)
 const logoutError = ref('')
+const saving = ref(false)
 
 onMounted(async () => {
   if (!await requireWebLogin()) return
@@ -93,19 +95,30 @@ function triggerDownload(file = download.value) {
 }
 
 async function submit() {
-  if (!form.name.trim() || !form.kindergarten.trim() || !String(form.teachingYears).trim()) {
+  if (!isProfileComplete(form)) {
     message.value = '请填写姓名、园所和教龄。'
     return
   }
   if (!await requireWebLogin()) return
-  const profile = saveProfile({ ...form, updatedAt: Date.now() })
-  message.value = '资料已保存。'
-  await reportProfile(profile)
+  saving.value = true
+  message.value = '正在保存资料…'
+  const draft = { ...form, updatedAt: Date.now() }
+  const reported = await reportProfile(draft)
+  saving.value = false
+  if (!reported?.ok) {
+    message.value = '资料保存失败，请检查网络后重试。保存成功前不能开始测评。'
+    return
+  }
+  const profile = saveProfile(draft)
+  message.value = '资料已保存，可以开始测评。'
   const identity = await whoami()
   isAdmin.value = Boolean(identity?.ok && identity.isAdmin)
   if (route.query.next === 'start') {
     const session = createSession(QUESTIONS_VERSION)
     router.replace(`/exam/${session.sessionId}`)
+  } else if (route.query.required) {
+    const next = String(route.query.next || '')
+    router.replace(next && next !== 'home' ? next : '/')
   }
 }
 </script>
@@ -117,6 +130,9 @@ async function submit() {
       <h1>我的</h1>
       <p>信息将用于绑定您的测评、访谈记录及后续研究分析。</p>
     </div>
+    <div v-if="route.query.required" class="profile-required-notice" role="status">
+      首次使用请先完整填写个人资料，保存成功后才能进入测评与访谈。
+    </div>
     <form class="form-card" @submit.prevent="submit">
       <label>姓名<span>*</span><input v-model="form.name" autocomplete="name" placeholder="请输入真实姓名" /></label>
       <label>园所<span>*</span><input v-model="form.kindergarten" placeholder="请输入幼儿园名称" /></label>
@@ -125,7 +141,9 @@ async function submit() {
         <label>教龄<span>*</span><input v-model="form.teachingYears" inputmode="decimal" placeholder="如：5年" /></label>
       </div>
       <p v-if="message" class="form-message">{{ message }}</p>
-      <button class="button primary wide" type="submit">保存资料</button>
+      <button class="button primary wide" type="submit" :disabled="saving">
+        {{ saving ? '正在保存…' : '保存资料' }}
+      </button>
     </form>
 
     <section v-if="isAdmin" class="admin-export-card">

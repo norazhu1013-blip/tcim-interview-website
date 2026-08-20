@@ -22,6 +22,14 @@ export function getProfile() {
   return read(PROFILE_KEY, null)
 }
 
+export function isProfileComplete(profile = getProfile()) {
+  return Boolean(
+    String(profile?.name || '').trim() &&
+    String(profile?.kindergarten || '').trim() &&
+    String(profile?.teachingYears || '').trim()
+  )
+}
+
 export function saveProfile(profile) {
   write(PROFILE_KEY, profile)
   return profile

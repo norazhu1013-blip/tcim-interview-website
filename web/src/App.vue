@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   beginPasswordReset,
   beginWebRegistration,
@@ -9,8 +9,11 @@ import {
   ensureWebLogin,
   signInWebUser
 } from './services/web-auth.js'
+import { whoami } from './services/api.js'
+import { getProfile, isProfileComplete, saveProfile } from './services/storage.js'
 
 const route = useRoute()
+const router = useRouter()
 const showTabs = computed(() => route.path === '/' || route.path === '/profile')
 const authState = ref('checking')
 const authError = ref('')
@@ -50,13 +53,29 @@ const errorMessages = {
   invalid_reset_code: '验证码不正确或已过期。'
 }
 
+async function enterSignedInApp() {
+  let profile = getProfile()
+  const identity = await whoami().catch(() => null)
+  const remoteProfile = identity?.ok ? identity.teacher?.profile : null
+  if (!isProfileComplete(profile) && isProfileComplete(remoteProfile)) {
+    profile = saveProfile(remoteProfile)
+  }
+  authState.value = 'signed_in'
+  if (!isProfileComplete(profile) && route.path !== '/profile') {
+    await router.replace({
+      path: '/profile',
+      query: { required: '1', next: route.path === '/' ? 'home' : route.fullPath }
+    })
+  }
+}
+
 async function login() {
   authState.value = 'checking'
   authError.value = ''
   const session = await signInWebUser(account.value, password.value)
   password.value = ''
   if (session.ok) {
-    authState.value = 'signed_in'
+    await enterSignedInApp()
     return
   }
   authState.value = 'signed_out'
@@ -94,7 +113,7 @@ async function completeReset() {
   resetPassword.value = ''
   resetPasswordAgain.value = ''
   if (result.ok) {
-    authState.value = 'signed_in'
+    await enterSignedInApp()
     return
   }
   authState.value = 'signed_out'
@@ -129,7 +148,7 @@ async function completeRegistration() {
   authError.value = ''
   const result = await completeWebRegistration(verificationCode.value)
   if (result.ok) {
-    authState.value = 'signed_in'
+    await enterSignedInApp()
     return
   }
   authState.value = 'signed_out'
@@ -150,7 +169,7 @@ onMounted(async () => {
   window.addEventListener('gsyg:web-auth-changed', handleAuthChange)
   const session = await ensureWebLogin()
   if (session.ok) {
-    authState.value = 'signed_in'
+    await enterSignedInApp()
     return
   }
   authState.value = 'signed_out'
@@ -158,6 +177,15 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => window.removeEventListener('gsyg:web-auth-changed', handleAuthChange))
+
+watch(() => route.fullPath, async () => {
+  if (authState.value === 'signed_in' && route.path !== '/profile' && !isProfileComplete()) {
+    await router.replace({
+      path: '/profile',
+      query: { required: '1', next: route.path === '/' ? 'home' : route.fullPath }
+    })
+  }
+})
 </script>
 
 <template>

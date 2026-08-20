@@ -61,6 +61,7 @@ p { line-height: 1.72; }
 .account-login-card .forgot-password { margin-top: 8px; }
 .account-login-card > small { display: block; margin-top: 16px; color: var(--muted); text-align: center; }
 .login-error { margin: 14px 0 -8px; color: var(--danger); font-size: 14px; }
+.profile-required-notice { margin-bottom: 18px; padding: 14px 16px; border: 1px solid #f3d29a; border-radius: 12px; color: #8a5700; background: #fff8e8; font-weight: 700; }
 .page-shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
 .page { padding: 48px 0; }
 .narrow-page { width: min(720px, 100%); margin: 0 auto; }

@@ -2,7 +2,7 @@
 import { computed, ref, onActivated, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ITEMS, QUESTIONS_VERSION } from '../generated/data.js'
-import { createSession, deleteSession, formatDate, getProfile, listSessions } from '../services/storage.js'
+import { createSession, deleteSession, formatDate, getProfile, isProfileComplete, listSessions } from '../services/storage.js'
 import { requireWebLogin } from '../services/web-auth.js'
 
 const router = useRouter()
@@ -25,7 +25,7 @@ const blockStart = computed(() => records.value.some((session) => {
 }))
 
 async function start() {
-  if (!profile.value?.name || !profile.value?.kindergarten || !profile.value?.teachingYears) {
+  if (!isProfileComplete(profile.value)) {
     router.push('/profile?next=start')
     return
   }
