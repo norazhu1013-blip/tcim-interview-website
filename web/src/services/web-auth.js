@@ -12,6 +12,7 @@ function isAnonymousLogin(scope, state) {
 }
 
 let pendingRegistration = null
+let pendingPasswordReset = null
 
 async function finishAccountLogin(auth, authResult = null) {
   const tokenResult = await auth.getAccessToken()
@@ -139,6 +140,45 @@ export async function completeWebRegistration(code) {
     return finishAccountLogin(auth, result)
   } catch {
     return { ok: false, error: 'invalid_verification_code' }
+  }
+}
+
+export async function beginPasswordReset(email) {
+  if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
+  const mailbox = String(email || '').trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mailbox)) return { ok: false, error: 'invalid_reset_email' }
+
+  const auth = getCloudAuth()
+  await clearGatewaySession().catch(() => {})
+  await auth.signOut().catch(() => {})
+  pendingPasswordReset = null
+  try {
+    const result = await auth.resetPasswordForEmail(mailbox)
+    if (result?.error || typeof result?.data?.updateUser !== 'function') {
+      return { ok: false, error: 'password_reset_send_failed' }
+    }
+    pendingPasswordReset = { auth, updateUser: result.data.updateUser, email: mailbox }
+    return { ok: true, email: mailbox }
+  } catch {
+    return { ok: false, error: 'password_reset_send_failed' }
+  }
+}
+
+export async function completePasswordReset({ code, password }) {
+  const token = String(code || '').trim()
+  if (!pendingPasswordReset) return { ok: false, error: 'password_reset_expired' }
+  if (!/^\d{4,8}$/.test(token)) return { ok: false, error: 'invalid_reset_code' }
+  if (String(password || '').length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return { ok: false, error: 'weak_registration_password' }
+  }
+  try {
+    const result = await pendingPasswordReset.updateUser({ nonce: token, password })
+    if (result?.error) return { ok: false, error: 'invalid_reset_code' }
+    const auth = pendingPasswordReset.auth
+    pendingPasswordReset = null
+    return finishAccountLogin(auth, result)
+  } catch {
+    return { ok: false, error: 'invalid_reset_code' }
   }
 }
 

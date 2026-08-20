@@ -2,7 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import {
+  beginPasswordReset,
   beginWebRegistration,
+  completePasswordReset,
   completeWebRegistration,
   ensureWebLogin,
   signInWebUser
@@ -22,6 +24,12 @@ const registrationPassword = ref('')
 const registrationPasswordAgain = ref('')
 const verificationCode = ref('')
 const verificationTarget = ref('')
+const resetStep = ref('form')
+const resetEmail = ref('')
+const resetCode = ref('')
+const resetPassword = ref('')
+const resetPasswordAgain = ref('')
+const resetTarget = ref('')
 
 const errorMessages = {
   account_and_password_required: '请输入账号和密码。',
@@ -35,7 +43,11 @@ const errorMessages = {
   registration_account_exists: '该账号或邮箱已注册，请直接登录。',
   registration_send_failed: '验证码发送失败，请稍后重试。',
   registration_expired: '本次注册已失效，请重新注册。',
-  invalid_verification_code: '验证码不正确或已过期。'
+  invalid_verification_code: '验证码不正确或已过期。',
+  invalid_reset_email: '请输入注册时使用的邮箱地址。',
+  password_reset_send_failed: '暂时无法发送验证码，请确认邮箱已注册并稍后重试。',
+  password_reset_expired: '本次密码找回已失效，请重新获取验证码。',
+  invalid_reset_code: '验证码不正确或已过期。'
 }
 
 async function login() {
@@ -55,6 +67,38 @@ function switchAuthMode(mode) {
   authMode.value = mode
   authError.value = ''
   if (mode === 'register') registrationStep.value = 'form'
+  if (mode === 'reset') resetStep.value = 'form'
+}
+
+async function beginReset() {
+  authError.value = ''
+  authState.value = 'checking'
+  const result = await beginPasswordReset(resetEmail.value)
+  authState.value = 'signed_out'
+  if (!result.ok) {
+    authError.value = errorMessages[result.error] || '暂时无法找回密码，请稍后重试。'
+    return
+  }
+  resetTarget.value = result.email
+  resetStep.value = 'verify'
+}
+
+async function completeReset() {
+  authError.value = ''
+  if (resetPassword.value !== resetPasswordAgain.value) {
+    authError.value = '两次输入的新密码不一致。'
+    return
+  }
+  authState.value = 'checking'
+  const result = await completePasswordReset({ code: resetCode.value, password: resetPassword.value })
+  resetPassword.value = ''
+  resetPasswordAgain.value = ''
+  if (result.ok) {
+    authState.value = 'signed_in'
+    return
+  }
+  authState.value = 'signed_out'
+  authError.value = errorMessages[result.error] || '暂时无法重置密码，请稍后重试。'
 }
 
 async function beginRegistration() {
@@ -94,6 +138,7 @@ async function completeRegistration() {
 
 function submitAuthForm() {
   if (authMode.value === 'login') return login()
+  if (authMode.value === 'reset') return resetStep.value === 'form' ? beginReset() : completeReset()
   return registrationStep.value === 'form' ? beginRegistration() : completeRegistration()
 }
 
@@ -156,7 +201,38 @@ onBeforeUnmount(() => window.removeEventListener('gsyg:web-auth-changed', handle
             </label>
             <p v-if="authError" class="login-error" role="alert">{{ authError }}</p>
             <button class="button primary wide" type="submit">登录</button>
+            <button class="button text wide forgot-password" type="button" @click="switchAuthMode('reset')">忘记密码？</button>
             <button class="button secondary wide register-cta" type="button" @click="switchAuthMode('register')">首次使用？立即注册</button>
+          </template>
+
+          <template v-else-if="authMode === 'reset' && resetStep === 'form'">
+            <p class="login-intro">输入注册时使用的邮箱，我们会发送验证码。</p>
+            <label>
+              <span>邮箱</span>
+              <input v-model.trim="resetEmail" type="email" autocomplete="email" required placeholder="请输入注册邮箱">
+            </label>
+            <p v-if="authError" class="login-error" role="alert">{{ authError }}</p>
+            <button class="button primary wide" type="submit">获取验证码</button>
+            <button class="button text wide" type="button" @click="switchAuthMode('login')">返回登录</button>
+          </template>
+
+          <template v-else-if="authMode === 'reset'">
+            <p class="login-intro">验证码已发送至 {{ resetTarget }}，请设置新密码。</p>
+            <label>
+              <span>邮箱验证码</span>
+              <input v-model.trim="resetCode" inputmode="numeric" autocomplete="one-time-code" required placeholder="请输入验证码">
+            </label>
+            <label>
+              <span>新密码</span>
+              <input v-model="resetPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="至少 8 位，包含字母和数字">
+            </label>
+            <label>
+              <span>确认新密码</span>
+              <input v-model="resetPasswordAgain" type="password" autocomplete="new-password" required minlength="8" placeholder="再次输入新密码">
+            </label>
+            <p v-if="authError" class="login-error" role="alert">{{ authError }}</p>
+            <button class="button primary wide" type="submit">重置密码并登录</button>
+            <button class="button text wide" type="button" @click="resetStep = 'form'; authError = ''">重新获取验证码</button>
           </template>
 
           <template v-else-if="registrationStep === 'form'">
