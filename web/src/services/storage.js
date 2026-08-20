@@ -2,6 +2,8 @@ const PROFILE_KEY = 'gsyg:web:profile'
 const SESSION_IDS_KEY = 'gsyg:web:session_ids'
 const SESSION_PREFIX = 'gsyg:web:session:'
 const ACCOUNT_ARCHIVE_PREFIX = 'gsyg:web:account_archive:'
+const ACCOUNT_DATA_PREFIX = 'gsyg:web:account_data:'
+const ACTIVE_ACCOUNT_KEY = 'gsyg:web:active_account_uid'
 
 function read(key, fallback = null) {
   try {
@@ -79,32 +81,72 @@ function clearActiveLocalData() {
   }
 }
 
+function captureActiveLocalData() {
+  const sessionIds = read(SESSION_IDS_KEY, [])
+  return {
+    profile: read(PROFILE_KEY, null),
+    sessionIds,
+    sessions: sessionIds.map(getSession).filter(Boolean)
+  }
+}
+
+function hasLocalData(snapshot) {
+  return Boolean(snapshot?.profile || snapshot?.sessions?.length)
+}
+
+function restoreLocalData(snapshot) {
+  if (!snapshot) return
+  if (snapshot.profile) write(PROFILE_KEY, snapshot.profile)
+  const sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : []
+  const sessionIds = Array.isArray(snapshot.sessionIds) ? snapshot.sessionIds : sessions.map((item) => item.sessionId)
+  write(SESSION_IDS_KEY, sessionIds)
+  sessions.forEach((session) => write(SESSION_PREFIX + session.sessionId, session))
+}
+
+/** 切换正式账号时保存旧账号活动区并恢复目标账号，杜绝同一浏览器串号。 */
+export function activateLocalAccount(uid) {
+  const nextUid = String(uid || '').trim()
+  if (!nextUid) return
+  const currentUid = String(localStorage.getItem(ACTIVE_ACCOUNT_KEY) || '')
+  if (currentUid === nextUid) return
+
+  const currentData = captureActiveLocalData()
+  if (hasLocalData(currentData)) {
+    if (currentUid) write(ACCOUNT_DATA_PREFIX + currentUid, currentData)
+    else write(`${ACCOUNT_ARCHIVE_PREFIX}legacy-${Date.now()}`, { ...currentData, archivedAt: Date.now(), source: 'legacy_anonymous' })
+  }
+  clearActiveLocalData()
+  localStorage.setItem(ACTIVE_ACCOUNT_KEY, nextUid)
+  restoreLocalData(read(ACCOUNT_DATA_PREFIX + nextUid, null))
+  window.dispatchEvent(new CustomEvent('gsyg:local-data-changed'))
+}
+
 /**
- * 退出但保留本机记录：把当前账号的数据归档后清空活动区，避免新匿名账号
- * 直接看见上一位教师的资料和测评记录。
+ * 退出但保留本机记录：按正式账号保存后清空活动区；同一账号再次登录可恢复。
  */
 export function archiveLocalDataForLogout() {
-  const sessionIds = read(SESSION_IDS_KEY, [])
-  const profile = read(PROFILE_KEY, null)
-  const sessions = sessionIds.map(getSession).filter(Boolean)
-  if (profile || sessions.length) {
+  const uid = String(localStorage.getItem(ACTIVE_ACCOUNT_KEY) || '')
+  const data = captureActiveLocalData()
+  if (hasLocalData(data)) {
+    if (uid) write(ACCOUNT_DATA_PREFIX + uid, data)
     write(`${ACCOUNT_ARCHIVE_PREFIX}${Date.now()}`, {
       archivedAt: Date.now(),
-      profile,
-      sessionIds,
-      sessions
+      accountUid: uid || null,
+      ...data
     })
   }
   clearActiveLocalData()
+  localStorage.removeItem(ACTIVE_ACCOUNT_KEY)
   window.dispatchEvent(new CustomEvent('gsyg:local-data-changed'))
 }
 
 /** 退出并清除本机资料、活动记录及此前归档。 */
 export function clearAllLocalDataForLogout() {
   clearActiveLocalData()
+  localStorage.removeItem(ACTIVE_ACCOUNT_KEY)
   for (let index = localStorage.length - 1; index >= 0; index -= 1) {
     const key = localStorage.key(index)
-    if (key && key.startsWith(ACCOUNT_ARCHIVE_PREFIX)) localStorage.removeItem(key)
+    if (key && (key.startsWith(ACCOUNT_ARCHIVE_PREFIX) || key.startsWith(ACCOUNT_DATA_PREFIX))) localStorage.removeItem(key)
   }
   window.dispatchEvent(new CustomEvent('gsyg:local-data-changed'))
 }

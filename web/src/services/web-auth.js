@@ -1,5 +1,6 @@
 import { cloudbaseConfigured, getCloudAuth } from './cloudbase.js'
 import { createGatewaySession, getGatewaySession, clearGatewaySession } from './web-gateway.js'
+import { activateLocalAccount } from './storage.js'
 
 function notifyAuthState(state) {
   window.dispatchEvent(new CustomEvent('gsyg:web-auth-changed', { detail: { state } }))
@@ -10,7 +11,7 @@ function isAnonymousLogin(scope, state) {
   return scope === 'anonymous' || loginType.includes('anonymous')
 }
 
-async function getExistingAccountAccessToken() {
+async function getExistingAccountSession() {
   const auth = getCloudAuth()
   const [scope, state] = await Promise.all([
     auth.loginScope().catch(() => ''),
@@ -18,10 +19,11 @@ async function getExistingAccountAccessToken() {
   ])
   if (!state?.user || isAnonymousLogin(scope, state)) {
     if (state?.user || scope === 'anonymous') await auth.signOut().catch(() => {})
-    return ''
+    return null
   }
   const tokenResult = await auth.getAccessToken()
-  return tokenResult?.accessToken || ''
+  const uid = String(state.user.uid || '').trim()
+  return tokenResult?.accessToken && uid ? { accessToken: tokenResult.accessToken, uid } : null
 }
 
 /** 仅恢复已经登录的正式账号；不会自动创建匿名身份。 */
@@ -30,20 +32,25 @@ export async function ensureWebLogin() {
 
   const gatewaySession = await getGatewaySession()
   if (gatewaySession.ok && gatewaySession.user?.identityType === 'web_account') {
+    const state = await getCloudAuth().getLoginState().catch(() => null)
+    if (state?.user?.uid) activateLocalAccount(state.user.uid)
     notifyAuthState('signed_in')
     return gatewaySession
   }
 
-  let accessToken = ''
+  let accountSession = null
   try {
-    accessToken = await getExistingAccountAccessToken()
+    accountSession = await getExistingAccountSession()
   } catch {
     return { ok: false, error: 'account_session_invalid' }
   }
-  if (!accessToken) return { ok: false, error: 'account_login_required' }
+  if (!accountSession) return { ok: false, error: 'account_login_required' }
 
-  const session = await createGatewaySession(accessToken)
-  if (session.ok) notifyAuthState('signed_in')
+  const session = await createGatewaySession(accountSession.accessToken)
+  if (session.ok) {
+    activateLocalAccount(accountSession.uid)
+    notifyAuthState('signed_in')
+  }
   return session
 }
 
@@ -66,6 +73,14 @@ export async function signInWebUser(account, password) {
       await auth.signOut().catch(() => {})
       return session
     }
+    const state = await auth.getLoginState().catch(() => null)
+    const uid = String(result?.data?.user?.uid || state?.user?.uid || '').trim()
+    if (!uid) {
+      await clearGatewaySession().catch(() => {})
+      await auth.signOut().catch(() => {})
+      return { ok: false, error: 'account_login_failed' }
+    }
+    activateLocalAccount(uid)
     notifyAuthState('signed_in')
     return session
   } catch {
