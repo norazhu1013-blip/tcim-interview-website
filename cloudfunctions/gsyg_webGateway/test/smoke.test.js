@@ -30,15 +30,24 @@ async function main() {
     assert.equal(options.headers.Authorization, 'Bearer valid-cloudbase-access-token');
     return {
       ok: true,
-      json: async () => ({ uid: 'cloudbase_user_123' })
+      json: async () => ({ uid: 'cloudbase_user_123', isAnonymous: false, username: 'nora' })
     };
   });
-  assert.equal(verifiedUid, 'cloudbase_user_123');
+  assert.deepEqual(verifiedUid, { uid: 'cloudbase_user_123', isAccount: true });
   assert.equal(verifiedUrl, 'https://test-env.api.tcloudbasegateway.com/auth/v1/user/me');
+
+  const anonymousIdentity = await verifyCloudBaseAccessToken('anonymous-token', async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ uid: 'anonymous_user_123', isAnonymous: true, loginType: 'ANONYMOUS' })
+  }));
+  assert.deepEqual(anonymousIdentity, { uid: 'anonymous_user_123', isAccount: false });
 
   let forwarded;
   const app = createGateway({
-    verifyAccessToken: async (token) => token === 'valid-cloudbase-access-token' ? 'cloudbase_user_123' : '',
+    verifyAccessToken: async (token) => token === 'valid-cloudbase-access-token'
+      ? { uid: 'cloudbase_user_123', isAccount: true }
+      : { uid: '', isAccount: false },
     invoke: async (input) => {
       forwarded = input;
       return { result: { ok: true, functionName: input.name } };
@@ -60,6 +69,7 @@ async function main() {
 
     assert.equal(login.status, 200);
     assert.equal(loginBody.ok, true);
+    assert.equal(loginBody.user.identityType, 'web_account');
     assert.match(cookie, /HttpOnly/);
     assert.match(cookie, /gsyg_web_session=/);
 
@@ -77,7 +87,7 @@ async function main() {
     assert.equal(forwarded.data.openid, undefined);
     assert.equal(forwarded.data.uid, undefined);
     assert.equal(forwarded.data.__gsygGateway.actor, 'web:cloudbase_user_123');
-    assert.equal(forwarded.data.__gsygGateway.identityType, 'web_anonymous');
+    assert.equal(forwarded.data.__gsygGateway.identityType, 'web_account');
     assert.equal(forwarded.timeout, 15000);
 
     const exportResponse = await fetch(`${endpoint}/call`, {
@@ -109,7 +119,7 @@ async function main() {
       body: JSON.stringify({ action: 'reportSession', data: { sessionId: 'test' } })
     });
     assert.equal(rejected.status, 401);
-    console.log('web anonymous login gateway smoke test passed');
+    console.log('web account login gateway smoke test passed');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

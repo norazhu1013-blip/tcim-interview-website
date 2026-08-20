@@ -1,23 +1,34 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { ensureWebLogin } from './services/web-auth.js'
+import { ensureWebLogin, signInWebUser } from './services/web-auth.js'
 
 const route = useRoute()
 const showTabs = computed(() => route.path === '/' || route.path === '/profile')
 const authState = ref('checking')
 const authError = ref('')
+const account = ref('')
+const password = ref('')
+
+const errorMessages = {
+  account_and_password_required: '请输入账号和密码。',
+  invalid_account_or_password: '账号或密码不正确。',
+  cloudbase_auth_not_configured: '账号登录尚未配置，请联系管理员。',
+  cloudbase_token_invalid: '该登录身份不是有效的正式账号，请联系管理员。',
+  account_login_failed: '登录失败，请稍后重试。'
+}
 
 async function login() {
   authState.value = 'checking'
   authError.value = ''
-  const session = await ensureWebLogin()
+  const session = await signInWebUser(account.value, password.value)
+  password.value = ''
   if (session.ok) {
     authState.value = 'signed_in'
     return
   }
-  authState.value = 'error'
-  authError.value = '暂时无法登录，请稍后重试。'
+  authState.value = 'signed_out'
+  authError.value = errorMessages[session.error] || '暂时无法登录，请稍后重试。'
 }
 
 function handleAuthChange(event) {
@@ -31,10 +42,8 @@ onMounted(async () => {
     authState.value = 'signed_in'
     return
   }
-  authState.value = 'error'
-  authError.value = session.error === 'cloudbase_auth_not_configured'
-    ? '网页登录尚未配置，请联系管理员。'
-    : '暂时无法确认登录状态，请刷新页面后重试。'
+  authState.value = 'signed_out'
+  if (session.error === 'cloudbase_auth_not_configured') authError.value = errorMessages.cloudbase_auth_not_configured
 })
 
 onBeforeUnmount(() => window.removeEventListener('gsyg:web-auth-changed', handleAuthChange))
@@ -57,27 +66,31 @@ onBeforeUnmount(() => window.removeEventListener('gsyg:web-auth-changed', handle
           class="button text auth-button desktop-profile-link"
           active-class="active"
         >我的</router-link>
-        <button
-          v-else-if="authState === 'signed_out' || authState === 'error'"
-          class="button text auth-button"
-          type="button"
-          @click="login"
-        >重新登录</button>
-        <span v-else class="auth-status">正在确认登录…</span>
+        <span v-else-if="authState === 'checking'" class="auth-status">正在确认登录…</span>
       </div>
     </header>
 
-    <p v-if="authError" class="auth-notice">{{ authError }}</p>
-
     <main class="page-shell">
-      <section v-if="authState === 'signed_out'" class="signed-out-page">
-        <p class="eyebrow">已退出登录</p>
-        <h1>欢迎使用游戏支持与引导能力测评</h1>
-        <p>当前没有登录账号。重新登录后可填写新的个人资料并开始测评。</p>
-        <button class="button primary" type="button" @click="login">重新登录</button>
+      <section v-if="authState === 'signed_out'" class="account-login-page">
+        <form class="account-login-card" @submit.prevent="login">
+          <p class="eyebrow">账号登录</p>
+          <h1>欢迎使用游戏支持与引导能力测评</h1>
+          <p class="login-intro">请使用研究者发放的账号登录。姓名在登录后的个人资料中填写，不作为登录凭证。</p>
+          <label>
+            <span>账号</span>
+            <input v-model.trim="account" name="username" autocomplete="username" inputmode="text" required placeholder="请输入账号，例如 nora">
+          </label>
+          <label>
+            <span>密码</span>
+            <input v-model="password" name="password" type="password" autocomplete="current-password" required placeholder="请输入密码">
+          </label>
+          <p v-if="authError" class="login-error" role="alert">{{ authError }}</p>
+          <button class="button primary wide" type="submit">登录</button>
+          <small>没有账号或忘记密码，请联系管理员。</small>
+        </form>
       </section>
       <router-view v-else-if="authState === 'signed_in'" />
-      <section v-else-if="authState === 'checking'" class="signed-out-page">
+      <section v-else class="signed-out-page">
         <p>正在确认登录…</p>
       </section>
     </main>

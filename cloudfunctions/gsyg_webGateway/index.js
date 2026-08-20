@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * 网页匿名登录网关。
+ * 网页账号登录网关。
  *
- * 浏览器由 CloudBase Web SDK 完成匿名登录。SDK access token 仅用于调用
+ * 浏览器由 CloudBase Web SDK 完成账号密码登录。SDK access token 仅用于调用
  * /auth/session，由本函数向 CloudBase `/auth/v1/user/me` 反查稳定 UID；验证通过后，
  * 网关签发带 HMAC 的 HttpOnly Cookie。业务请求从不接受客户端提交的 openid / uid。
  */
@@ -12,6 +12,7 @@ const express = require('express');
 const cloud = require('wx-server-sdk');
 
 const COOKIE_NAME = 'gsyg_web_session';
+const SESSION_VERSION = 2;
 const TOKEN = process.env.GSYG_WEB_GATEWAY_TOKEN || '';
 const SESSION_SECRET = process.env.GSYG_WEB_SESSION_SECRET || '';
 const PORT = Number(process.env.PORT || 9000);
@@ -94,7 +95,12 @@ function timingSafeEqual(a, b) {
 
 function createSessionToken(actor, now = Date.now()) {
   if (!SESSION_SECRET) return '';
-  const payload = base64url(JSON.stringify({ sub: actor, exp: now + SESSION_TTL_SECONDS * 1000 }));
+  const payload = base64url(JSON.stringify({
+    sub: actor,
+    exp: now + SESSION_TTL_SECONDS * 1000,
+    ver: SESSION_VERSION,
+    identityType: 'web_account'
+  }));
   const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }
@@ -107,7 +113,14 @@ function parseSessionToken(value, now = Date.now()) {
   if (!timingSafeEqual(signature, expected)) return null;
   try {
     const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    if (!parsed || !/^web:[A-Za-z0-9_-]{4,128}$/.test(parsed.sub || '') || !Number.isFinite(parsed.exp) || parsed.exp <= now) return null;
+    if (
+      !parsed ||
+      parsed.ver !== SESSION_VERSION ||
+      parsed.identityType !== 'web_account' ||
+      !/^web:[A-Za-z0-9_-]{4,128}$/.test(parsed.sub || '') ||
+      !Number.isFinite(parsed.exp) ||
+      parsed.exp <= now
+    ) return null;
     return parsed;
   } catch {
     return null;
@@ -165,6 +178,25 @@ function extractUid(body) {
   return typeof uid === 'string' && /^[A-Za-z0-9_-]{4,128}$/.test(uid) ? uid : '';
 }
 
+function extractCloudBaseIdentity(body) {
+  const data = body && (body.data || body);
+  const candidates = [body, data, data && data.user, body && body.user].filter(Boolean);
+  const uid = extractUid(body);
+  if (!uid) return { uid: '', isAccount: false };
+
+  const isAnonymous = candidates.some((item) => item.isAnonymous === true || item.is_anonymous === true);
+  const loginTypes = candidates
+    .map((item) => String(item.loginType || item.login_type || item.provider || '').toLowerCase())
+    .filter(Boolean);
+  const accountEvidence = candidates.some((item) => (
+    item.isAnonymous === false ||
+    item.is_anonymous === false ||
+    Boolean(item.username || item.email || item.phone || item.hasPassword || item.has_password)
+  )) || loginTypes.some((type) => /password|username|email|phone/.test(type));
+  const anonymousType = loginTypes.some((type) => type.includes('anonymous'));
+  return { uid, isAccount: accountEvidence && !isAnonymous && !anonymousType };
+}
+
 function summarizeBody(body) {
   try {
     return JSON.stringify(body).slice(0, 300);
@@ -181,7 +213,7 @@ async function verifyCloudBaseAccessToken(accessToken, fetchImpl = globalThis.fe
       tokenLength: accessToken ? String(accessToken).length : 0,
       hasFetch: typeof fetchImpl === 'function'
     });
-    return '';
+    return { uid: '', isAccount: false };
   }
   try {
     const response = await fetchImpl(USER_INFO_URL, {
@@ -189,8 +221,8 @@ async function verifyCloudBaseAccessToken(accessToken, fetchImpl = globalThis.fe
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     const body = await response.json().catch(async () => ({ text: await response.text().catch(() => '') }));
-    const uid = response.ok ? extractUid(body) : '';
-    if (!uid) {
+    const identity = response.ok ? extractCloudBaseIdentity(body) : { uid: '', isAccount: false };
+    if (!identity.uid || !identity.isAccount) {
       console.warn('[gateway] CloudBase token verification rejected:', {
         url: USER_INFO_URL,
         status: response.status,
@@ -198,10 +230,10 @@ async function verifyCloudBaseAccessToken(accessToken, fetchImpl = globalThis.fe
         body: summarizeBody(body)
       });
     }
-    return uid;
+    return identity;
   } catch (error) {
     console.warn('[gateway] CloudBase token verification failed:', error && error.message);
-    return '';
+    return { uid: '', isAccount: false };
   }
 }
 
@@ -221,7 +253,7 @@ function createGateway({
   app.get('/health', (_req, res) => {
     res.json({
       ok: true,
-      mode: 'cloudbase_anonymous_login',
+      mode: 'cloudbase_account_login',
       tokenConfigured: Boolean(TOKEN),
       sessionConfigured: Boolean(SESSION_SECRET),
       cloudbaseUserInfoConfigured: Boolean(USER_INFO_URL)
@@ -231,7 +263,7 @@ function createGateway({
   app.get('/auth/session', (req, res) => {
     const actor = readActor(req);
     if (!actor) return res.status(401).json({ ok: false, error: 'not_authenticated' });
-    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_anonymous' } });
+    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_account' } });
   });
 
   app.post('/auth/session', async (req, res) => {
@@ -243,12 +275,14 @@ function createGateway({
         hasAuthorizationHeader: Boolean(req.headers.authorization)
       });
     }
-    const uid = await verifyAccessToken(accessToken);
-    if (!uid) return res.status(401).json({ ok: false, error: 'cloudbase_token_invalid' });
+    const identity = await verifyAccessToken(accessToken);
+    if (!identity || !identity.uid || !identity.isAccount) {
+      return res.status(401).json({ ok: false, error: 'cloudbase_token_invalid' });
+    }
 
-    const actor = `web:${uid}`;
+    const actor = `web:${identity.uid}`;
     res.append('Set-Cookie', sessionCookie(createSessionToken(actor)));
-    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_anonymous' } });
+    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_account' } });
   });
 
   app.post('/auth/logout', (_req, res) => {
@@ -268,7 +302,7 @@ function createGateway({
 
     // 明确覆盖客户端可能提交的同名字段：身份只来自验证后的网关会话。
     const data = Object.assign({}, req.body.data || {}, {
-      __gsygGateway: { token: TOKEN, actor, identityType: 'web_anonymous' }
+      __gsygGateway: { token: TOKEN, actor, identityType: 'web_account' }
     });
     delete data.openid;
     delete data.uid;
@@ -300,6 +334,7 @@ module.exports = {
   createCloudInvoker,
   createGateway,
   createSessionToken,
+  extractCloudBaseIdentity,
   extractUid,
   parseCookies,
   parseSessionToken,

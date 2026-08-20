@@ -254,7 +254,7 @@ function buildSingleTrialSelection(sessionDoc) {
 function resolveActor(event) {
   const gateway = event && event.__gsygGateway;
   if (gateway && gateway.token && gateway.token === process.env.GSYG_WEB_GATEWAY_TOKEN && /^web:[A-Za-z0-9_-]{4,128}$/.test(gateway.actor || '')) {
-    return { id: gateway.actor, identityType: gateway.identityType === 'web_wechat' ? 'web_wechat' : 'web_anonymous' };
+    return { id: gateway.actor, identityType: gateway.identityType === 'web_account' ? 'web_account' : (gateway.identityType === 'web_wechat' ? 'web_wechat' : 'web_anonymous') };
   }
   const { OPENID } = cloud.getWXContext();
   return { id: OPENID, identityType: 'wechat' };

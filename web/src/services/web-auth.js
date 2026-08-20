@@ -5,52 +5,72 @@ function notifyAuthState(state) {
   window.dispatchEvent(new CustomEvent('gsyg:web-auth-changed', { detail: { state } }))
 }
 
-async function getAnonymousAccessToken() {
-  const auth = getCloudAuth()
-  try {
-    const scope = await auth.loginScope()
-    if (scope === 'anonymous') {
-      const tokenResult = await auth.getAccessToken()
-      if (tokenResult && tokenResult.accessToken) return tokenResult.accessToken
-    }
-  } catch {
-    // 旧登录态或损坏凭证都重新走匿名登录。
-  }
-
-  try {
-    await auth.signOut()
-  } catch {
-    // 没有可清理的旧凭证时继续匿名登录。
-  }
-  await auth.signInAnonymously()
-  const tokenResult = await auth.getAccessToken()
-  return tokenResult && tokenResult.accessToken
+function isAnonymousLogin(scope, state) {
+  const loginType = String(state?.user?.loginType || state?.user?.login_type || '').toLowerCase()
+  return scope === 'anonymous' || loginType.includes('anonymous')
 }
 
-/**
- * 首页加载时执行：已有网关会话直接通过；否则用 CloudBase 匿名登录换取网关会话。
- */
+async function getExistingAccountAccessToken() {
+  const auth = getCloudAuth()
+  const [scope, state] = await Promise.all([
+    auth.loginScope().catch(() => ''),
+    auth.getLoginState().catch(() => null)
+  ])
+  if (!state?.user || isAnonymousLogin(scope, state)) {
+    if (state?.user || scope === 'anonymous') await auth.signOut().catch(() => {})
+    return ''
+  }
+  const tokenResult = await auth.getAccessToken()
+  return tokenResult?.accessToken || ''
+}
+
+/** 仅恢复已经登录的正式账号；不会自动创建匿名身份。 */
 export async function ensureWebLogin() {
   if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
 
   const gatewaySession = await getGatewaySession()
-  if (gatewaySession.ok) {
+  if (gatewaySession.ok && gatewaySession.user?.identityType === 'web_account') {
     notifyAuthState('signed_in')
     return gatewaySession
   }
 
-  let accessToken
+  let accessToken = ''
   try {
-    accessToken = await getAnonymousAccessToken()
+    accessToken = await getExistingAccountAccessToken()
   } catch {
-    return { ok: false, error: 'cloudbase_anonymous_login_failed' }
+    return { ok: false, error: 'account_session_invalid' }
   }
-  if (!accessToken) return { ok: false, error: 'cloudbase_anonymous_login_failed' }
+  if (!accessToken) return { ok: false, error: 'account_login_required' }
 
-  // 已有 CloudBase 凭证但网关不可用时显示明确错误，不能错误地反复跳回登录页。
   const session = await createGatewaySession(accessToken)
   if (session.ok) notifyAuthState('signed_in')
   return session
+}
+
+export async function signInWebUser(account, password) {
+  if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
+  const username = String(account || '').trim()
+  if (!username || !password) return { ok: false, error: 'account_and_password_required' }
+
+  const auth = getCloudAuth()
+  await clearGatewaySession().catch(() => {})
+  await auth.signOut().catch(() => {})
+
+  try {
+    const result = await auth.signInWithPassword({ username, password })
+    if (result?.error) return { ok: false, error: 'invalid_account_or_password' }
+    const tokenResult = await auth.getAccessToken()
+    if (!tokenResult?.accessToken) return { ok: false, error: 'account_login_failed' }
+    const session = await createGatewaySession(tokenResult.accessToken)
+    if (!session.ok) {
+      await auth.signOut().catch(() => {})
+      return session
+    }
+    notifyAuthState('signed_in')
+    return session
+  } catch {
+    return { ok: false, error: 'invalid_account_or_password' }
+  }
 }
 
 export async function getWebLoginState() {
@@ -58,9 +78,10 @@ export async function getWebLoginState() {
   return getGatewaySession()
 }
 
-/** 业务动作的兜底：网关会话失效时重新走匿名登录。 */
+/** 业务动作的兜底：会话失效时只恢复正式账号，不创建匿名账号。 */
 export async function requireWebLogin() {
   const session = await ensureWebLogin()
+  if (!session.ok) notifyAuthState('signed_out')
   return Boolean(session.ok)
 }
 
