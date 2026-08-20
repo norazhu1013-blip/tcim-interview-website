@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ITEMS } from '../generated/data.js'
 import { kbSlice } from '../core/interview.js'
 import { computeProcess } from '../core/process.js'
+import { initTcisSession, processTeacherTurn } from '../core/tcim/engine.js'
+import { isTcisMode } from '../core/tcim/mode.js'
 import { getProfile, getSession, saveSession } from '../services/storage.js'
 import { interviewNext, reportInterview } from '../services/api.js'
 
@@ -27,6 +29,9 @@ const stage = ref(existing?.stage || 'S1_CONTEXT')
 const lastLLMProfile = ref(existing?.llmProfile || '')
 const lastLLMModel = ref(existing?.llmModel || '')
 const webLLMProfile = String(import.meta.env.VITE_INTERVIEW_LLM_PROFILE || '').trim()
+const tcimEnabled = isTcisMode()
+// TCIM 确定性会话：localStorage 恢复或新初始化
+const tcimSession = ref(existing?.tcimSession || null)
 let timer = null
 
 const isReview = computed(() => existing?.status === 'done')
@@ -39,7 +44,64 @@ function historyForApi() {
   }))
 }
 
+/** TCIM 确定性模式：本地引擎生成下一问（不调用云端 LLM）。 */
+function tcimEnsureSession() {
+  if (!tcimSession.value) {
+    tcimSession.value = initTcisSession(item.item_id, answer.final_ranking || [], [
+      computeProcess(answer).firstSwing.strong ? '首位强摇摆' : '',
+      computeProcess(answer).lastSwing.strong ? '末位强摇摆' : '',
+      computeProcess(answer).oscillation ? '排序路径振荡' : ''
+    ].filter(Boolean))
+  }
+  return tcimSession.value
+}
+
+/** TCIM 首问：教师尚未输入，只初始化并生成第一个问题。 */
+function tcimFirstQuestion() {
+  tcimEnsureSession()
+  const gen = processTeacherTurn(tcimSession.value, '')
+  return { ok: true, question: gen.question, done: gen.done, stage: 'S1_CONTEXT', nextStage: 'S1_CONTEXT', evidenceHint: [] }
+}
+
+/** TCIM 后续轮：传入教师最新原话。 */
+function tcimNext(teacherText) {
+  tcimEnsureSession()
+  const out = processTeacherTurn(tcimSession.value, teacherText)
+  return {
+    ok: true,
+    question: out.question,
+    done: out.done,
+    stage: 'S1_CONTEXT',
+    nextStage: 'S1_CONTEXT',
+    evidenceHint: (out.updates || []).map((u) => u.slot_id)
+  }
+}
+
 async function requestNext() {
+  if (tcimEnabled) {
+    const teacherTurns = messages.value.filter((m) => m.role === 'teacher' && m.text)
+    const latestTeacher = teacherTurns.length ? String(teacherTurns[teacherTurns.length - 1].text).trim() : ''
+    const next = latestTeacher ? tcimNext(latestTeacher) : tcimFirstQuestion()
+    if (!next.ok || (!next.question && !next.done)) {
+      generationPaused.value = true
+      generationError.value = next?.error || 'invalid_interview_response'
+      persist(false)
+      return false
+    }
+    generationPaused.value = false
+    generationError.value = ''
+    if (next.nextStage) stage.value = next.nextStage
+    if (next.question) messages.value.push({ role: 'ai', text: next.question, ts: Date.now() })
+    if (next.done) {
+      done.value = true
+      persist(true)
+    } else {
+      persist(false)
+    }
+    await nextTick()
+    chatEnd.value?.scrollIntoView({ behavior: 'smooth' })
+    return true
+  }
   const process = computeProcess(answer)
   const profile = getProfile() || {}
   const context = {
@@ -144,7 +206,9 @@ function persist(isDone) {
     stage: stage.value,
     llmProfile: lastLLMProfile.value,
     llmModel: lastLLMModel.value,
-    generationError: generationPaused.value ? generationError.value : ''
+    generationError: generationPaused.value ? generationError.value : '',
+    mode: tcimEnabled ? 'tcim' : 'legacy',
+    tcimSession: tcimEnabled ? tcimSession.value : undefined
   }
   session.value = saveSession(session.value)
   if (isDone) reportInterview(session.value)

@@ -41,3 +41,7 @@ for (const item of questions.ITEMS) {
 }
 
 console.log(`已同步 ${questions.ITEMS.length} 题、${Object.keys(scoreTable.SCORES).length} 题赋分表与情境图。`)
+
+// TCIM 专业数据包：由 tcim/professional_data/game_support 生成网页可导入的 ESM。
+// 仅当 tools/build_tcim_web_data.mjs 存在且生成文件已存在时保留；否则不强制。
+
