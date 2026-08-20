@@ -72,7 +72,7 @@ function open(item) {
           </span>
           <p class="eyebrow">情境 {{ i + 1 }}</p>
           <h2>{{ itemById[selectedItem.id]?.title }}</h2>
-          <p>{{ selectedItem.interview_focus || '围绕您的真实排序了解判断依据与教育考虑。' }}</p>
+          <p>{{ itemById[selectedItem.id]?.stem || '情境原文暂不可用。' }}</p>
           <button class="button secondary" @click="open(selectedItem)">
             {{ session.interview?.[selectedItem.id]?.status === 'done' ? '回看访谈' : '开始访谈' }}
           </button>
