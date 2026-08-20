@@ -16,6 +16,7 @@ const orchestrator = require('./orchestrator.js');
 const turnContext = require('./turn_context.js');
 
 const fakeUtility = require('../modules/utility/fake_utility.js');
+const ontologyModule = require('../modules/ontology/game_support_ontology.js');
 
 function createCore(opts = {}) {
   const registry = new ModuleRegistry();
@@ -35,6 +36,14 @@ function createCore(opts = {}) {
     enabled: false
   });
 
+  // GameSupportOntologyModule：V0.1 active。数据由调用方 setOntologyData 注入。
+  registry.register('ontology_game_support', {
+    handler: ontologyModule,
+    version: ontologyModule.version,
+    ownerNamespace: ontologyModule.ownerNamespace,
+    enabled: true
+  });
+
   const shared = sharedState.createEmptyState();
   const runner = new ModuleRunner(registry, shared, logger);
 
@@ -46,6 +55,8 @@ function createCore(opts = {}) {
     sharedState,
     orchestrator,
     turnContext,
+    /** 注入 Ontology 专业数据包（Task 2 生成）。 */
+    setOntologyData: (items) => ontologyModule.setData(items),
     /** 运行一批启用的模块 → ModuleResult[] */
     runModules: async (moduleInput, enabledIds) => runner.run(moduleInput, enabledIds),
     /** 启用/注册单个模块（供 Task 3 接入 ontology 用） */
