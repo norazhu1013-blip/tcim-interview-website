@@ -275,6 +275,53 @@ function prdmWording(question, prdm) {
   return q
 }
 
+/* ---------------- RAG V0.1（04-1 架构，按需知识，默认 R0 不调用） ---------------- */
+
+// RAG 默认关闭。开启需 VITE_TCIM_RAG=1，且仅当 Orchestrator knowledge_need=true 时触发。
+const RAG_ENABLED = String(typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_TCIM_RAG || '').trim() === '1'
+
+function buildRagCapsules() {
+  const capsules = {}
+  for (const qid of Object.keys(TCIM_DATA.items)) {
+    const item = TCIM_DATA.items[qid]
+    const notes = []
+    for (const slot of (item.ontology && item.ontology.slots) || []) notes.push(`${slot.slot_id} ${slot.name}：${slot.definition}`)
+    for (const a of (item.anchors && item.anchors.anchors) || []) notes.push(`${a.slot_id} 高质量证据：${a.level_3}`)
+    capsules[qid] = notes
+  }
+  return capsules
+}
+
+const RAG_CAPSULES = buildRagCapsules()
+
+/** 关键词检索（R2 降级），来源可追溯。 */
+function ragRetrieve(query, questionId) {
+  const notes = RAG_CAPSULES[questionId] || []
+  if (!notes.length) return { refs: [], route: 'R0' }
+  const terms = String(query || '').split(/[\s,，、]+/).filter((t) => t.length >= 2)
+  if (!terms.length) return { refs: notes.slice(0, 2).map((t, i) => ({ source: `${questionId}-capsule-${i}`, text: t })), route: 'R1' }
+  const hits = notes.map((text, i) => ({ text, i, score: terms.reduce((s, t) => s + (text.includes(t) ? 1 : 0), 0) }))
+    .filter((x) => x.score > 0).sort((a, b) => b.score - a.score)
+  const refs = hits.slice(0, 3).map((x) => ({ source: `${questionId}-capsule-${x.i}`, text: x.text }))
+  return { refs, route: refs.length ? 'R2' : 'R0' }
+}
+
+/**
+ * 按需 RAG 决策（Orchestrator Stage A 之后的 knowledge_need 判断）。
+ * V0.1：仅当明确开启且当前 evidence 缺口大时触发；默认 R0 不调用。
+ */
+function ragDecision(session, evidence) {
+  if (!RAG_ENABLED) return { knowledge_need: false, route: 'R0' }
+  // 简单判断：核心槽多数 level 0 且已谈了几轮仍无进展 → 需要知识支持
+  const item = TCIM_DATA.items[session.itemId]
+  const core = ((item.ontology && item.ontology.slots) || []).filter((s) => s.core)
+  const zeroLevel = core.filter((s) => evidence[s.slot_id] && evidence[s.slot_id].level === 0).length
+  const knowledgeNeed = zeroLevel >= 3 && session.turnNo >= 3
+  if (!knowledgeNeed) return { knowledge_need: false, route: 'R0' }
+  const { refs, route } = ragRetrieve(item.ontology.diagnostic_focus || '判断', session.itemId)
+  return { knowledge_need: true, route, refs }
+}
+
 /* ---------------- PRDM V0.1（03-1 架构，确定性对话策略） ---------------- */
 
 function prdmInteractionRead(teacherTurn, recentTurns) {
@@ -442,12 +489,16 @@ export function processTeacherTurn(session, teacherTurn) {
 
   const ranked = rankSlots(session.itemId, evidence)
   const actionPlan = { target_slot: ranked[0]?.slot.slot_id || null, probe_strategy: '' }
+  // RAG 按需决策（默认 R0；仅 VITE_TCIM_RAG=1 且缺口大时触发）
+  const rag = ragDecision(session, evidence)
   replayEvent(session, {
     event: 'OrchestratorEvent',
     decision: 'PROBE',
     target_slot: actionPlan.target_slot,
     ranked_slots: ranked.slice(0, 5).map((r) => ({ slot: r.slot.slot_id, score: Number(r.score.toFixed(3)) })),
-    knowledge_need: false,
+    knowledge_need: rag.knowledge_need,
+    rag_route: rag.route,
+    rag_refs: rag.refs ? rag.refs.length : 0,
     reason: 'top_evidence_gap'
   })
   // PRDM：读 observable 信号 → 输出 DialoguePlan（不写 Evidence、不改专业目标）

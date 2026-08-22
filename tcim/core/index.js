@@ -18,15 +18,26 @@ const turnContext = require('./turn_context.js');
 const fakeUtility = require('../modules/utility/fake_utility.js');
 const ontologyModule = require('../modules/ontology/game_support_ontology.js');
 const prdmModule = require('../modules/prdm/prdm.js');
+const ragModule = require('../modules/rag/rag.js');
 
 function createCore(opts = {}) {
   const registry = new ModuleRegistry();
   const logger = opts.logger || console;
 
   // future 占位（disabled）：只登记，不运行
-  registry.register('rag', { version: '0.0.0-future', futureOnly: true });
   registry.register('teacher_state', { version: '0.0.0-future', futureOnly: true });
   registry.register('metacognition', { version: '0.0.0-future', futureOnly: true });
+
+  // RAG V0.1：默认禁用（R0 不调用）；仅 Orchestrator knowledge_need=true 时启用。
+  // 注入题目数据后 setKnowledge；只写 rag_runtime_state，不改 Evidence。
+  registry.register('rag', {
+    handler: {
+      process: async (input, ctx) => ragModule.process(input, ctx)
+    },
+    version: ragModule.version,
+    ownerNamespace: 'rag_runtime_state',
+    enabled: false
+  });
 
   // PRDM V0.1：默认禁用，可启停（不写 Evidence、不改专业目标）
   registry.register('prdm', {
@@ -76,6 +87,8 @@ function createCore(opts = {}) {
     turnContext,
     /** 注入 Ontology 专业数据包（Task 2 生成）。 */
     setOntologyData: (items) => ontologyModule.setData(items),
+    /** 注入 RAG 知识包（题目数据聚合；RAG 默认 R0 不调用）。 */
+    setRagKnowledge: (items) => ragModule.setKnowledge(items),
     /** 运行一批启用的模块 → ModuleResult[] */
     runModules: async (moduleInput, enabledIds) => runner.run(moduleInput, enabledIds),
     /** 启用/注册单个模块（供 Task 3 接入 ontology 用） */
