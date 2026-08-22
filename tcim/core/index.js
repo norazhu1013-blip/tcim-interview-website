@@ -17,16 +17,35 @@ const turnContext = require('./turn_context.js');
 
 const fakeUtility = require('../modules/utility/fake_utility.js');
 const ontologyModule = require('../modules/ontology/game_support_ontology.js');
+const prdmModule = require('../modules/prdm/prdm.js');
 
 function createCore(opts = {}) {
   const registry = new ModuleRegistry();
   const logger = opts.logger || console;
 
   // future 占位（disabled）：只登记，不运行
-  registry.register('prdm', { version: '0.0.0-future', futureOnly: true });
   registry.register('rag', { version: '0.0.0-future', futureOnly: true });
   registry.register('teacher_state', { version: '0.0.0-future', futureOnly: true });
   registry.register('metacognition', { version: '0.0.0-future', futureOnly: true });
+
+  // PRDM V0.1：默认禁用，可启停（不写 Evidence、不改专业目标）
+  registry.register('prdm', {
+    handler: { process: async (input, ctx) => ({
+      module_id: 'prdm',
+      module_version: prdmModule.version,
+      observations: [],
+      state_updates: {},   // PRDM 不写任何 namespace（dialogue_state 未来可写，V0.1 只读）
+      action_proposals: [],
+      constraints: [],
+      confidence: 0.8,
+      evidence_refs: [],
+      decision_summary: 'prdm: dialogue policy (V0.1, no state mutation)',
+      diagnostics: []
+    }) },
+    version: prdmModule.version,
+    ownerNamespace: 'dialogue_state',
+    enabled: false
+  });
 
   // FakeUtility：仅测试/演示接入路径，生产不启用
   registry.register('utility', {

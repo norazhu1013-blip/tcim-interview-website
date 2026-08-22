@@ -244,6 +244,55 @@ function generateQuestion(itemId, ev, turnNo, history) {
   return { question: generic, done: false, target_slot: slotId, probe_strategy: '通用追问' }
 }
 
+/* ---------------- PRDM V0.1（03-1 架构，确定性对话策略） ---------------- */
+
+function prdmInteractionRead(teacherTurn, recentTurns) {
+  const s = String(teacherTurn || '').trim()
+  const depth = (s.match(/[。，；、！？]/g) || []).length
+  const hasDetail = /(?:因为|所以|先|然后|如果|当|看情况|根据|条件|具体|比如|例如)/.test(s)
+  return {
+    repair_signal: /(?:我不是这个意思|你理解错了|你误会了|不是这样|我说的是|你没听懂|我纠正一下|重新说)/.test(s),
+    frustration: /(?:烦|别问了|不要再问|不想继续|不回答了|结束吧|到这里吧)/.test(s),
+    low_certainty: /(?:不太确定|可能|也许|说不准|我也说不清|我不太清楚|没想好)/.test(s),
+    response_depth: hasDetail && depth >= 2 ? 2 : (hasDetail ? 1 : 0)
+  }
+}
+
+function prdmLocalProgress(updates, signals) {
+  if (updates && updates.some((u) => /anchor_level_2|anchor_level_3/.test(u.reason))) return { status: 'ADVANCING' }
+  if (updates && updates.length) return { status: 'ADVANCING' }
+  if (signals.frustration) return { status: 'STUCK' }
+  if (signals.repair_signal) return { status: 'ADVANCING' }
+  if (signals.response_depth === 0) return { status: 'SLOW' }
+  return { status: 'ADVANCING' }
+}
+
+function prdmStanceMove(progress, signals) {
+  if (signals.repair_signal) return { stance: 'LISTEN', move: 'REPAIR', challenge: 0 }
+  if (signals.frustration) return { stance: 'LISTEN', move: 'BRIEF_UPTAKE_PROBE', challenge: 0 }
+  if (progress.status === 'STUCK') return { stance: 'CO_INQUIRE', move: 'NOTICE_AND_PROBE', challenge: 0 }
+  if (progress.status === 'SLOW') return { stance: 'CO_INQUIRE', move: 'BRIEF_UPTAKE_PROBE', challenge: 0 }
+  if (signals.low_certainty) return { stance: 'CO_INQUIRE', move: 'DIRECT_PROBE', challenge: 0 }
+  return { stance: 'CO_INQUIRE', move: 'DIRECT_PROBE', challenge: 1 }
+}
+
+/** PRDM 决策（确定性，不写 Evidence）。 */
+function prdmPlan(teacherTurn, recentTurns, evidenceUpdates) {
+  const signals = prdmInteractionRead(teacherTurn, recentTurns)
+  const progress = prdmLocalProgress(evidenceUpdates, signals)
+  const sm = prdmStanceMove(progress, signals)
+  return {
+    dialogue_move: sm.move,
+    stance: sm.stance,
+    local_progress: progress,
+    challenge_level: sm.challenge,
+    question_load: signals.frustration || signals.response_depth === 0 ? 'LIGHT' : 'STANDARD',
+    response_dose: signals.frustration ? 'LOW' : 'STANDARD',
+    max_questions: 1,
+    max_chars: signals.frustration ? 40 : 80
+  }
+}
+
 /* ---------------- Constraint Checker（01-2 第10节） ---------------- */
 
 // 禁止泄露的内部概念（出现即拦截重写）
@@ -364,6 +413,20 @@ export function processTeacherTurn(session, teacherTurn) {
     ranked_slots: ranked.slice(0, 5).map((r) => ({ slot: r.slot.slot_id, score: Number(r.score.toFixed(3)) })),
     knowledge_need: false,
     reason: 'top_evidence_gap'
+  })
+  // PRDM：读 observable 信号 → 输出 DialoguePlan（不写 Evidence、不改专业目标）
+  const recentTurns = session.history.filter((h) => h.role === 'teacher').map((h) => h.text)
+  const prdm = prdmPlan(trimmed, recentTurns, updates)
+  replayEvent(session, {
+    event: 'PRDMEvent',
+    dialogue_plan: {
+      move: prdm.dialogue_move,
+      stance: prdm.stance,
+      progress: prdm.local_progress.status,
+      challenge_level: prdm.challenge_level,
+      question_load: prdm.question_load,
+      response_dose: prdm.response_dose
+    }
   })
   const gen = generateQuestion(session.itemId, evidence, session.turnNo, session.history)
   // Generator → Constraint Checker：不过则用安全通用问重写（不改专业行动）
