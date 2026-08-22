@@ -244,6 +244,43 @@ function generateQuestion(itemId, ev, turnNo, history) {
   return { question: generic, done: false, target_slot: slotId, probe_strategy: '通用追问' }
 }
 
+/* ---------------- Constraint Checker（01-2 第10节） ---------------- */
+
+// 禁止泄露的内部概念（出现即拦截重写）
+const LEAK_PATTERNS = [
+  /标准答案/, /正确答案/, /专家排序/, /得分/, /分数/, /能力等级/, /评分/,
+  /入选原因/, /R\/P\/G/, /IIV/, /Evidence/, /evidence/, /slot/i, /Slot/,
+  /锚点/, /证据缺口/, /内部指标/
+]
+// 评价性语言（不得出现）
+const EVALUATIVE_PATTERNS = [
+  /很专业/, /非常正确/, /说得很好/, /答得很好/, /您的答案很好/, /棒/, /优秀/, /完美/
+]
+// 禁止的多问（多个问号 = 多问）
+function countQuestionMarks(text) {
+  return (String(text).match(/[？?]/g) || []).length
+}
+
+/**
+ * Constraint Checker：对 Generator 产出的教师可见问题做硬约束检查。
+ * 返回 { ok, issues[] }。不改变专业行动；只要求重写。
+ */
+export function checkConstraints(question, actionPlan, askedHistory) {
+  const issues = []
+  const q = String(question || '').trim()
+  if (!q) issues.push('empty_question')
+  if (countQuestionMarks(q) > 1) issues.push('multi_question')
+  if (q.length > 120) issues.push('too_long')
+  for (const p of LEAK_PATTERNS) if (p.test(q)) issues.push('leak_internal:' + p.source)
+  for (const p of EVALUATIVE_PATTERNS) if (p.test(q)) issues.push('evaluative:' + p.source)
+  // 重复：与已生成问题相同
+  if (askedHistory && askedHistory.includes(q)) issues.push('duplicate_question')
+  // 漂移：问题应指向 actionPlan.target_slot 相关的专业内容（这里用探针模板校验由调用方保证）
+  return { ok: issues.length === 0, issues }
+}
+
+/* ---------------- Generator（01-2 第10节） ---------------- */
+
 /**
  * 初始化一个 TCIM 访谈会话。
  * @returns {object} { itemId, evidence, turnNo, history, done, replay }
@@ -329,19 +366,35 @@ export function processTeacherTurn(session, teacherTurn) {
     reason: 'top_evidence_gap'
   })
   const gen = generateQuestion(session.itemId, evidence, session.turnNo, session.history)
+  // Generator → Constraint Checker：不过则用安全通用问重写（不改专业行动）
+  const priorQuestions = session.history.filter((h) => h.role === 'ai').map((h) => h.text)
+  const checked = checkConstraints(gen.question, actionPlan, priorQuestions)
+  let finalQuestion = gen.question
+  let constraintResult = checked.ok ? 'pass' : 'rewritten'
+  if (!checked.ok) {
+    // 安全兜底：单问、非诱导、不泄露
+    finalQuestion = '关于这一点，您能再多说一些您是怎么判断的吗？'
+    replayEvent(session, {
+      event: 'ConstraintEvent',
+      target_slot: gen.target_slot,
+      issues: checked.issues,
+      rewritten_to: finalQuestion
+    })
+  }
   actionPlan.probe_strategy = gen.probe_strategy
-  session.history.push({ role: 'ai', text: gen.question, ts: Date.now() })
+  session.history.push({ role: 'ai', text: finalQuestion, ts: Date.now() })
   replayEvent(session, {
     event: 'GenerationEvent',
     action_type: 'PROBE',
     target_slot: gen.target_slot,
     probe_strategy: gen.probe_strategy,
-    question: gen.question,
-    constraint_result: 'pass',
+    question: finalQuestion,
+    constraint_result: constraintResult,
+    constraint_issues: checked.ok ? [] : checked.issues,
     evidence_before_count: Object.keys(evidenceBefore).length
   })
   return {
-    question: gen.question,
+    question: finalQuestion,
     done: gen.done,
     updates,
     actionPlan,
