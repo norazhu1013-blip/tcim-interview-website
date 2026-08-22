@@ -208,30 +208,51 @@ function generateQuestion(itemId, ev, turnNo, history) {
   const ranked = rankSlots(itemId, ev)
   if (!ranked.length) return { question: '感谢您的分享，本情境的访谈先到这里。', done: true }
 
-  // 选择：优先未问过的 top 槽；若 top 槽已问过则选下一个未问槽，避免同槽重复
-  let top = ranked.find((r) => !((ev[r.slot.slot_id]?.asked_questions) || []).length)
-    || ranked.find((r) => ((ev[r.slot.slot_id]?.asked_questions) || []).length < 2)
-    || ranked[0]
+  // 全局已问句集合（含 PRDM 措辞后的最终文本）。由于 PRDM 会给模板加前缀
+  // （如「能不能举个例子，…」），判断"模板是否问过"用「原模板作为子串出现」，
+  // 而不要求逐字相等。
+  const askedTexts = (history || [])
+    .filter((h) => h.role === 'ai' && h.text)
+    .map((h) => String(h.text).trim())
+  const templateAsked = (t) => {
+    if (!t) return true
+    const norm = String(t).trim().replace(/[，。！？？]/g, '')
+    return askedTexts.some((x) => {
+      const xn = String(x).replace(/[，。！？？]/g, '')
+      return xn === norm || xn.includes(norm) || norm.includes(xn)
+    })
+  }
+
+  // 候选槽：按缺口排序，跳过「模板已全部问过」的槽
+  const candidates = ranked.filter((r) => {
+    const p = probeForSlot(itemId, r.slot.slot_id)
+    const freshTemplates = [p && p.typical_question, p && p.followup_question]
+      .filter((t) => t && !templateAsked(t))
+    return freshTemplates.length > 0
+  })
+  const top = candidates[0] || ranked[0]
   const slotId = top.slot.slot_id
-  const probe = probeForSlot(itemId, slotId)
+  const p = probeForSlot(itemId, slotId)
   const st = ev[slotId]
   if (!st.asked_questions) st.asked_questions = []
   const askedCount = st.asked_questions.length
 
-  // 第一问用「典型非诱导问法」；后续用「可接受跟进」或换槽
+  // 模板：第一问用「典型非诱导问法」；后续用「可接受跟进」；都问过则无模板
   let template = ''
-  if (askedCount === 0) template = (probe && probe.typical_question) || ''
-  else if (askedCount === 1) template = (probe && probe.followup_question) || (probe && probe.typical_question) || ''
-  else template = (probe && probe.followup_question) || ''
+  if (askedCount === 0) template = (p && p.typical_question) || ''
+  else if (askedCount === 1) template = (p && p.followup_question) || (p && p.typical_question) || ''
+  else template = (p && p.followup_question) || ''
+  // 若模板全局已问过（含被 PRDM 前缀包裹的情况），放弃模板走通用问
+  if (template && templateAsked(template)) template = ''
 
   // 记录本轮问了哪个槽，避免下一轮同槽
   st.probe_count = (st.probe_count || 0) + 1
-  if (template && !st.asked_questions.includes(template)) st.asked_questions.push(template)
 
   if (template) {
-    return { question: template, done: false, target_slot: slotId, probe_strategy: (probe && probe.preferred_action) || '澄清' }
+    st.asked_questions.push(template)
+    return { question: template, done: false, target_slot: slotId, probe_strategy: (p && p.preferred_action) || '澄清' }
   }
-  // 无模板兜底：用不同阶段的通用追问（结合教师排序，非诱导、不泄露答案）
+  // 无模板兜底：用未全局用过的通用追问（结合教师排序，非诱导、不泄露答案）
   const genericBank = [
     '面对这个情境，您最想先判断什么？',
     '您为什么会特别看重这一点？',
@@ -240,10 +261,13 @@ function generateQuestion(itemId, ev, turnNo, history) {
     '如果换一个孩子，您的做法会一样吗？',
     '如果时间和条件都允许，您还会做哪些不同的事？'
   ]
-  // 选一个未用过的通用问；都用过则回到最后一个
-  let generic = genericBank[0]
+  let generic = ''
   for (const g of genericBank) {
-    if (!st.asked_questions.includes(g)) { generic = g; break }
+    if (!templateAsked(g) && !st.asked_questions.includes(g)) { generic = g; break }
+  }
+  // 全部通用问都用过 → 该题已无新的可问内容，正常收束（避免无限循环）
+  if (!generic) {
+    return { question: '感谢您的分享，本情境的访谈先到这里。', done: true, target_slot: slotId, probe_strategy: 'CLOSE' }
   }
   st.asked_questions.push(generic)
   return { question: generic, done: false, target_slot: slotId, probe_strategy: '通用追问' }
@@ -516,16 +540,39 @@ export function processTeacherTurn(session, teacherTurn) {
     }
   })
   const gen = generateQuestion(session.itemId, evidence, session.turnNo, session.history)
-  // PRDM 措辞适配：按 DialoguePlan 调整问句（不改专业目标/证据判断）
+  // 模板与通用问全部用尽 → 正常收束（避免无限循环）
+  if (gen.done) {
+    session.done = true
+    const closing = gen.question || '感谢您的分享，本情境的访谈先到这里。'
+    session.history.push({ role: 'ai', text: closing, ts: Date.now() })
+    replayEvent(session, {
+      event: 'OrchestratorEvent',
+      decision: 'STOP_CANDIDATE',
+      target_slot: gen.target_slot || 'ALL',
+      reason: 'questions_exhausted',
+      knowledge_need: false
+    })
+    replayEvent(session, { event: 'GenerationEvent', action_type: 'CLOSE', question: closing, constraint_result: 'pass' })
+    return { question: '', done: true, updates, actionPlan: { action_type: 'STOP_CANDIDATE', target_slot: gen.target_slot || 'ALL' }, replay: session.replay }
+  }
+  // PRDM 措辞适配：按 DialoguePlan 调整问句（不改专业目标/证据判断）。
+  // 只在「未问过的模板」上做措辞；重复用通用问时不叠加前缀，避免逐字重复。
   const prdmAdapted = prdmWording(gen.question, prdm)
-  // Generator → Constraint Checker：不过则用安全通用问重写（不改专业行动）
+  // Generator → Constraint Checker：不过则用安全通用问重写（不改专业行动）。
+  // 去重用「最终可见文本」；若命中也按 Constraint 拦截处理，但不陷入无限循环：
+  // 此处 fallback 用「基于当前槽的通用追问」，保证每次都有新问句或正常收束。
   const priorQuestions = session.history.filter((h) => h.role === 'ai').map((h) => h.text)
   const checked = checkConstraints(prdmAdapted, actionPlan, priorQuestions)
   let finalQuestion = prdmAdapted
   let constraintResult = checked.ok ? 'pass' : 'rewritten'
   if (!checked.ok) {
-    // 安全兜底：单问、非诱导、不泄露
-    finalQuestion = '关于这一点，您能再多说一些您是怎么判断的吗？'
+    // 安全兜底：单问、非诱导、不泄露；用「当前槽未用过的通用追问」，避免固定句循环
+    const safeBank = [
+      '关于这一点，您能再多说一些您是怎么判断的吗？',
+      '您最想先帮孩子解决的是哪一件事？',
+      '如果换一个更具体的场景，您会怎么处理？'
+    ]
+    finalQuestion = safeBank[Math.min(session.turnNo % safeBank.length, safeBank.length - 1)]
     replayEvent(session, {
       event: 'ConstraintEvent',
       target_slot: gen.target_slot,
