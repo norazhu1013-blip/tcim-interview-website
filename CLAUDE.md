@@ -291,4 +291,8 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **Generator + Constraint Checker（2026-08-21）**:`checkConstraints()` 拦截答案泄露（得分/标准答案/能力等级/R/P/G/slot/证据缺口）、多问、评价性语言、重复、超长；不通过则用安全通用问重写（不改专业行动）。
   - **PRDM V0.1（2026-08-21）**:`tcim/modules/prdm/prdm.js` + 网页 `prdmPlan()`。Interaction Read（repair/frustration/low_certainty/depth）→ Local Progress（ADVANCING/SLOW/STUCK）→ Stance/Move → Challenge(0-3)/Load/Dose。**PRDM ON/OFF 对同一回答的 Evidence Update 完全一致**（已验证）。Node 侧默认禁用可启停。
   - **Task 6 模拟回归（2026-08-21）**:`tcim/tests/stress_regression.test.js`。10 题 × 9 类教师（高/中/低/跑题/矛盾/低确信/极快）共 720 轮。断言：无答案泄露、10 题全覆盖、低能力教师绝不误升 Evidence。baseline：Evidence 升级 6 次/720 轮、冲突检出 0、过早 Stop 0、高能力教师 8 轮内达成充分的完成率 0/10（保守阈值，宁可慢不错升，可复现基线特征）。
-  - **当前状态**:第一阶段全部 6 Task（0/1/2/3/4/5/6）完成。RAG 未启用。网页默认 `VITE_TCIM_MODE=ont`（确定性访谈）；切 `legacy` 即恢复 LLM 提示词访谈。待办：前测完整资料进 TurnContext、PRDM 接入真实对话（当前只在引擎里决策、未改变措辞）、专家复核 5 表。
+  - **前测完整资料进 TurnContext（2026-08-21）**:`initTcisSession(itemId, ranking, tags, pretest)` 接收 `{mean,total,teachingYears,modificationCount,durationMs,firstSwing,lastSwing,oscillation}`；低分/新人教龄调 uncertainty（只作 prior，不填等级），Node 与网页两侧一致。
+  - **PRDM 决策落到真实措辞（2026-08-21）**:`prdmWording()` 按 DialoguePlan 改问句：REPAIR→「我重新理解一下您的意思：…」、SLOW→「能不能举个例子，…」、GENTLE_CHALLENGE→「如果换个角度看，…」、LOW dose→截短。不改专业目标/证据判断。
+  - **5 表专家复核预览（2026-08-21）**:`tools/build_tcim_review_preview.py` → `tcim_review_preview.html`（10 题 × 5 表可读校对页，含 slot/锚点/优先级/探查/停止，无 AI 改写）。
+  - **RAG V0.1（2026-08-21）**:`tcim/modules/rag/rag.js` + 网页 `ragDecision()`。默认 R0 不调用；仅 `VITE_TCIM_RAG=1` 且核心槽缺口大时触发 R1/R2 关键词检索；权限门 DIAGNOSE_INTERNAL 不 teacher-facing；**RAG 不写 Evidence**（测试证明）。测试 `tcim/tests/rag.test.js`。
+  - **当前状态**:第一阶段全部 6 Task + 前测接入 + PRDM 措辞 + 专家复核预览 + RAG V0.1 完成。网页默认 `VITE_TCIM_MODE=ont`（确定性访谈）；切 `legacy` 即恢复 LLM 提示词访谈。RAG 默认关（`VITE_TCIM_RAG=1` 开启）。待办：真实教师试用、专家正式复核 5 表、PRDM/RAG 消融对比。
