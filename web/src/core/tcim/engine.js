@@ -249,6 +249,32 @@ function generateQuestion(itemId, ev, turnNo, history) {
   return { question: generic, done: false, target_slot: slotId, probe_strategy: '通用追问' }
 }
 
+/** PRDM 措辞适配：按 DialoguePlan 调整教师可见问句（不改变专业目标/证据判断）。 */
+function prdmWording(question, prdm) {
+  let q = String(question || '').trim()
+  if (!q) return q
+  const move = prdm.dialogue_move
+  const progressStatus = prdm.local_progress && prdm.local_progress.status
+  // REPAIR：先承接修正，再问
+  if (move === 'REPAIR') {
+    q = '我重新理解一下您的意思：' + q
+  }
+  // SLOW / 低确信：加一个具体化前缀，缩小问题
+  if (progressStatus === 'SLOW' && !q.startsWith('我重新理解') && !q.startsWith('能不能举个例子')) {
+    q = '能不能举个例子，' + q
+  }
+  // GENTLE_CHALLENGE：温和对比
+  if (move === 'GENTLE_CHALLENGE') {
+    q = '如果换个角度看，' + q
+  }
+  // LOW dose / frustration：尽量短（去掉前缀只留核心问句）
+  if (prdm.response_dose === 'LOW') {
+    const m = q.match(/[^，。；]*[？?]/)
+    if (m) q = m[0]
+  }
+  return q
+}
+
 /* ---------------- PRDM V0.1（03-1 架构，确定性对话策略） ---------------- */
 
 function prdmInteractionRead(teacherTurn, recentTurns) {
@@ -439,10 +465,12 @@ export function processTeacherTurn(session, teacherTurn) {
     }
   })
   const gen = generateQuestion(session.itemId, evidence, session.turnNo, session.history)
+  // PRDM 措辞适配：按 DialoguePlan 调整问句（不改专业目标/证据判断）
+  const prdmAdapted = prdmWording(gen.question, prdm)
   // Generator → Constraint Checker：不过则用安全通用问重写（不改专业行动）
   const priorQuestions = session.history.filter((h) => h.role === 'ai').map((h) => h.text)
-  const checked = checkConstraints(gen.question, actionPlan, priorQuestions)
-  let finalQuestion = gen.question
+  const checked = checkConstraints(prdmAdapted, actionPlan, priorQuestions)
+  let finalQuestion = prdmAdapted
   let constraintResult = checked.ok ? 'pass' : 'rewritten'
   if (!checked.ok) {
     // 安全兜底：单问、非诱导、不泄露
@@ -464,6 +492,7 @@ export function processTeacherTurn(session, teacherTurn) {
     question: finalQuestion,
     constraint_result: constraintResult,
     constraint_issues: checked.ok ? [] : checked.issues,
+    prdm_move: prdm.dialogue_move,
     evidence_before_count: Object.keys(evidenceBefore).length
   })
   return {
