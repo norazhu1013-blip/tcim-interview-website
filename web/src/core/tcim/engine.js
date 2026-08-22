@@ -117,10 +117,15 @@ function initPrior(itemId, ranking, tags) {
   return prior
 }
 
-function createEvidence(itemId, prior) {
+function createEvidence(itemId, prior, pretest) {
   const item = TCIM_DATA.items[itemId]
   const slots = (item.ontology && item.ontology.slots) || []
   const ev = {}
+  // 前测分数/常模位：低分 → 整体不确定性略升（只作 prior，不直接填等级）
+  const lowScoreBoost = pretest && typeof pretest.mean === 'number' && pretest.mean < 2 ? 0.15 : 0
+  const highScoreBoost = pretest && typeof pretest.mean === 'number' && pretest.mean >= 3 ? 0.1 : 0
+  // 教龄：新人教师判断可能不稳（低把握），仅影响 uncertainty 起点
+  const noviceBoost = pretest && /^[0-5]\s*年/.test(String(pretest.teachingYears || '')) ? 0.1 : 0
   for (const s of slots) {
     const p = prior[s.slot_id] || {}
     ev[s.slot_id] = {
@@ -128,7 +133,7 @@ function createEvidence(itemId, prior) {
       level: 0,
       status: 'UNKNOWN',
       confidence: 0,
-      uncertainty: p.uncertainty || 0,
+      uncertainty: Math.min(1, (p.uncertainty || 0) + lowScoreBoost + highScoreBoost + noviceBoost),
       priorPriority: p.priority || (s.default_priority === 'P1' ? 0.9 : s.default_priority === 'P2' ? 0.6 : 0.3),
       supporting_spans: [],
       conflicting_spans: [],
@@ -332,17 +337,22 @@ export function checkConstraints(question, actionPlan, askedHistory) {
 
 /**
  * 初始化一个 TCIM 访谈会话。
+ * @param {string} itemId Q1..Q10
+ * @param {string[]} ranking 前测排序
+ * @param {string[]} tags 过程标签
+ * @param {object} [pretest] 前测完整资料 { mean, total, teachingYears, modificationCount, durationMs, firstSwing, lastSwing, oscillation }
  * @returns {object} { itemId, evidence, turnNo, history, done, replay }
  */
-export function initTcisSession(itemId, ranking, tags) {
+export function initTcisSession(itemId, ranking, tags, pretest) {
   const prior = initPrior(itemId, ranking, tags)
   return {
     itemId,
-    evidence: createEvidence(itemId, prior),
+    evidence: createEvidence(itemId, prior, pretest),
     turnNo: 0,
     history: [],
     done: false,
-    replay: []   // 结构化 Replay：每轮决策记录
+    replay: [],   // 结构化 Replay：每轮决策记录
+    pretest: pretest || null
   }
 }
 

@@ -189,6 +189,17 @@ function process(input, ctx) {
   }
   // 前测 prior：只在首轮初始化（这里由调用方在访谈开始前做一次）
   evidenceState = initPriorFromPretest(qid, input.turn_context.teacher_ranking, input.turn_context.process_tags || [], evidenceState);
+  // 前测完整资料（分数/教龄）调 uncertainty（只作 prior，不填等级）—— 与网页端一致
+  const pretest = input.turn_context.pretest || {};
+  if (pretest && (typeof pretest.mean === 'number' || typeof pretest.total === 'number')) {
+    const lowScoreBoost = typeof pretest.mean === 'number' && pretest.mean < 2 ? 0.15 : 0;
+    const noviceBoost = /^[0-5]\s*年/.test(String(pretest.teachingYears || '')) ? 0.1 : 0;
+    if (lowScoreBoost || noviceBoost) {
+      for (const sid of slotIds) {
+        if (evidenceState[sid]) evidenceState[sid].uncertainty = Math.min(1, (evidenceState[sid].uncertainty || 0) + lowScoreBoost + noviceBoost);
+      }
+    }
+  }
 
   // 本轮更新证据（表2 锚点匹配）。
   // 原则（02-1 第8节）：教师回答可能同时触及多个 slot，不能只检查当前 target_slot 而忽略

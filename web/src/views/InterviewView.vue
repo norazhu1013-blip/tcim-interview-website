@@ -47,11 +47,24 @@ function historyForApi() {
 /** TCIM 确定性模式：本地引擎生成下一问（不调用云端 LLM）。 */
 function tcimEnsureSession() {
   if (!tcimSession.value) {
+    const proc = computeProcess(answer)
+    const profile = getProfile() || {}
+    // 前测完整资料进 TurnContext：分数/教龄/过程数据全量作 prior（只影响不确定性/优先级，不填等级）
+    const pretest = {
+      mean: session.value?.scores?.mean ?? null,
+      total: session.value?.scores?.total ?? null,
+      teachingYears: profile.teachingYears || '',
+      modificationCount: proc.modificationCount,
+      durationMs: proc.durationMs,
+      firstSwing: proc.firstSwing,
+      lastSwing: proc.lastSwing,
+      oscillation: proc.oscillation
+    }
     tcimSession.value = initTcisSession(item.item_id, answer.final_ranking || [], [
-      computeProcess(answer).firstSwing.strong ? '首位强摇摆' : '',
-      computeProcess(answer).lastSwing.strong ? '末位强摇摆' : '',
-      computeProcess(answer).oscillation ? '排序路径振荡' : ''
-    ].filter(Boolean))
+      proc.firstSwing.strong ? '首位强摇摆' : '',
+      proc.lastSwing.strong ? '末位强摇摆' : '',
+      proc.oscillation ? '排序路径振荡' : ''
+    ].filter(Boolean), pretest)
   }
   return tcimSession.value
 }
