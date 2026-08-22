@@ -246,7 +246,7 @@ function generateQuestion(itemId, ev, turnNo, history) {
 
 /**
  * 初始化一个 TCIM 访谈会话。
- * @returns {object} { itemId, evidence, turnNo, history, done }
+ * @returns {object} { itemId, evidence, turnNo, history, done, replay }
  */
 export function initTcisSession(itemId, ranking, tags) {
   const prior = initPrior(itemId, ranking, tags)
@@ -255,15 +255,25 @@ export function initTcisSession(itemId, ranking, tags) {
     evidence: createEvidence(itemId, prior),
     turnNo: 0,
     history: [],
-    done: false
+    done: false,
+    replay: []   // 结构化 Replay：每轮决策记录
   }
+}
+
+/** 生成一条结构化 Replay 事件（01-2 第12节：TurnReceived/ModuleEvent/OrchestratorEvent/GenerationEvent）。 */
+function replayEvent(session, event) {
+  session.replay.push(Object.assign({
+    turn_no: session.turnNo,
+    ts: Date.now(),
+    engine_version: ENGINE_VERSION
+  }, event))
 }
 
 /**
  * 处理教师一轮回答，返回下一轮问题与状态。
  * @param {object} session 由 initTcisSession 返回（会原地更新）
  * @param {string} teacherTurn 教师本轮回答
- * @returns {{ question, done, message, updates, actionPlan }}
+ * @returns {{ question, done, updates, actionPlan, replay }}
  */
 export function processTeacherTurn(session, teacherTurn) {
   if (session.done) return { question: '', done: true }
@@ -271,26 +281,74 @@ export function processTeacherTurn(session, teacherTurn) {
   const turnId = `t${session.turnNo}`
   const trimmed = String(teacherTurn || '').trim()
   // 首问（无教师输入）不记录空教师消息
-  if (trimmed) session.history.push({ role: 'teacher', text: trimmed, ts: Date.now() })
+  if (trimmed) {
+    session.history.push({ role: 'teacher', text: trimmed, ts: Date.now() })
+    replayEvent(session, { event: 'TurnReceived', raw_teacher_text: trimmed })
+  }
+  const evidenceBefore = JSON.parse(JSON.stringify(session.evidence))
   const { evidence, updates } = updateEvidence(session.itemId, session.evidence, trimmed, turnId)
   session.evidence = evidence
-
-  // 停止/剪枝
-  if (itemSufficient(session.itemId, evidence)) {
-    session.done = true
-    session.history.push({ role: 'ai', text: '感谢您的分享，本情境的访谈先到这里。', ts: Date.now() })
-    return { question: '', done: true, updates, actionPlan: { action_type: 'STOP_CANDIDATE', target_slot: 'ALL' } }
+  // Evidence 前后对比（ModuleEvent）
+  for (const u of updates) {
+    replayEvent(session, {
+      event: 'EvidenceUpdate',
+      slot_id: u.slot_id,
+      before: u.before,
+      after: u.after,
+      reason: u.reason
+    })
+  }
+  if (!updates.length) {
+    replayEvent(session, { event: 'EvidenceUpdate', slot_id: null, before: null, after: null, reason: 'no_change' })
   }
 
-  const actionPlan = { target_slot: rankSlots(session.itemId, evidence)[0]?.slot.slot_id || null }
+  // 停止/剪枝（OrchestratorEvent）
+  if (itemSufficient(session.itemId, evidence)) {
+    session.done = true
+    const closing = '感谢您的分享，本情境的访谈先到这里。'
+    session.history.push({ role: 'ai', text: closing, ts: Date.now() })
+    replayEvent(session, {
+      event: 'OrchestratorEvent',
+      decision: 'STOP_CANDIDATE',
+      target_slot: 'ALL',
+      reason: 'item_sufficient',
+      knowledge_need: false
+    })
+    replayEvent(session, { event: 'GenerationEvent', action_type: 'CLOSE', question: closing, constraint_result: 'pass' })
+    return { question: '', done: true, updates, actionPlan: { action_type: 'STOP_CANDIDATE', target_slot: 'ALL' }, replay: session.replay }
+  }
+
+  const ranked = rankSlots(session.itemId, evidence)
+  const actionPlan = { target_slot: ranked[0]?.slot.slot_id || null, probe_strategy: '' }
+  replayEvent(session, {
+    event: 'OrchestratorEvent',
+    decision: 'PROBE',
+    target_slot: actionPlan.target_slot,
+    ranked_slots: ranked.slice(0, 5).map((r) => ({ slot: r.slot.slot_id, score: Number(r.score.toFixed(3)) })),
+    knowledge_need: false,
+    reason: 'top_evidence_gap'
+  })
   const gen = generateQuestion(session.itemId, evidence, session.turnNo, session.history)
+  actionPlan.probe_strategy = gen.probe_strategy
   session.history.push({ role: 'ai', text: gen.question, ts: Date.now() })
+  replayEvent(session, {
+    event: 'GenerationEvent',
+    action_type: 'PROBE',
+    target_slot: gen.target_slot,
+    probe_strategy: gen.probe_strategy,
+    question: gen.question,
+    constraint_result: 'pass',
+    evidence_before_count: Object.keys(evidenceBefore).length
+  })
   return {
     question: gen.question,
     done: gen.done,
     updates,
-    actionPlan: Object.assign(actionPlan, { probe_strategy: gen.probe_strategy })
+    actionPlan,
+    replay: session.replay
   }
 }
+
+const ENGINE_VERSION = '2026-08-21-tcim-web-v0.2'
 
 export const tcimData = TCIM_DATA

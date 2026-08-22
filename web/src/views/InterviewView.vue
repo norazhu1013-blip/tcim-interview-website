@@ -208,7 +208,8 @@ function persist(isDone) {
     llmModel: lastLLMModel.value,
     generationError: generationPaused.value ? generationError.value : '',
     mode: tcimEnabled ? 'tcim' : 'legacy',
-    tcimSession: tcimEnabled ? tcimSession.value : undefined
+    tcimSession: tcimEnabled ? tcimSession.value : undefined,
+    tcimReplay: tcimEnabled ? tcimSession.value?.replay?.slice() : undefined
   }
   session.value = saveSession(session.value)
   if (isDone) reportInterview(session.value)
