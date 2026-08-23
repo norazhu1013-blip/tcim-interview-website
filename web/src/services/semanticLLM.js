@@ -39,7 +39,7 @@ function emptyProposal(turn) {
   }
 }
 
-/** 规范化服务器返回的 Proposal（缺失数组补空，span 回指原话 + 类型合法 + 过滤低置信）。 */
+/** 规范化服务器返回的 Proposal（缺失数组补空，span 回指原话 + 类型合法 + 过滤低置信 + G05 拦截）。 */
 function normalizeServerProposal(raw, turn) {
   const p = raw && typeof raw === 'object' ? raw : {}
   const spans = Array.isArray(p.candidate_spans) ? p.candidate_spans : []
@@ -52,7 +52,7 @@ function normalizeServerProposal(raw, turn) {
       span_type: SPAN_TYPES.includes(s.span_type) ? s.span_type : 'supporting',
       confidence: typeof s.confidence === 'number' ? s.confidence : 0.3
     }))
-  return {
+  const proposal = {
     proposal_type: 'EvidenceAnalysisProposal',
     candidate_spans: cleanSpans,
     candidate_slots: Array.isArray(p.candidate_slots) ? p.candidate_slots : [],
@@ -63,6 +63,14 @@ function normalizeServerProposal(raw, turn) {
     source_turn: turn || '',
     provider_version: p.provider_version || 'semantic-v0.1'
   }
+  // G05 拦截：整条 Proposal（spans + 各审计字段）若出现能力/人格/动机判定词，把对应 span 剔除，
+  // 并打 g05_flag 供引擎/审计层废弃其升级意图（语义层绝不出带判定词的内容）。
+  const hasG05 = JUDGE_RE.test(JSON.stringify(proposal))
+  if (hasG05) {
+    proposal.candidate_spans = proposal.candidate_spans.filter((s) => !JUDGE_RE.test(s.text))
+    proposal.g05_flag = true
+  }
+  return proposal
 }
 
 /** 是否应禁用语义层：网关未配置，或构建变量显式关闭。 */

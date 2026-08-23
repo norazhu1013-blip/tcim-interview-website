@@ -78,6 +78,22 @@ async function run() {
     ok(sem.some((e) => e.type === 'invalid') || sem.length === 0, 'provider 抛错 → 语义事件为 invalid 或空')
   }
 
+  // ---- 测试5：G05 —— provider 返回能力/人格判定词 span → 引擎侧拦截，不入 replay、不抬 level ----
+  setSemanticProvider(() => ({
+    candidate_spans: [{ text: '教师具有高能力', slot_id: 'Q1-S2', span_type: 'supporting', confidence: 0.9 }],
+    no_change_reasons: [{ slot_id: 'Q1-S1', reason: '明显是低能力教师' }]
+  }))
+  {
+    const session = initTcisSession('Q1', ['A', 'C', 'B', 'D'], [])
+    await processTeacherTurn(session, '')
+    const out = await processTeacherTurn(session, teacherTurn())
+    const sem = (out.replay || []).filter((e) => e.event === 'SemanticEvent')
+    // G05 判定词 span 不应作为合法 span 进入 replay
+    ok(!sem.some((e) => e.type === 'span' && /高能力|低能力/.test(e.span || '')), 'G05 判定词 span 不入 replay')
+    // 确定性升级照常（证明 G05 只拦语义层，不影响确定性裁决）
+    ok(out.updates.some((u) => u.reason.startsWith('anchor_level_')), '确定性升级照常发生')
+  }
+
   setSemanticProvider(null)
   console.log(`\nTCIM web semantic provider tests ${failures === 0 ? 'passed' : 'FAILED (' + failures + ')'}`)
   if (failures) process.exit(1)
