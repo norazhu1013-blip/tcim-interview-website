@@ -98,8 +98,9 @@
 ### 云开发部署（运维，部署一次）
 
 1. **开通云开发**：微信开发者工具 → 云开发 → 创建/选择环境，确认环境 ID = `cloud1-2gefzeri3cb333f2`（不同则改 `utils/config.js` 的 `CLOUD_ENV`）。云函数内用 `cloud.DYNAMIC_CURRENT_ENV`，自动跟随当前环境，无需改函数代码。
-2. **部署 4 个云函数**（gsyg_ 前缀）：在仓库根 `cloudfunctions/` 下（cloudfunctionRoot 已指向它），对每个函数目录**右键 →「上传并部署：云端安装依赖」**（会按各自 `package.json` 安装 `wx-server-sdk`）：
+2. **部署云函数**（gsyg_ 前缀）：在仓库根 `cloudfunctions/` 下（cloudfunctionRoot 已指向它），对每个函数目录**右键 →「上传并部署：云端安装依赖」**（会按各自 `package.json` 安装 `wx-server-sdk`）：
    - `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_interviewChat`
+   - TCIM 网页端语义层(可选)：`gsyg_semanticProbe`（A01 语义预筛，自包含无需 sync_cf；部署步骤见其 `README.md`，且需重传 `gsyg_webGateway` 白名单才在网页生效）
 3. **创建 3 个集合**（数据库 → 集合管理，gsyg_ 前缀）：`gsyg_teachers`、`gsyg_sessions`、`gsyg_interviews`。
    - 权限：因只经云函数读写，集合权限可设 **「仅管理端可读写」（所有用户不可读写）**——客户端不直接访问 DB，最安全。
 4. **字段无需预建**（文档型，写入即建）。建议为 `gsyg_sessions`/`gsyg_interviews` 的 `sessionId`、各集合的 `openid` 建索引，便于 upsert 查询与后台汇总。
