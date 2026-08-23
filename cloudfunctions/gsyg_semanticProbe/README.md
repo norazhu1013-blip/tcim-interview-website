@@ -72,3 +72,56 @@ node cloudfunctions/gsyg_semanticProbe/semantic_core.test.js
 - `index.js`:云函数入口(LLM I/O + secCheck + 包装)。
 - `semantic_core.js`:纯逻辑层(提示词 / 解析 / 规范化 / G04-G05 校验),无 SDK / 无网络,可本地测试。
 - `semantic_core.test.js`:本地测试(纯 Node)。
+
+## 部署后验证清单
+
+> 本链路是**失败静默降级**设计:缺 key / 缺网关 / LLM 超时都会回退「空 Proposal」,**不抛错**。
+> 因此「没报错」≠「已生效」。下面的清单按**分层**递进,每层都有自己的判据,并区分「降级」与「真故障」。
+
+### L1 · 云函数纯逻辑(任何环境,不依赖云端)
+```bash
+node cloudfunctions/gsyg_semanticProbe/semantic_core.test.js
+# 期望: gsyg_semanticProbe semantic_core tests passed
+```
+**判据**:通过 = 提示词 / 解析 / G04-G05 / 空 Proposal 决策链 OK。这一步失败 = 代码或数据问题,**与部署无关**。
+
+### L2 · 云函数本体能冷启动 + 返回 `ok:true`
+用微信云开发控制台/云函数测试工具直接测试 `gsyg_semanticProbe`,传一个最小事件:
+```js
+{ "teacherTurn": "我会先看地面湿不滑,篮球架附近有没有别的孩子。", "itemId": "Q1" }
+```
+- 期望返回 `{ ok:true, proposal:{...}, llmProfile, llmModel, fallback }`。
+- **判据 A(降级或真故障)**:`fallback` 字段会告诉你发生了什么——
+  - `fallback` 为空 / 未以 `semantic_` / `G05_` 开头 → **真通了**(LLM 出了 Proposal)。
+  - `fallback` 以 `semantic_llm_error:` 开头 → LLM 调用失败,查环境变量 key / endpoint / 网络。
+  - `fallback` 以 `G05_violation:` 开头 → 模型输出了能力/人格判定词,被拦截(提示词要收紧,但链路本身通了)。
+  - `fallback = ''` 且 `proposal.candidate_spans` 为空 → 模型回了空,或该教师原话确实无证据(正常,不代表故障)。
+- **判据 B**:`ok` 恒为 `true`(本函数设计为永不抛错),所以**不能**用 `ok` 判断是否有效,要用 `fallback` 和 `proposal`。
+
+### L3 · 网关白名单 + 鉴权(网页真正调用前)
+在浏览器 DevTools Network 里找请求 `POST {VITE_WEB_API_BASE_URL}/call` body `{action:'semanticProbe'}`:
+- 期望 `HTTP 200` + `{ ok:true, proposal }`。
+- 若 `HTTP 400` + `{error:'unsupported_action'}` → **网关没重传**,`semanticProbe` 白名单未生效。
+- 若 `HTTP 401` + `{error:'not_authenticated'}` → 网关会话/Cookie 没建立(查 `web-auth.js` 匿名登录链)。
+- 若 `HTTP 502` + `{error:'upstream_function_failed'}` → 云函数调用失败,回头看 L2。
+- 若请求压根没发 → 说明 `semanticEnabled()===false`,查 `VITE_WEB_API_BASE_URL` 是否配置、`VITE_TCIM_SEMANTIC` 是否被设 `0`。
+
+### L4 · 语义信号真的进到了 Evidence(唯一硬依据)
+这是全链路**唯一能证明「LLM 真的出了语义层贡献」**的地方——看 TCIM Replay 里有没有 `SemanticEvent`。
+网页端 `session.interview[itemId].tcimReplay` 每轮追加事件,找：
+- `event:'SemanticEvent', type:'span'`(合法候选 span)─ 且 `provider` 字段非 `'offline'`。
+- **关键**:`provider` 应为 `'custom'`。若全是 `type:'invalid'` / `provider:'offline'` / 无 `SemanticEvent` → 语义层实际没生效(虽然引擎不报错)。
+- User 可查 localStorage 里的 `tcimSession` Replay,或在 `InterviewView.vue` 的 `processTeacherTurn` 返回里打印 `replay`。
+
+### 一张判据速查表
+| 现象 | 含义 | 该查哪 |
+|---|---|---|
+| `semantic_core.test.js` 失败 | 代码/数据问题,与部署无关 | L1 |
+| `fallback` 以 `semantic_llm_error:` | LLM 调用失败 | L2 环境变量 key/endpoint |
+| `fallback` 以 `G05_violation:` | 模型越界,被拦(链路通) | 收紧提示词 |
+| HTTP 400 `unsupported_action` | 网关白名单未生效 | L3 重传网关 |
+| HTTP 401 | 网关会话未建 | L3 web-auth 匿名登录 |
+| 无 `SemanticEvent` / `provider:'offline'` | 语义层未实际生效 | L4 查 VITE_WEB_API_BASE_URL / 语义层配置 |
+| `provider:'custom'` + `SemanticEvent type:'span'` | **真通了** | —— |
+
+**核心结论**:判断「语义层是否上线」,**不要**看 `ok`(恒 true)或「没报错」(降级不报错),要**同时**看 L2 的 `fallback` **和** L4 的 `SemanticEvent.provider != 'offline'`。两者都过才算真生效。
