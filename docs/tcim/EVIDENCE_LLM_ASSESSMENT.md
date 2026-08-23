@@ -2,7 +2,8 @@
 
 > 依据：`DOC/AI应用质疑及说明.zip` 内《TCIM_AI调用与工程责任表_V0.1.docx》(A01/A02 调用点)
 > 与《TCIM中的AI作用…》(AI 核心智能定性)。
-> 状态：**Step 1 已实现并验证**；Step 2/3 待研究团队确认边界后启动。
+> 状态：**Step 1 已实现并验证**；**真实 LLM provider 已接好**（含网关+云函数+离线兜底）；
+> Step 2/3 待研究团队确认边界后启动。
 > 日期：2026-08-23。
 
 ---
@@ -56,6 +57,26 @@
 | `web/src/views/InterviewView.vue` | 改动 | `tcimFirstQuestion/tcimNext` 改 async 并 `await processTeacherTurn`。 |
 | `web/src/core/tcim/engine.test.mjs` | 改动 | 顶层循环包成 async `run()`,`await processTeacherTurn`。 |
 
+### 真实 LLM provider 落地(Step 1b)
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `cloudfunctions/gsyg_semanticProbe/` | **新增** | A01 LLM 语义端点:独立云函数。严格 JSON `EvidenceAnalysisProposal`;`LLM_PROFILES`(wxai/openai-compatible);服务端再拦 G04(spans 回指原话)/G05(能力/人格/动机判定词);失败/低置信 → 空 proposal(不丢、不猜)。环境变量集中配置。 |
+| `cloudfunctions/gsyg_webGateway/index.js` | 改动 | `ACTIONS` 增 `semanticProbe: 'gsyg_semanticProbe'`。 |
+| `web/src/services/semanticLLM.js` | **新增** | `makeSemanticProvider()`:经 `callGateway('semanticProbe',...)` 调云端;任一失败回退空 Proposal(永不抛错);`registerSemanticProvider()` 静态注入引擎(`setSemanticProvider`)。 |
+| `web/src/core/tcim/semantic.test.mjs` | **新增** | 离线无 SemanticEvent / 合法 provider 入 replay 不改 level / 幻觉 span 不入 replay / provider 抛错回退。 |
+
+### 真实 LLM provider 请求链路(已验证 build + 逻辑,未实调云端)
+```
+教师原话 → engine.analyzeSemantic → semanticLLM.makeSemanticProvider
+         → callGateway('semanticProbe', { itemId, teacherTurn, anchors, evidenceSummary, questionTitle })
+         → gsyg_webGateway /call (已验证会话 Cookie + __gsygGateway 注入)
+         → gsyg_semanticProbe.main → 解析严格 JSON → validate(G04/G05) → 空/合法 proposal
+         → 回传 → engine 归一化 → SemanticEvent 入 replay → 确定性 EvidenceUpdater 裁决 level
+```
+**红线不变**:语义 provider 永不写 evidence_state、永不判 level;level 只由 `updateEvidence` 锚点命中决定。
+**未实调云端的原因**:本开发环境无 LLM API Key,且网关需上传部署。逻辑经 web build + `semantic.test.mjs` 验证;
+真实调用需配置 `DEEPSEEK_API_KEY`/`WXAI_*` 等环境变量并部署 `gsyg_semanticProbe` + 网关。
+
 ### 关键红线守护(G04/G05 在语义层强制)
 - `validateProposal`/`normalizeSemanticProposal` 要求每条 `candidate_spans[].text` **必须回指教师原话**,
   否则整条 Proposal 降级为空(不信任越界内容)。
@@ -78,6 +99,8 @@ contracts:       Task 0 passed
 rag:             Task 5 passed
 evidence_semantic: passed (离线空/ Schema门/ 透传不改level/ 幻觉不抬低教师)
 web engine smoke:  10/10 题通过
+web semantic.test: passed (离线无事件/ 合法入replay不改level/ 幻觉不入replay/ 抛错回退)
+web build:         OK (Vite)
 ```
 
 ## 五、从 Step 1 到完整 A01/A02 的路线(供团队拍板)
@@ -88,13 +111,13 @@ web engine smoke:  10/10 题通过
 - **Step 3(最重,需研究团队确认)**:完整迁移 A01/A02 语义主导 + A09 语义约束复核。**会重定义
   「计分与筛题是确定性程序、AI 不参与打分」这条红线与 `scoring.js` 的关系**,必须先对齐边界。
 
-### Step 2/3 前置条件(阻塞,非本阶段能解)
-> 当前网页端 `engine.js` 是**纯前端离线**(header 明示「纯前端运行,不调用 LLM」),本开发环境
-> 也无一个可调用的语义 LLM 端点。因此本阶段**没有接真实 LLM**——只实现了 A01 的 **contract +
-> 可插拔接缝 + 确定性裁决消费**,默认 behavior 与今天逐字节一致。真正接 LLM 需要:
-> 1. 一个走网关的后端语义端点(遵循「LLM 不能在小程序/网页直连」红线,须经 `gsyg_webGateway` 或专用云函数)。
-> 2. 注入一个 `semanticProvider(teacherTurn, ctx)` 实现(遵循 A01 输入/输出 Schema)。
-> 3. 环境变量/网关密钥配置 + 内容安全审核(合规硬门槛③)。
+### Step 2/3 前置条件(阻塞,本阶段已解 Step 1b,仍待团队确认边界)
+> Step 1b 已把真实 LLM provider 接好:`gsyg_semanticProbe`(后端端点)+ `semanticLLM.js`(前端注入)
+> + 网关白名单。**但只在逻辑/构建层验证过,尚未实调云端**——本开发环境无 LLM API Key,云函数
+> 也需上传部署。真正生效还需:
+> 1. 配置语义端点环境变量:`SEMANTIC_PROFILE`/`DEEPSEEK_API_KEY`/`WXAI_*` 视所选 provider 而定;网关配 `GSYG_WEB_GATEWAY_TOKEN`、`GSYG_WEB_SESSION_SECRET`。
+> 2. 部署 `gsyg_semanticProbe`(云端安装依赖)+ 重传 `gsyg_webGateway`(白名单)+ 重建网页。
+> 3. 内容安全审核(合规硬门槛③)——语义层默认关闭 `SEC_CHECK`,仅传回 span 文本,如需可开。
 
 ## 六、待办 / 未决
 - [ ] 研究团队确认 Step 1 边界是否符合预期(推理层 AI、材料层确定性)。若接受,保持现状。

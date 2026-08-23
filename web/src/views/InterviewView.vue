@@ -8,6 +8,7 @@ import { initTcisSession, processTeacherTurn } from '../core/tcim/engine.js'
 import { isTcisMode } from '../core/tcim/mode.js'
 import { getProfile, getSession, saveSession } from '../services/storage.js'
 import { interviewNext, reportInterview } from '../services/api.js'
+import { registerSemanticProvider } from '../services/semanticLLM.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,6 +31,8 @@ const lastLLMProfile = ref(existing?.llmProfile || '')
 const lastLLMModel = ref(existing?.llmModel || '')
 const webLLMProfile = String(import.meta.env.VITE_INTERVIEW_LLM_PROFILE || '').trim()
 const tcimEnabled = isTcisMode()
+// 注册 A01 语义预筛 provider（幂等；缺网关/构建时不注入，回退离线空 Proposal）
+if (tcimEnabled) registerSemanticProvider()
 // TCIM 确定性会话：localStorage 恢复或新初始化
 const tcimSession = ref(existing?.tcimSession || null)
 let timer = null

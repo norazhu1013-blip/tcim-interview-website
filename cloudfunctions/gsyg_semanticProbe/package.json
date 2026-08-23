@@ -1,0 +1,9 @@
+{
+  "name": "gsyg_semanticProbe",
+  "version": "0.1.0",
+  "description": "TCIM A01 语义预筛（LLM 只出 Proposal，不写证据状态）；运行时必须 Nodejs18",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}
