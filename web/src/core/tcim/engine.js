@@ -32,6 +32,65 @@ const STOP_BIGRAMS = new Set(['我们', '你们', '他们', '这个', '那个', 
 const RATE_MIN = 0.15
 const HITS_MIN = 3
 
+/** 当前语义提供者句柄（可注入；缺省离线，行为与未接入完全一致）。 */
+let semanticProvider = null
+
+/**
+ * 注入一个语义预筛提供者（A01 调用点）。`provider(teacherTurn, ctx)` 返回
+ * EvidenceAnalysisProposal（{ candidate_spans/conflict_candidates/no_change_reasons/... }）。
+ * 传 null 回到离线默认。只做 Proposal，从不直接改 level。
+ */
+export function setSemanticProvider(provider) {
+  semanticProvider = typeof provider === 'function' ? provider : null
+}
+
+const JUDGE_RE = /能力|人格|动机|心理|性格|智力水平|属于.{0,3}(高|中|低)能力/
+
+/** 离线默认：什么都不提供，返回空 Proposal（与未接入等价）。 */
+function offlineSemantic(teacherTurn) {
+  return { candidate_spans: [], candidate_slots: [], conflict_candidates: [], false_evidence_flags: [], no_change_reasons: [], source_turn: teacherTurn || '', provider_version: 'offline-v0.1' }
+}
+
+/** 规范化 Proposal：缺失的数组字段补空数组（LLM 输出天然不完整），保证下游拿到合格形状。 */
+function normalizeSemanticProposal(raw) {
+  const p = raw && typeof raw === 'object' ? raw : {}
+  return {
+    proposal_type: p.proposal_type || 'EvidenceAnalysisProposal',
+    candidate_spans: Array.isArray(p.candidate_spans) ? p.candidate_spans : [],
+    candidate_slots: Array.isArray(p.candidate_slots) ? p.candidate_slots : [],
+    conflict_candidates: Array.isArray(p.conflict_candidates) ? p.conflict_candidates : [],
+    false_evidence_flags: Array.isArray(p.false_evidence_flags) ? p.false_evidence_flags : [],
+    uncertainty: typeof p.uncertainty === 'number' ? p.uncertainty : 0,
+    no_change_reasons: Array.isArray(p.no_change_reasons) ? p.no_change_reasons : [],
+    source_turn: p.source_turn || null,
+    provider_version: p.provider_version || 'custom'
+  }
+}
+
+/** A01 语义预筛：调用 provider（若注入），校验 Schema，绝不改 level。返回 { proposal, ok, errors, provider }。 */
+async function analyzeSemantic(teacherTurn, ctx) {
+  const turn = String(teacherTurn || '').trim()
+  if (!semanticProvider) {
+    return { proposal: offlineSemantic(turn), ok: true, errors: [], provider: 'offline' }
+  }
+  let raw
+  try {
+    raw = await semanticProvider(turn, ctx || {})
+  } catch (e) {
+    return { proposal: offlineSemantic(turn), ok: false, errors: [`semantic_provider_error:${e && e.message}`], provider: 'error' }
+  }
+  const errors = []
+  const normalized = normalizeSemanticProposal(raw)
+  for (const s of normalized.candidate_spans) {
+    const text = s && s.text
+    if (!text) errors.push('candidate_spans 某条缺少 text')
+    else if (turn && !turn.includes(text)) errors.push(`span「${text}」未出现在教师原话中`)
+  }
+  if (JUDGE_RE.test(JSON.stringify(normalized))) errors.push('proposal 出现能力/人格/动机直接判定词（G05）')
+  if (errors.length) return { proposal: offlineSemantic(turn), ok: false, errors, provider: 'invalid' }
+  return { proposal: { ...normalized, source_turn: normalized.source_turn || turn }, ok: true, errors: [], provider: 'custom' }
+}
+
 function splitBlocks(text) {
   return String(text || '').replace(/[，。！？；：、""''（）()“”‘’\s]/g, '|').split('|').filter((b) => b.length >= 2)
 }
@@ -468,7 +527,7 @@ function replayEvent(session, event) {
  * @param {string} teacherTurn 教师本轮回答
  * @returns {{ question, done, updates, actionPlan, replay }}
  */
-export function processTeacherTurn(session, teacherTurn) {
+export async function processTeacherTurn(session, teacherTurn) {
   if (session.done) return { question: '', done: true }
   session.turnNo += 1
   const turnId = `t${session.turnNo}`
@@ -493,6 +552,29 @@ export function processTeacherTurn(session, teacherTurn) {
   }
   if (!updates.length) {
     replayEvent(session, { event: 'EvidenceUpdate', slot_id: null, before: null, after: null, reason: 'no_change' })
+  }
+
+  // ---- A01 语义预筛（Step 1：LLM 只做 Proposal，裁决权仍在确定性 updateEvidence）----
+  // 只作为语义层的「观察/线索」透传，绝不改 level/confidence（G04/G05）。
+  const semantic = await analyzeSemantic(trimmed, {
+    itemId: session.itemId,
+    turnId,
+    evidenceSummary: session.evidence,
+    questionTitle: (TCIM_DATA.items[session.itemId] && TCIM_DATA.items[session.itemId].metadata && TCIM_DATA.items[session.itemId].metadata.title) || ''
+  })
+  if (semantic.ok && semantic.proposal) {
+    const p = semantic.proposal
+    for (const span of p.candidate_spans || []) {
+      replayEvent(session, { event: 'SemanticEvent', type: 'span', slot: span.slot_id || '?', span: span.text, span_type: span.span_type || 'supporting', provider: semantic.provider })
+    }
+    for (const c of p.conflict_candidates || []) {
+      replayEvent(session, { event: 'SemanticEvent', type: 'conflict_candidate', slot: c.slot_id || '?', note: c.reason, provider: semantic.provider })
+    }
+    for (const n of p.no_change_reasons || []) {
+      replayEvent(session, { event: 'SemanticEvent', type: 'no_change', slot: n.slot_id || '?', note: n.reason, provider: semantic.provider })
+    }
+  } else if (semantic.errors && semantic.errors.length) {
+    replayEvent(session, { event: 'SemanticEvent', type: 'invalid', errors: semantic.errors, provider: semantic.provider })
   }
 
   // 停止/剪枝（OrchestratorEvent）

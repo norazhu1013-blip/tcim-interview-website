@@ -70,16 +70,16 @@ function tcimEnsureSession() {
 }
 
 /** TCIM 首问：教师尚未输入，只初始化并生成第一个问题。 */
-function tcimFirstQuestion() {
+async function tcimFirstQuestion() {
   tcimEnsureSession()
-  const gen = processTeacherTurn(tcimSession.value, '')
+  const gen = await processTeacherTurn(tcimSession.value, '')
   return { ok: true, question: gen.question, done: gen.done, stage: 'S1_CONTEXT', nextStage: 'S1_CONTEXT', evidenceHint: [] }
 }
 
 /** TCIM 后续轮：传入教师最新原话。 */
-function tcimNext(teacherText) {
+async function tcimNext(teacherText) {
   tcimEnsureSession()
-  const out = processTeacherTurn(tcimSession.value, teacherText)
+  const out = await processTeacherTurn(tcimSession.value, teacherText)
   return {
     ok: true,
     question: out.question,
@@ -94,7 +94,7 @@ async function requestNext() {
   if (tcimEnabled) {
     const teacherTurns = messages.value.filter((m) => m.role === 'teacher' && m.text)
     const latestTeacher = teacherTurns.length ? String(teacherTurns[teacherTurns.length - 1].text).trim() : ''
-    const next = latestTeacher ? tcimNext(latestTeacher) : tcimFirstQuestion()
+    const next = latestTeacher ? await tcimNext(latestTeacher) : await tcimFirstQuestion()
     if (!next.ok || (!next.question && !next.done)) {
       generationPaused.value = true
       generationError.value = next?.error || 'invalid_interview_response'

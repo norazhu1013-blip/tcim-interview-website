@@ -13,8 +13,9 @@
 
 const { createEvidenceState, updateSlot, statusFromLevel } = require('./evidence_state.js');
 const { assessSlot, buildKeywords, overlapCount, updateEvidence } = require('./evidence_updater.js');
+const { analyze } = require('../evidence_semantic/evidence_semantic.js');
 
-const MODULE_VERSION = '2026-08-21-ontology-v0.1';
+const MODULE_VERSION = '2026-08-21-ontology-v0.1.1';
 
 // 内置数据（注入后覆盖）：items[question_id] = { ontology, anchors, priority, probes, stop }
 let _DATA = {};
@@ -160,7 +161,7 @@ function buildProbeProposal(item, slot, evidenceState, priorityScore) {
  *   snapshot('ontology_state') 提供 evidence_state（只读）；
  *   返回 ModuleResult，state_updates.ontology_state 携带新 evidence_state（Ontology owner）。
  */
-function process(input, ctx) {
+async function process(input, ctx) {
   const qid = input.question_id;
   const item = _DATA[qid];
   if (!item) {
@@ -228,6 +229,25 @@ function process(input, ctx) {
     }
   }
 
+  // ---- A01 语义预筛（Step 1：LLM 只做 Proposal，裁决权仍在确定性 EvidenceUpdater）----
+  // 只作为语义层的「观察/线索」透传，绝不能改 level/confidence（G04 升级必须回指 span +
+  // 确定性锚点命中；G05 不得从短答/犹豫/礼貌推断能力动机）。
+  let semantic = null;
+  try {
+    const semanticCtx = {
+      itemId: qid,
+      turnId: input.turn_id,
+      anchorBySlot: anchorsBySlot,
+      evidenceSummary: newEvidence,
+      questionTitle: (item.metadata && item.metadata.title) || ''
+    };
+    const sem = await analyze(input.turn_context.teacher_turn, semanticCtx);
+    semantic = sem;
+  } catch (e) {
+    // 语义层失败不得影响主流程（G01：不得丢失教师回答/Evidence）。这里记一条诊断即可。
+    semantic = { proposal: null, ok: false, errors: [`semantic_crash:${e && e.message}`], provider: 'error' };
+  }
+
   // 应用 stop/prune gate
   const gateSignals = applyStopRules(item, newEvidence, candidateSlots);
 
@@ -255,6 +275,22 @@ function process(input, ctx) {
     });
   }
 
+  // A01 语义信号只作为「观察」附注，不改变确定性升级/冲突判定。reason 用 semantic_ 前缀，
+  // 不会命中 stress 测试的 anchor_level_ / conflict 统计，也不作为 state 写入依据。
+  const semanticSignals = [];
+  if (semantic && semantic.ok && semantic.proposal) {
+    const p = semantic.proposal;
+    for (const span of p.candidate_spans || []) {
+      semanticSignals.push({ slot: span.slot_id || '?', reason: 'semantic_span', span: span.text, span_type: span.span_type || 'supporting' });
+    }
+    for (const c of p.conflict_candidates || []) {
+      semanticSignals.push({ slot: c.slot_id || '?', reason: 'semantic_conflict_candidate', note: c.reason });
+    }
+    for (const n of p.no_change_reasons || []) {
+      semanticSignals.push({ slot: n.slot_id || '?', reason: 'semantic_no_change', note: n.reason });
+    }
+  }
+
   return {
     module_id: 'ontology_game_support',
     module_version: MODULE_VERSION,
@@ -264,8 +300,10 @@ function process(input, ctx) {
     constraints: gateSignals.map((s) => ({ type: s.type, scope: s.scope })),
     confidence: 0.8,
     evidence_refs: updates.map((u) => u.quote),
-    decision_summary: `ontology: ${updates.length} slot updates, ${proposals.length} proposals, ${gateSignals.length} gates`,
-    diagnostics: updates
+    decision_summary: semantic
+      ? `ontology: ${updates.length} slot updates, ${proposals.length} proposals, ${gateSignals.length} gates, semantic=${semantic.provider}${semantic.ok ? '' : '(invalid)'}`
+      : `ontology: ${updates.length} slot updates, ${proposals.length} proposals, ${gateSignals.length} gates`,
+    diagnostics: [...updates, ...semanticSignals]
   };
 }
 

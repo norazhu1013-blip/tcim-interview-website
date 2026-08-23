@@ -26,13 +26,14 @@ const SAMPLE_ANSWERS = [
 let failures = 0
 let total = 0
 
+async function run() {
 for (const [itemId, answer] of Object.entries(tcimData.items)) {
   total += 1
   const idx = parseInt(itemId.slice(1), 10) - 1
   const teacherAnswer = SAMPLE_ANSWERS[idx] || SAMPLE_ANSWERS[0]
   const session = initTcisSession(itemId, ['A', 'C', 'B', 'D'], [])
   // 首问
-  const first = processTeacherTurn(session, '')
+  const first = await processTeacherTurn(session, '')
   if (!first.question || !first.question.trim()) {
     console.error(`✗ ${itemId} 首问为空`)
     failures += 1
@@ -49,7 +50,7 @@ for (const [itemId, answer] of Object.entries(tcimData.items)) {
   let rounds = 0
   let lastQuestion = first.question
   for (let i = 0; i < 4; i += 1) {
-    const out = processTeacherTurn(session, roundAnswers[i] || roundAnswers[roundAnswers.length - 1])
+    const out = await processTeacherTurn(session, roundAnswers[i] || roundAnswers[roundAnswers.length - 1])
     rounds += 1
     if (out.done) break
     if (out.question === lastQuestion) {
@@ -67,5 +68,12 @@ for (const [itemId, answer] of Object.entries(tcimData.items)) {
   }
 }
 
-console.log(`\nTCIM smoke: ${total - failures}/${total} 题通过`)
-if (failures) process.exit(1)
+}
+
+run().then(() => {
+  console.log(`\nTCIM smoke: ${total - failures}/${total} 题通过`)
+  if (failures) process.exit(1)
+}).catch((e) => {
+  console.error(e)
+  process.exit(1)
+})
