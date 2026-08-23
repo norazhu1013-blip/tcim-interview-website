@@ -65,6 +65,12 @@
 | `web/src/services/semanticLLM.js` | **新增** | `makeSemanticProvider()`:经 `callGateway('semanticProbe',...)` 调云端;任一失败回退空 Proposal(永不抛错);`registerSemanticProvider()` 静态注入引擎(`setSemanticProvider`)。 |
 | `web/src/core/tcim/semantic.test.mjs` | **新增** | 离线无 SemanticEvent / 合法 provider 入 replay 不改 level / 幻觉 span 不入 replay / provider 抛错回退。 |
 
+### 语义端点纯逻辑可本地验证(Step 1b 加固)
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `cloudfunctions/gsyg_semanticProbe/semantic_core.js` | **新增** | 从 index.js 抽出的纯逻辑层(无 wx-server-sdk / 无网络):`buildSystemPrompt`/`buildUserPrompt`/`parseModelJSON`/`normalizeProposal`/`validateProposal`。对齐 `gsyg_selectFinal` 的 advisor_port 惯例,让「LLM 输出→解析→G04/G05→Proposal」可在本机用伪造响应验证。 |
+| `cloudfunctions/gsyg_semanticProbe/semantic_core.test.js` | **新增** | 8 例:提示词含原话锚点 / 合法 Proposal / ```json 包裹 / 缺数组补空 / G04 span 不在原话 / G05 判定词 / 低置信剔除 / 空 Proposal。纯 Node 可跑。 |
+
 ### 真实 LLM provider 请求链路(已验证 build + 逻辑,未实调云端)
 ```
 教师原话 → engine.analyzeSemantic → semanticLLM.makeSemanticProvider
