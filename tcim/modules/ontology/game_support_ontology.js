@@ -18,6 +18,7 @@ const { createBeliefState, validateBeliefMutation, applyBeliefMutation } = requi
 const { buildTeacherModelSnapshot, buildContextInterpretationProposal } = require('../context/teacher_model.js');
 const { planDecision } = require('../planner/agent_planner.js');
 const { validateDecision } = require('../gate/decision_gate.js');
+const { createChallengeQueue, challengeFromDecision } = require('../context/challenge_queue.js');
 
 const MODULE_VERSION = '2026-08-21-ontology-v0.2-sanity';
 
@@ -289,6 +290,7 @@ async function process(input, ctx) {
   let teacherModelSnapshot = null;
   let agentDecision = null;
   let gateResult = null;
+  let challengeQueue = createChallengeQueue();
 
   if (semanticMode !== 'disabled' && semantic && semantic.ok && semantic.proposal) {
     // A02B：从语义信号推断可撤销 Belief（不含能力/人格判定）。只做 ADD 候选，交由 Belief Manager 校验提交。
@@ -322,6 +324,8 @@ async function process(input, ctx) {
       expectedStateVersion: beliefState.version,
       committedStateVersion: beliefState.version
     });
+    // A12：表偏离/表外/冲突 → 登记挑战候选（进 Replay + 专业审核，不自动改 Production）
+    challengeQueue = challengeFromDecision(challengeQueue, agentDecision, gateResult);
   }
 
   // 应用 stop/prune gate
@@ -375,6 +379,7 @@ async function process(input, ctx) {
   const beliefObservations = beliefEvents.map((ev) => ({ claim: ev.claim || '', op: ev.op, confidence: ev.after && ev.after.confidence, reason: 'belief_' + ev.op }));
   const v2Diagnostics = [];
   if (teacherModelSnapshot) v2Diagnostics.push({ reason: 'teacher_model_snapshot', active_belief_refs: teacherModelSnapshot.active_belief_refs, competing_belief_refs: teacherModelSnapshot.competing_belief_refs });
+  if (challengeQueue && challengeQueue.challenges.length) v2Diagnostics.push({ reason: 'challenge_candidate', challenges: challengeQueue.challenges });
   if (agentDecision) v2Diagnostics.push({ reason: 'agent_decision', selected_action_id: agentDecision.selected_action_id, primary_target_slot: agentDecision.primary_target_slot, claimed_table_alignment: agentDecision.claimed_table_alignment, claimed_risk_level: agentDecision.claimed_risk_level, rejected_action_ids: agentDecision.rejected_action_ids });
   if (gateResult) v2Diagnostics.push({ reason: 'gate_result', decision: gateResult.decision, adjudicated_risk_level: gateResult.adjudicated_risk_level, adjudicated_table_alignment: gateResult.adjudicated_table_alignment, evaluator_required: gateResult.evaluator_required });
 
