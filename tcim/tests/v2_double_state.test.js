@@ -71,6 +71,19 @@ async function main() {
     // 7) decision_summary 含 belief/planner/gate
     assert.ok(/mode=fallback_allowed/.test(result.decision_summary));
     assert.ok(/belief=1/.test(result.decision_summary), 'belief 数应为 1');
+    // 8) 结构化 Replay：关键 phase 事件齐全
+    const replay = (diag.find((d) => d.reason === 'replay') || {}).events || [];
+    const phases = replay.map((e) => e.phase);
+    assert.ok(phases.includes('SemanticProposal'), 'Replay 应有 SemanticProposal');
+    assert.ok(phases.includes('EvidenceCommit'), 'Replay 应有 EvidenceCommit');
+    assert.ok(phases.includes('BeliefCommit'), 'Replay 应有 BeliefCommit');
+    assert.ok(phases.includes('TurnResolutionSnapshot'), 'Replay 应有 TurnResolutionSnapshot');
+    assert.ok(phases.includes('PlannerDecision'), 'Replay 应有 PlannerDecision');
+    assert.ok(phases.includes('GateResult'), 'Replay 应有 GateResult');
+    const planner = replay.find((e) => e.phase === 'PlannerDecision');
+    assert.ok(planner.claimed_table_alignment && planner.claimed_risk_level, 'PlannerDecision 应有 claimed 值');
+    const gate = replay.find((e) => e.phase === 'GateResult');
+    assert.ok(gate.adjudicated_risk_level && gate.adjudicated_table_alignment, 'GateResult 应有 adjudicated 值');
   }
 
   setSemanticMode('disabled');

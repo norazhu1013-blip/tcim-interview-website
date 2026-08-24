@@ -378,6 +378,19 @@ async function process(input, ctx) {
   if (agentDecision) v2Diagnostics.push({ reason: 'agent_decision', selected_action_id: agentDecision.selected_action_id, primary_target_slot: agentDecision.primary_target_slot, claimed_table_alignment: agentDecision.claimed_table_alignment, claimed_risk_level: agentDecision.claimed_risk_level, rejected_action_ids: agentDecision.rejected_action_ids });
   if (gateResult) v2Diagnostics.push({ reason: 'gate_result', decision: gateResult.decision, adjudicated_risk_level: gateResult.adjudicated_risk_level, adjudicated_table_alignment: gateResult.adjudicated_table_alignment, evaluator_required: gateResult.evaluator_required });
 
+  // V0.2 结构化 Replay（供研究/审计）：每轮把关键事件 + 版本 + claimed/adjudicated 值序列化
+  const replay = buildReplay({
+    turnId: input.turn_id,
+    semanticMode,
+    semanticProposal: semantic ? semantic.proposal : null,
+    evidenceUpdates: updates,
+    beliefEvents,
+    teacherModelSnapshot,
+    agentDecision,
+    gateResult
+  });
+  if (replay.length) v2Diagnostics.push({ reason: 'replay', events: replay });
+
   return {
     module_id: 'ontology_game_support',
     module_version: MODULE_VERSION,
@@ -392,6 +405,39 @@ async function process(input, ctx) {
   };
 }
 
+/**
+ * 把本轮关键事件序列化为结构化 Replay（V0.2 A11 增强）。只读、无副作用。
+ * 保留：turn_id、semantic_mode、Evidence before/after、Belief 变更、Planner 决策、Gate 裁决、
+ * claimed/adjudicated risk + table_alignment、model/schema 版本、source_refs、fallback。
+ */
+function buildReplay(ctx) {
+  const events = [];
+  const turn = ctx.turnId;
+  const base = { turn_id: turn, ts: Date.now() };
+
+  if (ctx.semanticMode && ctx.semanticMode !== 'disabled') {
+    events.push({ ...base, phase: 'SemanticProposal', semantic_mode: ctx.semanticMode, candidate_spans: (ctx.semanticProposal && ctx.semanticProposal.candidate_spans || []).length, slot_evidence_proposals: (ctx.semanticProposal && ctx.semanticProposal.slot_evidence_proposals || []).length, schema_version: (ctx.semanticProposal && ctx.semanticProposal.provider_version) || 'n/a' });
+  }
+  for (const u of (ctx.evidenceUpdates || [])) {
+    events.push({ ...base, phase: 'EvidenceCommit', slot_id: u.slot_id, before: u.before, after: u.after, quote: u.quote, reason: u.reason });
+  }
+  for (const b of (ctx.beliefEvents || [])) {
+    events.push({ ...base, phase: 'BeliefCommit', op: b.op, claim: b.claim || null, before: b.before, after: b.after });
+  }
+  if (ctx.teacherModelSnapshot) {
+    events.push({ ...base, phase: 'TurnResolutionSnapshot', active_belief_refs: ctx.teacherModelSnapshot.active_belief_refs, competing_belief_refs: ctx.teacherModelSnapshot.competing_belief_refs, uncertainty_refs: ctx.teacherModelSnapshot.uncertainty_refs, builder_version: ctx.teacherModelSnapshot.builder_version });
+  }
+  if (ctx.agentDecision) {
+    const a = ctx.agentDecision;
+    events.push({ ...base, phase: 'PlannerDecision', selected_action_id: a.selected_action_id, rejected_action_ids: a.rejected_action_ids, primary_target_slot: a.primary_target_slot, claimed_table_alignment: a.claimed_table_alignment, claimed_risk_level: a.claimed_risk_level, why_this_now: a.why_this_now, model_schema_versions: a.model_prompt_schema_versions, fallback_action_id: a.fallback_action_id });
+  }
+  if (ctx.gateResult) {
+    const g = ctx.gateResult;
+    events.push({ ...base, phase: 'GateResult', decision: g.decision, approved_action_id: g.approved_action_id, adjudicated_risk_level: g.adjudicated_risk_level, adjudicated_table_alignment: g.adjudicated_table_alignment, evaluator_required: g.evaluator_required, reason_codes: g.reason_codes });
+  }
+  return events;
+}
+
 module.exports = {
   id: 'ontology_game_support',
   version: MODULE_VERSION,
@@ -403,5 +449,6 @@ module.exports = {
   selectCandidateSlots,
   applyStopRules,
   setSemanticMode,
-  getSemanticMode
+  getSemanticMode,
+  buildReplay
 };
