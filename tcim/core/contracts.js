@@ -10,6 +10,15 @@
  *   4. 任何模块可 enabled/disabled、versioned、replayable、ablatable。
  */
 
+/** 五表对齐（V0.2，claimed/adjudicated table_alignment）。 */
+const TABLE_ALIGNMENT = Object.freeze(['SUPPORT', 'PARTIAL', 'CONFLICT', 'OUT_OF_SCHEMA', 'NO_APPLICABLE_RULE']);
+
+/** 五表政策等级（V0.2 policy_class）。 */
+const POLICY_CLASS = Object.freeze(['HARD', 'SOFT', 'PRIOR', 'ADVISORY']);
+
+/** 风险等级（V0.2 claimed/adjudicated risk）。 */
+const RISK_LEVEL = Object.freeze(['LOW', 'MEDIUM', 'HIGH']);
+
 /** 动作类型枚举（02-1 Ontology 架构 第10节）。 */
 const ACTION_TYPES = Object.freeze([
   'PROBE', 'CONFIRM', 'COMPARE', 'REFRAME', 'SHIFT_CANDIDATE', 'STOP_CANDIDATE', 'CLOSE'
@@ -165,6 +174,9 @@ module.exports = {
   ACTION_TYPES,
   STATE_OWNERS,
   STATE_NAMESPACES,
+  TABLE_ALIGNMENT,
+  POLICY_CLASS,
+  RISK_LEVEL,
   ContractError,
   validateModuleInput,
   validateModuleResult,
