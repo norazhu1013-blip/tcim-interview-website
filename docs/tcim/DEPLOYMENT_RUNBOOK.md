@@ -82,6 +82,18 @@
 
 > `VITE_TCIM_RAG` / `VITE_INTERVIEW_LLM_PROFILE` 仅 legacy 模式相关，V0.2 不需要。
 
+### 4.1 ⚠️ 网页 V0.2 构建必须处理 CJS 导入（`module is not defined` 坑）
+
+网页 `web/src/core/tcim/engine.js` 以 **ESM 命名空间导入仓库 `tcim/modules/*.js`（CJS 源码）**（如 `belief_state`/`teacher_model`/`agent_planner`/`decision_gate`/`challenge_queue`/`prdm_v2`/`knowledge_need`/`evidence_updater`）。
+这些是 **纯逻辑 CJS**，Vite 的 `@rollup/plugin-commonjs` 默认**不转换 node_modules 之外的源码**，会把 `module.exports` 原样带进浏览器包 → 运行时 `module is not defined` 崩溃。
+
+两个必须同时满足，缺一不可：
+1. **`web/vite.config.js`** 必须含 `build.commonjsOptions.include: [/tcim\/modules\//]`，让插件确定性把导入的 CJS 转成 ESM。
+2. **导入回退**用 `ns.default || ns`，**不要**用 `ns['module.exports']`——后者可能被 minifier 改写成裸 `module` 引用。
+
+**验证方法**：`cd web && npm run build` 后，确认 `dist/assets/index-*.js` 里 `module.exports` 出现次数为 **0**。若 >0，说明构建未走 CJS 转换，需检查 `commonjsOptions.include`。
+> 旧缓存/旧包（文件名如 `index-CC5HCUkb.js`）若有残留会继续报错；务必用**新构建产物**发布。
+
 ---
 
 ## 5. 本地验证命令（无需云端/网络，先确保机制无回归）
