@@ -12,10 +12,20 @@
  */
 
 const { createEvidenceState, updateSlot, statusFromLevel } = require('./evidence_state.js');
-const { assessSlot, buildKeywords, overlapCount, updateEvidence } = require('./evidence_updater.js');
+const { assessSlot, buildKeywords, overlapCount, updateEvidence, validateProposal, commitProposal, bigramFallback } = require('./evidence_updater.js');
 const { analyze } = require('../evidence_semantic/evidence_semantic.js');
 
-const MODULE_VERSION = '2026-08-21-ontology-v0.1.1';
+const MODULE_VERSION = '2026-08-21-ontology-v0.2-sanity';
+
+// TCIM_SEMANTIC_MODE：required | fallback_allowed | shadow | disabled
+//   disabled（规则基线）：保留原 bigram updateEvidence，Validator/Committer 不介入。
+//   fallback_allowed / required / shadow：LLM Proposal 经 Validator→Committer 提交；
+//     LLM 失败时 fallback_allowed 用 bigramFallback（同一 Schema），required 标错，shadow 只透传不写。
+const SEMANTIC_MODE = String((typeof process !== 'undefined' && process.env && process.env.TCIM_SEMANTIC_MODE) || 'disabled').trim();
+// 测试可注入 setSemanticMode；默认从 env 读取。
+let _semanticMode = SEMANTIC_MODE;
+function setSemanticMode(mode) { _semanticMode = String(mode || 'disabled').trim(); }
+function getSemanticMode() { return _semanticMode; }
 
 // 内置数据（注入后覆盖）：items[question_id] = { ontology, anchors, priority, probes, stop }
 let _DATA = {};
@@ -214,39 +224,63 @@ async function process(input, ctx) {
   const evaluateSlotIds = ((item.ontology && item.ontology.slots) || [])
     .filter((s) => s.core && evidenceState[s.slot_id] && evidenceState[s.slot_id].probe_status !== 'PRUNED')
     .map((s) => s.slot_id);
-  const { state: newEvidence, updates } = updateEvidence(
-    evidenceState,
-    anchorsBySlot,
-    input.turn_context.teacher_turn,
-    input.turn_id,
-    evaluateSlotIds
-  );
+  const teacherTurn = input.turn_context.teacher_turn;
+  const validSlotIds = new Set(((item.ontology && item.ontology.slots) || []).map((s) => s.slot_id));
 
-  // 把 updates 应用回 state
-  for (const u of updates) {
-    if (u.reason.startsWith('anchor_level_')) {
-      // 由 updateEvidence 已直接写入 state
+  let newEvidence;
+  let updates = [];
+  let semantic = null;
+  let semanticMode = getSemanticMode();
+
+  if (semanticMode === 'disabled') {
+    // 规则基线：原 bigram updateEvidence（Validator/Committer 不介入，保持确定性与旧基线一致）
+    const r = updateEvidence(evidenceState, anchorsBySlot, teacherTurn, input.turn_id, evaluateSlotIds);
+    newEvidence = r.state;
+    updates = r.updates;
+  } else {
+    // ---- 语义主路径：LLM Proposal → Validator → Committer ----
+    let proposal = null;
+    let source = 'nl_llm';
+    let llmProposal = null;
+    try {
+      const semCtx = { itemId: qid, turnId: input.turn_id, anchorBySlot: anchorsBySlot, evidenceSummary: evidenceState, questionTitle: (item.metadata && item.metadata.title) || '', validSlotIds };
+      const sem = await analyze(teacherTurn, semCtx);
+      semantic = sem;
+      if (sem.ok && sem.proposal) { proposal = sem.proposal; llmProposal = sem.proposal; source = 'llm'; }
+      else source = 'llm_invalid';
+    } catch (e) {
+      semantic = { proposal: null, ok: false, errors: [`semantic_crash:${e && e.message}`], provider: 'error' };
+      source = 'llm_crash';
+    }
+    // 若 LLM 未给出任何 slot 证据（空 Proposal），fallback_allowed/required 用 bigramFallback（同一 Schema），
+    // 使「无证据」也走同一条提交路径、且规则能兜住离线/空转。
+    const llmHasSlots = llmProposal && Array.isArray(llmProposal.slot_evidence_proposals) && llmProposal.slot_evidence_proposals.length > 0;
+    if (!llmHasSlots) {
+      if (semanticMode === 'required') {
+        semanticMode = 'required_degraded';
+        proposal = bigramFallback(teacherTurn, anchorsBySlot, evaluateSlotIds);
+        source = 'required_fallback';
+      } else {
+        proposal = bigramFallback(teacherTurn, anchorsBySlot, evaluateSlotIds);
+        source = 'rule_fallback';
+      }
+    }
+    // Validator 只查合法性，不重新裁决（无论 LLM 或 fallback 都走同一验证器）
+    const validation = validateProposal(proposal, { itemId: qid, validSlotIds, teacherTurn, anchorsBySlot });
+    // Committer 提交（唯一写 evidence_state 入口）
+    const committed = commitProposal(evidenceState, validation.acceptedUpdates, teacherTurn, input.turn_id);
+    newEvidence = committed.state;
+    updates = committed.updates;
+    // shadow：只透传不写状态（保持 Evidence 原样，供上线前比较）
+    if (semanticMode === 'shadow') {
+      newEvidence = evidenceState;
+      updates = [];
     }
   }
 
-  // ---- A01 语义预筛（Step 1：LLM 只做 Proposal，裁决权仍在确定性 EvidenceUpdater）----
-  // 只作为语义层的「观察/线索」透传，绝不能改 level/confidence（G04 升级必须回指 span +
-  // 确定性锚点命中；G05 不得从短答/犹豫/礼貌推断能力动机）。
-  let semantic = null;
-  try {
-    const semanticCtx = {
-      itemId: qid,
-      turnId: input.turn_id,
-      anchorBySlot: anchorsBySlot,
-      evidenceSummary: newEvidence,
-      questionTitle: (item.metadata && item.metadata.title) || '',
-      validSlotIds: new Set(((item.ontology && item.ontology.slots) || []).map((s) => s.slot_id))
-    };
-    const sem = await analyze(input.turn_context.teacher_turn, semanticCtx);
-    semantic = sem;
-  } catch (e) {
-    // 语义层失败不得影响主流程（G01：不得丢失教师回答/Evidence）。这里记一条诊断即可。
-    semantic = { proposal: null, ok: false, errors: [`semantic_crash:${e && e.message}`], provider: 'error' };
+  // ---- A01 语义信号（供 diagnostics，不决定 level，除非在语义主路径已由 Committer 提交）----
+  if (semantic && semantic.ok && semantic.proposal) {
+    // 已在上方语义主路径处理；这里无需重复写 state
   }
 
   // 应用 stop/prune gate
@@ -304,9 +338,7 @@ async function process(input, ctx) {
     constraints: gateSignals.map((s) => ({ type: s.type, scope: s.scope })),
     confidence: 0.8,
     evidence_refs: updates.map((u) => u.quote),
-    decision_summary: semantic
-      ? `ontology: ${updates.length} slot updates, ${proposals.length} proposals, ${gateSignals.length} gates, semantic=${semantic.provider}${semantic.ok ? '' : '(invalid)'}`
-      : `ontology: ${updates.length} slot updates, ${proposals.length} proposals, ${gateSignals.length} gates`,
+    decision_summary: `ontology: ${updates.length} slot updates, ${proposals.length} proposals, ${gateSignals.length} gates, mode=${semanticMode}`,
     diagnostics: [...updates, ...semanticSignals]
   };
 }
@@ -320,5 +352,7 @@ module.exports = {
   process,
   initPriorFromPretest,
   selectCandidateSlots,
-  applyStopRules
+  applyStopRules,
+  setSemanticMode,
+  getSemanticMode
 };

@@ -15,6 +15,7 @@ const assert = require('node:assert');
 const path = require('node:path');
 const { createCore } = require('../core/index.js');
 const { loadGameSupportData } = require('../professional_data/game_support/loader.js');
+const { setSemanticMode } = require('../modules/ontology/game_support_ontology.js');
 const {
   analyze, setProvider, getProvider, offlineProvider, validateProposal
 } = require('../modules/evidence_semantic/evidence_semantic.js');
@@ -75,6 +76,8 @@ async function main() {
   }
 
   // ---- 测试4：合法语义信号透传，但不改 evidence_state 的 level ----
+  // 需启用语义主路径（fallback_allowed）才能让 analyze() 透传到 diagnostics
+  setSemanticMode('fallback_allowed');
   {
     const teacherTurn = '我会先看地面湿不滑，篮球架附近有没有别的孩子。';
     const { core, input } = lowTeacherInput('Q1', teacherTurn, 0);
@@ -128,6 +131,7 @@ async function main() {
     setProvider(null);
   }
 
+  setSemanticMode('disabled');
   console.log('TCIM A01 evidence-semantic tests passed');
 }
 

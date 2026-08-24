@@ -184,4 +184,135 @@ function updateEvidence(evidenceState, anchorsBySlot, teacherTurn, turnId, evalu
   return { state, updates };
 }
 
-module.exports = { assessSlot, updateEvidence, buildKeywords, overlapCount, statusFromLevel, extractKeywords: (t) => Array.from(normalizeBigrams(bigramsOf(t))) };
+/*
+ * ========================================================================
+ * TCIM_SEMANTIC_MODE 语义主路径（Milestone 2）：Validator + Committer + bigramFallback
+ * ========================================================================
+ * 目标：LLM 和规则 fallback 都产出「同一 Proposal Schema（slot_evidence_proposals）」，
+ *       经过同一个 Validator（只查合法性，不重新裁决）→ 同一个 Committer（唯一写 evidence_state）。
+ *       `updateEvidence` 保留用于 `disabled` 模式（规则基线）或 RULE_FALLBACK 兜底。
+ */
+
+// A01 Proposal 形状（与 cloudfs/gsyg_semanticProbe/semantic_core.js 一致）
+const clampLevel = (n) => (Number.isInteger(n) && n >= 0 && n <= 3 ? n : 0);
+const clamp01 = (n) => Math.max(0, Math.min(1, typeof n === 'number' ? n : 0));
+
+/**
+ * Validator：只验证 Proposal 的合法性，绝不再用 bigram 做语义裁决。
+ * @param {object} proposal 已 normalize 的 Proposal（含 slot_evidence_proposals）
+ * @param {object} ctx { itemId, validSlotIds, teacherTurn, anchorsBySlot, forbiddenLevel? }
+ * @returns {{ acceptedUpdates: Array<{slot_id, proposed_level, confidence, supporting_spans}>, rejected: Array<{slot_id, reason}>, errors }}
+ */
+function validateProposal(proposal, ctx) {
+  const teacherTurn = (ctx && ctx.teacherTurn) || '';
+  const validSlotIds = (ctx && ctx.validSlotIds) || null;
+  const anchorsBySlot = (ctx && ctx.anchorsBySlot) || {};
+  const acceptedUpdates = [];
+  const rejected = [];
+  const errors = [];
+
+  const sps = Array.isArray(proposal && proposal.slot_evidence_proposals) ? proposal.slot_evidence_proposals : [];
+  for (const sp of sps) {
+    const slotId = sp && sp.slot_id;
+    if (!slotId) { errors.push('slot_evidence_proposal 缺 slot_id'); continue; }
+    // Slot 必须属于当前题
+    if (validSlotIds && !validSlotIds.has(slotId)) { rejected.push({ slot_id: slotId, reason: 'not_in_item' }); continue; }
+    // 有锚点表时必须存在该 slot 的锚点
+    if (Object.keys(anchorsBySlot).length && !anchorsBySlot[slotId]) { rejected.push({ slot_id: slotId, reason: 'no_anchor' }); continue; }
+    // proposed_level 0-3
+    const proposed = clampLevel(sp.proposed_level);
+    if (proposed < 0 || proposed > 3 || !Number.isInteger(sp.proposed_level)) { rejected.push({ slot_id: slotId, reason: 'illegal_level' }); continue; }
+    // supporting_spans 必须逐字回指教师原话
+    const supporting = (Array.isArray(sp.supporting_spans) ? sp.supporting_spans : []).filter((t) => t && teacherTurn.includes(t));
+    if (Array.isArray(sp.supporting_spans) && sp.supporting_spans.length && supporting.length === 0) {
+      rejected.push({ slot_id: slotId, reason: 'no_backref', detail: sp.supporting_spans }); continue;
+    }
+    acceptedUpdates.push({
+      slot_id: slotId,
+      proposed_level: proposed,
+      confidence: clamp01(sp.confidence),
+      supporting_spans: supporting
+    });
+  }
+
+  // G05：能力/人格/动机判定词 → 整条 Proposal 拒绝（专业红线）
+  const judgeRe = /能力|人格|动机|心理|性格|智力水平|属于.{0,3}(高|中|低)能力/;
+  if (judgeRe.test(JSON.stringify(proposal || {}))) {
+    errors.push('G05: 出现能力/人格/动机直接判定词');
+  }
+
+  return { acceptedUpdates, rejected, errors };
+}
+
+/**
+ * Committer：唯一能写 evidence_state 的入口。把验证通过的建议应用到状态。
+ * @param {object} evidenceState 当前状态（原对象拷贝后用）
+ * @param {Array<{slot_id, proposed_level, confidence, supporting_spans}>} acceptedUpdates
+ * @param {string} teacherTurn
+ * @param {string} turnId
+ * @returns {{ state, updates }}
+ */
+function commitProposal(evidenceState, acceptedUpdates, teacherTurn, turnId) {
+  const state = JSON.parse(JSON.stringify(evidenceState));
+  const updates = [];
+  for (const u of acceptedUpdates || []) {
+    const st = state[u.slot_id];
+    if (!st) continue;
+    const before = { level: st.level, confidence: st.confidence };
+    // 只允许向更高等级升级（与以前一致，避免 LLM 单轮降级造成振荡）
+    if (u.proposed_level > st.level) {
+      st.level = u.proposed_level;
+      st.status = statusFromLevel(u.proposed_level);
+      st.confidence = Math.max(st.confidence, u.confidence);
+      st.last_updated_turn = turnId;
+      for (const s of (u.supporting_spans || [])) {
+        if (!st.supporting_spans.includes(s)) st.supporting_spans.push(s);
+      }
+    }
+    const after = { level: st.level, confidence: st.confidence };
+    if (JSON.stringify(before) !== JSON.stringify(after)) {
+      updates.push({ slot_id: u.slot_id, before, after, quote: teacherTurn, reason: u.proposed_level > before.level ? `anchor_level_${u.proposed_level}` : 'no_change' });
+    }
+  }
+  return { state, updates };
+}
+
+/**
+ * bigramFallback：LLM 失败/超时/disabled 时，用 bigram 匹配产出**同一 Proposal 形状**，
+ * 使 LLM 与规则走同一条 Validator→Committer 路径（不各自维护一套 Evidence 逻辑）。
+ * @param {string} teacherTurn
+ * @param {object} anchorsBySlot { slotId: {level_0..3} }
+ * @param {string[]} evaluateSlotIds
+ * @returns {object} Proposal（含 slot_evidence_proposals）
+ */
+function bigramFallback(teacherTurn, anchorsBySlot, evaluateSlotIds) {
+  const slotEvidence = [];
+  const candidateSpans = [];
+  for (const slotId of (evaluateSlotIds || [])) {
+    const anchor = anchorsBySlot[slotId];
+    if (!anchor) continue;
+    const { level, confidence, matched } = assessSlot(teacherTurn, anchor, 0);
+    if (level > 0) {
+      slotEvidence.push({
+        slot_id: slotId,
+        proposed_level: level,
+        confidence,
+        supporting_spans: teacherTurn ? [teacherTurn] : []
+      });
+      candidateSpans.push({ text: teacherTurn, candidate_slots: [slotId] });
+    }
+  }
+  return {
+    proposal_type: 'EvidenceAnalysisProposal',
+    candidate_spans: candidateSpans,
+    slot_evidence_proposals: slotEvidence,
+    conflict_candidates: [],
+    false_evidence_flags: [],
+    uncertainty: [],
+    no_change_reasons: [],
+    source_turn: teacherTurn || null,
+    provider_version: 'bigram-fallback-v1'
+  };
+}
+
+module.exports = { assessSlot, updateEvidence, buildKeywords, overlapCount, statusFromLevel, extractKeywords: (t) => Array.from(normalizeBigrams(bigramsOf(t))), validateProposal, commitProposal, bigramFallback };
