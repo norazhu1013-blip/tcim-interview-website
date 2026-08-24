@@ -10,7 +10,7 @@
  *
  * 运行：node web/src/core/tcim/semantic.test.mjs
  */
-import { initTcisSession, processTeacherTurn, setSemanticProvider } from './engine.js'
+import { initTcisSession, processTeacherTurn, setSemanticProvider, setSemanticMode, getSemanticMode } from './engine.js'
 
 let failures = 0
 function ok(cond, label) {
@@ -95,6 +95,28 @@ async function run() {
     // 确定性升级照常（证明 G05 只拦语义层，不影响确定性裁决）
     ok(out.updates.some((u) => u.reason.startsWith('anchor_level_')), '确定性升级照常发生')
   }
+
+  // ---- 测试6：V0.2 双状态链（fallback_allowed）→ Evidence/Belief/TeacherModel/Planner/Gate ----
+  setSemanticMode('fallback_allowed')
+  setSemanticProvider(() => ({
+    candidate_spans: [{ text: '我会先判断幼儿是不是真的在玩一个游戏', candidate_slots: ['Q1-S1'] }],
+    slot_evidence_proposals: [{ slot_id: 'Q1-S1', proposed_level: 2, confidence: 0.9, supporting_spans: ['我会先判断幼儿是不是真的在玩一个游戏'] }],
+    uncertainty: ['我还想知道教师依据什么现象决定是否介入'],
+    conflict_candidates: [], no_change_reasons: []
+  }))
+  {
+    const session = initTcisSession('Q1', ['A', 'C', 'B', 'D'], [])
+    await processTeacherTurn(session, '')
+    const out = await processTeacherTurn(session, '我会先判断幼儿是不是真的在玩一个游戏。他们把篮球架变成了粉刷和接水的场地，这是幼儿自主生成的玩法。')
+    const replay = out.replay || []
+    ok(getSemanticMode() === 'fallback_allowed', '模式应为 fallback_allowed')
+    ok(out.updates.some((u) => u.reason.startsWith('anchor_level_')), 'V2 Evidence 应经 committer 更新')
+    ok(replay.some((e) => e.event === 'BeliefEvent' && e.op === 'ADD'), 'V2 应有 Belief ADD')
+    ok(replay.some((e) => e.event === 'TeacherModelEvent' && Array.isArray(e.active_belief_refs)), 'V2 应有 TeacherModelEvent')
+    ok(replay.some((e) => e.event === 'PlannerEvent' && e.selected_action_id), 'V2 应有 PlannerEvent')
+    ok(replay.some((e) => e.event === 'GateEvent' && e.decision === 'APPROVE'), 'V2 绿色应 APPROVE')
+  }
+  setSemanticMode('disabled')
 
   setSemanticProvider(null)
   console.log(`\nTCIM web semantic provider tests ${failures === 0 ? 'passed' : 'FAILED (' + failures + ')'}`)

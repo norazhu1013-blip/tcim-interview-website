@@ -12,6 +12,15 @@
  * 边界与 legacy 一致：AI 不参与打分；不泄露标准答案；单轮一主问。
  */
 import { TCIM_DATA } from '../../generated/tcim-data.js'
+// V0.2 共享逻辑：直接从 Node 内核 tcim/modules 复用（ESM 命名空间导入 CJS）。
+// 源码在 <repo>/tcim/modules/... —— 一个真源，消除 Node/网页分叉。
+import * as beliefState from '../../../../tcim/modules/context/belief_state.js'
+import * as teacherModel from '../../../../tcim/modules/context/teacher_model.js'
+import * as agentPlanner from '../../../../tcim/modules/planner/agent_planner.js'
+import * as decisionGate from '../../../../tcim/modules/gate/decision_gate.js'
+import * as challengeQueue from '../../../../tcim/modules/context/challenge_queue.js'
+import * as evidenceUpdater from '../../../../tcim/modules/ontology/evidence_updater.js'
+const { validateProposal: v2ValidateProposal, commitProposal: v2CommitProposal } = evidenceUpdater.namespace || evidenceUpdater.default || evidenceUpdater
 
 // 与 tcim/modules/ontology/evidence_updater.js 保持一致的中文 bigram 匹配
 const SYNONYMS = {
@@ -34,6 +43,13 @@ const HITS_MIN = 3
 
 /** 当前语义提供者句柄（可注入；缺省离线，行为与未接入完全一致）。 */
 let semanticProvider = null
+
+// V0.2 双状态 + Planner + Gate 是否启用（网页构建变量 VITE_TCIM_V2=1；默认关，Node 下为 undefined）
+const V2_ENABLED = String((typeof import.meta && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_TCIM_V2) || (typeof process !== 'undefined' && process.env && process.env.VITE_TCIM_V2) || '').trim() === '1'
+let _semanticMode = String((typeof import.meta && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_TCIM_SEMANTIC_MODE) || (typeof process !== 'undefined' && process.env && process.env.TCIM_SEMANTIC_MODE) || (V2_ENABLED ? 'fallback_allowed' : 'disabled')).trim()
+export function setSemanticMode(mode) { _semanticMode = String(mode || 'disabled').trim() }
+export function getSemanticMode() { return _semanticMode }
+export function isV2Enabled() { return V2_ENABLED }
 
 /**
  * 注入一个语义预筛提供者（A01 调用点）。`provider(teacherTurn, ctx)` 返回
@@ -546,27 +562,11 @@ export async function processTeacherTurn(session, teacherTurn) {
     session.history.push({ role: 'teacher', text: trimmed, ts: Date.now() })
     replayEvent(session, { event: 'TurnReceived', raw_teacher_text: trimmed })
   }
-  const evidenceBefore = JSON.parse(JSON.stringify(session.evidence))
-  const { evidence, updates } = updateEvidence(session.itemId, session.evidence, trimmed, turnId)
-  session.evidence = evidence
-  // Evidence 前后对比（ModuleEvent）
-  for (const u of updates) {
-    replayEvent(session, {
-      event: 'EvidenceUpdate',
-      slot_id: u.slot_id,
-      before: u.before,
-      after: u.after,
-      reason: u.reason
-    })
-  }
-  if (!updates.length) {
-    replayEvent(session, { event: 'EvidenceUpdate', slot_id: null, before: null, after: null, reason: 'no_change' })
-  }
-
-  // ---- A01 语义预筛（Step 1：LLM 只做 Proposal，裁决权仍在确定性 updateEvidence）----
-  // 只作为语义层的「观察/线索」透传，绝不改 level/confidence（G04/G05）。
   const item = TCIM_DATA.items[session.itemId]
   const validSlotIds = new Set(((item.ontology && item.ontology.slots) || []).map((s) => s.slot_id))
+  const evidenceBefore = JSON.parse(JSON.stringify(session.evidence))
+
+  // ---- A01 语义预筛（先做，供 V2 双状态链使用；V0.1 时仅作观察透传）----
   const semantic = await analyzeSemantic(trimmed, {
     itemId: session.itemId,
     turnId,
@@ -574,23 +574,79 @@ export async function processTeacherTurn(session, teacherTurn) {
     questionTitle: (item.metadata && item.metadata.title) || '',
     validSlotIds
   })
-  if (semantic.ok && semantic.proposal) {
-    const p = semantic.proposal
-    for (const span of p.candidate_spans || []) {
-      replayEvent(session, { event: 'SemanticEvent', type: 'span', span: span.text, slots: span.candidate_slots || [], provider: semantic.provider })
-    }
-    for (const sp of p.slot_evidence_proposals || []) {
-      replayEvent(session, { event: 'SemanticEvent', type: 'slot_proposal', slot: sp.slot_id, proposed_level: sp.proposed_level, confidence: sp.confidence, supporting_spans: sp.supporting_spans || [], provider: semantic.provider })
-    }
-    for (const c of p.conflict_candidates || []) {
-      replayEvent(session, { event: 'SemanticEvent', type: 'conflict_candidate', slot: c.slot_id || '?', note: c.reason, provider: semantic.provider })
-    }
-    for (const n of p.no_change_reasons || []) {
-      replayEvent(session, { event: 'SemanticEvent', type: 'no_change', slot: n.slot_id || '?', note: n.reason, provider: semantic.provider })
-    }
-  } else if (semantic.errors && semantic.errors.length) {
+  for (const sp of (semantic.ok && semantic.proposal ? semantic.proposal.slot_evidence_proposals || [] : [])) {
+    replayEvent(session, { event: 'SemanticEvent', type: 'slot_proposal', slot: sp.slot_id, proposed_level: sp.proposed_level, confidence: sp.confidence, supporting_spans: sp.supporting_spans || [], provider: semantic.provider })
+  }
+  for (const span of (semantic.ok && semantic.proposal ? semantic.proposal.candidate_spans || [] : [])) {
+    replayEvent(session, { event: 'SemanticEvent', type: 'span', span: span.text, slots: span.candidate_slots || [], provider: semantic.provider })
+  }
+  for (const c of (semantic.ok && semantic.proposal ? semantic.proposal.conflict_candidates || [] : [])) {
+    replayEvent(session, { event: 'SemanticEvent', type: 'conflict_candidate', slot: c.slot_id || '?', note: c.reason, provider: semantic.provider })
+  }
+  if (semantic.errors && semantic.errors.length) {
     replayEvent(session, { event: 'SemanticEvent', type: 'invalid', errors: semantic.errors, provider: semantic.provider })
   }
+
+  let evidence
+  let updates = []
+  let beliefEvents = []
+  let teacherModelSnapshot = null
+  let agentDecision = null
+  let gateResult = null
+  let challengeCandidates = []
+
+  if (getSemanticMode() === 'disabled') {
+    // V0.1 规则基线：bigram updateEvidence（与原行为一致）
+    const r = updateEvidence(session.itemId, session.evidence, trimmed, turnId)
+    evidence = r.evidence
+    updates = r.updates
+  } else if (semantic.ok && semantic.proposal && (semantic.proposal.slot_evidence_proposals || []).length) {
+    // ---- V0.2 双状态链：Evidence(validator/committer) → Belief → TeacherModel → Planner → Gate ----
+    const p = semantic.proposal
+    // Evidence：用 Node 共享 validator + committer（单一真源，消除 Node/网页分叉）
+    const anchorsBySlot = {}
+    for (const a of ((item.anchors && item.anchors.anchors) || [])) anchorsBySlot[a.slot_id] = a
+    const v = v2ValidateProposal(p, { itemId: session.itemId, validSlotIds, teacherTurn: trimmed, anchorsBySlot })
+    const c = v2CommitProposal(session.evidence, v.acceptedUpdates, trimmed, turnId)
+    evidence = c.state
+    updates = c.updates
+    // Belief（A02B）：uncertainty → ADD
+    let bs = session.contextual_belief_state || { beliefs: {}, version: 0 }
+    for (const u of (p.uncertainty || []).slice(0, 2)) {
+      const mut = { op: 'ADD', claim: u, confidence: 0.6, uncertainty: 0.6, source_refs: [turnId, session.itemId], alternatives: [] }
+      const validB = beliefState.validateBeliefMutation(mut, bs)
+      if (validB.ok) { const r = beliefState.applyBeliefMutation(bs, mut, turnId); bs = r.state; beliefEvents.push(r.event) }
+    }
+    session.contextual_belief_state = bs
+    // TeacherModel（A00 快照）
+    teacherModelSnapshot = teacherModel.buildTeacherModelSnapshot({ factRefs: [turnId, session.itemId], beliefState: bs, evidenceStateRef: session.itemId, turnId })
+    // Planner（A03）
+    agentDecision = agentPlanner.planDecision({ item, evidence, teacherModel: teacherModelSnapshot, beliefState: bs })
+    // Gate（A04）
+    gateResult = decisionGate.validateDecision(agentDecision, { expectedStateVersion: bs.version, committedStateVersion: bs.version })
+    // A12 Challenge
+    const cq = challengeQueue.createChallengeQueue()
+    const chal = challengeQueue.challengeFromDecision(cq, agentDecision, gateResult)
+    if (chal) challengeCandidates = cq.challenges
+  } else {
+    // semantic 无效但非 disabled：回退 bigram，保证可推进
+    const r = updateEvidence(session.itemId, session.evidence, trimmed, turnId)
+    evidence = r.evidence
+    updates = r.updates
+  }
+  session.evidence = evidence
+  for (const u of updates) {
+    replayEvent(session, { event: 'EvidenceUpdate', slot_id: u.slot_id, before: u.before, after: u.after, reason: u.reason })
+  }
+  if (!updates.length) {
+    replayEvent(session, { event: 'EvidenceUpdate', slot_id: null, before: null, after: null, reason: 'no_change' })
+  }
+  // V0.2 Replay：Belief / TeacherModel / Planner / Gate
+  for (const ev of beliefEvents) replayEvent(session, { event: 'BeliefEvent', op: ev.op, claim: ev.claim || null, before: ev.before, after: ev.after })
+  if (teacherModelSnapshot) replayEvent(session, { event: 'TeacherModelEvent', active_belief_refs: teacherModelSnapshot.active_belief_refs, competing_belief_refs: teacherModelSnapshot.competing_belief_refs })
+  if (agentDecision) replayEvent(session, { event: 'PlannerEvent', selected_action_id: agentDecision.selected_action_id, primary_target_slot: agentDecision.primary_target_slot, claimed_table_alignment: agentDecision.claimed_table_alignment, claimed_risk_level: agentDecision.claimed_risk_level, rejected_action_ids: agentDecision.rejected_action_ids })
+  if (gateResult) replayEvent(session, { event: 'GateEvent', decision: gateResult.decision, approved_action_id: gateResult.approved_action_id, adjudicated_risk_level: gateResult.adjudicated_risk_level, adjudicated_table_alignment: gateResult.adjudicated_table_alignment, evaluator_required: gateResult.evaluator_required })
+  if (challengeCandidates.length) replayEvent(session, { event: 'ChallengeEvent', challenges: challengeCandidates })
 
   // 停止/剪枝（OrchestratorEvent）
   if (itemSufficient(session.itemId, evidence)) {
