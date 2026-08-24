@@ -1,0 +1,96 @@
+TCIM「AI 是否真正介入 Evidence 判断」定性结论
+====================================================
+日期：2026-08-24
+依据：研究团队两份说明（「五表规则/固定优先级/PRDM 决策表/模板输出 = 规则系统」的质疑 +
+      Q8 例子：「我一般不会马上示范……换坡度/管子试试……试了几次不行才给一点提示」）
+参考：docs/tcim/EVIDENCE_LLM_ASSESSMENT.md（Step 1 落地记录，本文是更进一步的定性判定）
+
+----------------------------------------------------
+一、总体结论
+----------------------------------------------------
+按研究团队的标准，当前 TCIM 的默认路径上，AI 并未真正介入专业的 Evidence 判断。
+
+过去几轮所做的（evidence_semantic 接缝 + gsyg_semanticProbe 端点 + semanticLLM 注册 +
+G04/G05 三层拦截），为「AI 介入」搭好了脚手架（接缝、Schema、可部署端点、校验），
+但它不是 AI Action 本体：LLM 语义层目前是「事后的、建议性的、不驱动状态」的旁路，
+真正决定 Evidence level 的仍是确定性 bigram 锚点匹配。
+
+在未配置 LLM 的环境里，Evidence 状态从新到旧 100% 由 bigram 匹配决定——LLM
+语义分析不参与升级判定。因此「如果程序只有五表规则决定 Evidence、固定优先级决定
+下一步、PRDM 决策表决定问法、模板输出，那只是规则系统」——这一判断在当前默认路径上成立。
+
+----------------------------------------------------
+二、逐条回答研究团队的 5 个问题
+----------------------------------------------------
+
+问题 1：教师回答进入后，第一个 LLM 调用具体发生在哪里？
+答复：默认路径上不存在。
+  实际运行顺序是 game_support_ontology.process() 内——
+    先跑确定性 updateEvidence（bigram 锚点匹配）
+    再跑 analyze()（A01 语义）
+  且 evidence_semantic 默认 _provider = offlineProvider（空 Proposal）；网页端 semanticLLM
+  需注册且网关配好才生效，否则同样回退空。
+  研究团队要求「在 TurnContext 之后、Evidence State 更新之前」必须有明确 LLM 调用；
+  当前调用在之后，且无裁决权——位置错了，且无权威。
+
+问题 2：LLM 如何输出 EvidenceAnalysisProposal，Schema 是什么？
+答复：Schema 已定义且完整（semantic_core.js）：candidate_spans / candidate_slots /
+  conflict_candidates / false_evidence_flags / no_change_reasons / uncertainty，
+  并有逐条回指原话的解析 + G04/G05 校验。但它是「建议性」的——只进 diagnostics / replay，
+  不改 level、不驱动状态提交。
+
+问题 3：Evidence 升级如何同时回指教师原话 + Anchor rule？
+答复：
+  - 确定性 bigram 路径能做到（supporting_spans 存整段 + reason=anchor_level_N），
+    但这一步没有经过 LLM。
+  - LLM 的 Proposal 目前不参与升级判定，因此「LLM 判断」与「升级结果」是两套独立逻辑。
+
+问题 4：关掉 LLM、只留规则，哪些能力会明显下降？
+答复：几乎没有。这正是问题本身——因为 LLM 本来就不驱动升级。
+  用 Q8 例子（换坡度/换管子/试了几次/才给一点提示）对照当前 SYNONYMS 同义词表
+  （仅覆盖 幼儿/滑/器械/风险/介入/规则/场地/观察/转场/自主），bigram 匹配大概率
+  识别不出 Q8-S3/S4/S5 的证据——落到团队那句话：「这部分不可能靠固定题目流程稳定完成。」
+  也就是说，关掉 LLM 后，多 Slot 识别、隐含机制、条件语义、冲突发现、不确定性建模、
+  按 Anchor 提 0-3 级建议等能力，当前系统几乎都不具备。
+
+问题 5：Replay 里能否看到模型版本、Prompt 版本、结构化 Proposal、验证结果、状态变化？
+答复：部分。SemanticEvent 有进 replay，semantic_core 带 provider_version；
+  但「结构化 Proposal 全文、Prompt 版本号、模型版本、Ontology 验证结果、状态前后对比」
+  当前没有系统性逐条落盘——Replay 记的是摘要，不达标。
+
+----------------------------------------------------
+三、关键澄清：让 LLM 驱动 Evidence，不违反红线
+----------------------------------------------------
+必须澄清，避免误以为要推翻红线：
+  - 红线「计分与筛题是确定性程序、AI 不参与打分」，指 scoring.js 赋分查表 +
+    gsyg_selectFinal 的 R/P/G 服务端遴选。
+  - Evidence State 是访谈内部的动态工作记忆，不是「计分」。让 LLM 在这里出 Proposal、
+    Ontology 验证后写状态，碰不到那条红线——分数仍是查表，R/P/G 仍是服务端确定性 advisor。
+  所以研究团队要的与红线可以共存。此前「Step 3 会重定义红线」的判断，宜修正为：
+  把 A01 从「建议性」提升为「主导性」，状态写入仍归 Ontology，红线照旧。
+
+----------------------------------------------------
+四、下一步（研究团队明确的优先级）
+----------------------------------------------------
+「应优先实现『专业语义与 Evidence 分析调用』，而不是继续增加 PRDM 话术或固定规则。」
+即把 A01 从两块「挪位 + 赋权」：
+
+  现在                          →  应该是
+  LLM 语义分析在 Evidence 更新之后 → 在教师回答进入后、Evidence 更新之前
+  LLM Proposal 建议性（不驱动）   → 出结构化 Proposal，Ontology 只做验证器
+  bigram 决定 level              → LLM 决定 Proposal，Ontology 按 Anchor 验证后才提交
+  Replay 记摘要                 → 记模型版 / Prompt 版 / Proposal / 验证结果 / 状态对比
+
+最小闭环（建议）：
+  1. 把 evidence_semantic.analyze() 接到 updateEvidence 之前，让 LLM Proposal 生成后，
+     EvidenceUpdater 变成「Ontology 验证器」（锚点命中 + span 回指 + G04/G05 通过才写）。
+  2. 保留 bigram 作离线/降级兜底（缺 LLM 不崩，走规则），但默认不再用 bigram 做唯一裁决。
+  3. Replay 补全：模型版 / Prompt 版 / Proposal / 验证结果 / 状态对比。
+  4. 修 Q8 这类「多 Slot + 隐含机制」用例，证明 LLM 能识别「坡度 / 管子 / 试了几次」。
+
+----------------------------------------------------
+五、给「祝宇」的答复要点
+----------------------------------------------------
+是的，按这个标准，AI 还没有真正介入 Evidence 判断——现在做主的是规则；
+LLM 已经被允许在场，但还没有被赋予「出研判」的职权。要让它真正介入，
+核心改动是把它从「旁路」挪到「主干」上（见第四节），且这不触碰打分/筛题红线。
