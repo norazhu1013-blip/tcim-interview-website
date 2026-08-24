@@ -1,0 +1,9 @@
+{
+  "name": "gsyg_planner",
+  "version": "0.1.0",
+  "description": "TCIM V0.2 A03 AI Agent Planner + A04 Decision/Risk Gate；运行时必须 Nodejs18",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

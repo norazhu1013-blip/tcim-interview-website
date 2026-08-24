@@ -39,7 +39,8 @@ const ACTIONS = Object.freeze({
   selectFinal: 'gsyg_selectFinal',
   interviewChat: 'gsyg_interviewChat',
   reportInterview: 'gsyg_reportInterview',
-  semanticProbe: 'gsyg_semanticProbe'
+  semanticProbe: 'gsyg_semanticProbe',
+  planner: 'gsyg_planner'
 });
 
 const rateBuckets = new Map();
