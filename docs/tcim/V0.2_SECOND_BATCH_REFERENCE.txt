@@ -1,0 +1,2114 @@
+TCIM V0.2 第二批补充规范 · 可读归档
+============================================================
+
+来源：研究团队《第二批.zip》(2026-08-24，5 份 V0.2 docx，编码前冻结基线)。
+日期：2026-08-24。
+本文件是 5 份 docx 的可读纯文本归档，供检索/审阅；原始 docx 见 DOC/ 或研究团队交付。
+与第一批(总方案/01-1/01-2/02-x/八题示例/责任表 V0.2)共同构成 TCIM V0.2 编码基线。
+
+############################################################
+## [1/5] TCIM第一阶段工程总说明与AI作用说明
+############################################################
+编码前正式说明文件
+TCIM第一阶段工程总说明与AI作用说明
+从‘规则流程＋语言模型’转向‘专业约束下的情境自主Agent’
+文件编号：总说明
+版本：V0.2
+日期：2026年8月24日
+文件状态：V0.2 编码前总说明
+主要使用者：项目负责人、程序员、专业专家、测试、实施与合作方
+修订依据：TCIM_AI情境自主判断权增强_架构调整与说明性文件修订总方案_V0.1
+本版冻结结论　TCIM不是规则引擎外挂大模型，而是由专业Ontology约束、Facts/Belief/Evidence共同记忆、AI Agent Planner进行情境判断、Decision/Risk Gate治理、Core提交、PRDM调节互动、RAG按需供知、Generator实现表达的大模型Agent系统。规则限制和增强AI，但不替代AI。
+文件导航
+第1—4章说明为什么要改、旧设计为何让程序员看不到AI、架构是否需要大改。
+第5—9章明确AI真正拥有的判断权、各模块关系以及新增能力在全架构中的位置。
+第10—12章给出首问、逐轮对话和完整工程责任表。
+第13—16章划定第一阶段范围、建设顺序、评测与上线治理。
+第17章列出十二份编码前说明文件的关系和阅读顺序。
+1　为什么需要这份总说明
+程序员阅读第一阶段原文件后产生‘Ontology和PRDM已经把内容定制好了，AI没有发挥作用’的判断，并不是理解偏差，而是原说明在运行时决策中心、模块输入输出和验收证据上确实容易导向这一实现。若不在编码前纠正，最终产品很可能只在最后一步调用大模型改写固定问题，无法形成真正基于教师情境的专业对话。
+问题的严重性　如果专业目标、下一Slot、追问策略、停止与转向都由五表和固定Orchestrator预先决定，大模型只负责A08措辞，那么系统本质上仍是规则工作流。语言自然不等于智能体具备判断与决策。
+1.1　本次修订不是否定原设计
+Ontology、五表、Canonical Evidence、PRDM、RAG、Core、Replay和版本治理仍然保留。
+真正调整的是‘谁进行情境解释与行动选择’，以及其他模块如何验证、限制、支持和记录该选择。
+原有规则继续承担安全、专业一致性、状态验证和降级职责，但不再穷尽每个真实情境。
+第一阶段通过SHADOW和LOW_RISK逐步开放AI判断权，不要求一开始给予全局自治。
+2　原设计中AI看不见的具体原因
+原运行逻辑
+为什么AI被架空
+V0.2修正
+五表给出默认下一行动
+默认被实现成唯一答案，情境例外无入口
+规则分HARD/SOFT/PRIOR/ADVISORY；AI可对非HARD提出有理由偏离
+Ontology ReRank产生Top Action
+专业验证模块事实上替代Planner
+Ontology验证Evidence与约束；A03 Planner比较并选择候选
+Decision Orchestrator最终选择
+选择权仍在确定性编排层
+Gate裁决、Core提交；不重新作语义选择
+教师画像为固定摘要
+模型只能套用已定制内容
+Facts、Belief、Evidence及派生Teacher Model共同形成可撤销理解
+PRDM决定如何继续谈
+可能成为第二个行动规划器
+A06只观察互动；A07只实现已提交行动
+RAG由Orchestrator按规则触发
+Planner没有判断何时缺知识的工具权
+Planner提出Need，Gate授权，A05后同一A03恢复
+大模型在最后生成文本
+只能证明语言生成，不能证明专业判断
+A03→A04→Action Commit是AI介入最低证据
+3　调整后的系统定义
+正式定义　TCIM是一个由专业Ontology提供可验证边界、由Evidence State保存正式证据、由Contextual Belief保存可撤销情境假设、由AI Agent Planner进行下一专业行动判断、由Risk Gate独立裁决、由Core提交、由PRDM与RAG分别提供互动和知识支持的大模型Agent系统。
+Professional Baseline (Ontology / five tables)             │ constraints, anchors, priors, advisories             ↓Facts + Contextual Belief + Canonical Evidence             ↓ContextualTeacherModelSnapshot             ↓AI Agent Planner: interpret → compare candidates → select action     ├─ optional A05 RAG tool pause/resume     └─ reads A06 interaction signals on ordinary turns             ↓Decision/Risk Gate: HARD / privacy / risk / alignment / permission             ↓Orchestrator/Core: authorized Action Commit + fingerprint             ↓PRDM A07: DialoguePlan             ↓Generator A08 → deterministic Constraint → optional A09             ↓Teacher-visible professional dialogue
+这里的‘AI选择’在工程上仍以结构化Proposal表达。这不是削弱AI，而是把AI的语义判断与生产状态写入分开：模型有情境判断权，Gate有风险裁决权，Core有正式提交权。
+4　模块架构本身会不会大改
+结论　不需要推翻现有模块，也不需要把系统改成无约束的通用聊天机器人。主要是一次‘决策中心迁移＋接口重接线＋状态补充’：大部分模块保留，新增少量状态与Gate，重写若干运行顺序和Owner。
+层面
+保留
+需要调整
+改动级别
+Ontology/五表
+专业概念、Anchor、策略、停止条件、版本链
+规则分级、适用性、Challenge、只做验证/约束
+中等
+Core/Orchestrator
+编排、事务、持久化、Replay、Flag
+不再替代AI选行动；增加Gate/Commit谱系与Barrier
+中等偏大
+AI层
+Model Gateway与生成能力
+增加A00/A01/A02/A02B/A03等结构化能力
+新增核心
+PRDM
+互动策略维度
+拆成A06 observe与A07 plan；移除文本生成
+中等
+RAG
+双平面、R0—R3、K1—K5、治理
+触发权给Planner；双通道、Permission/Release、安全
+中等
+Generator
+文本生成
+只读Action/DialoguePlan；fingerprint与每稿Constraint
+小到中
+数据/评测
+Gold、Stress、Replay
+增加Belief、Action选择、Gate、非干扰和消融
+中等
+因此，数据库、服务框架、页面、登录、题目管理、基础日志等通常无需推倒重建；风险最高的改动集中在跨模块Contract、State Owner、A03/A04/Commit主链和现有固定决策逻辑的退位。
+5　AI应获得多大的判断与决策权
+用户的担心是成立的：如果五张Excel表被当成科学真理，系统会把高度可变的幼儿园专业情境压缩成固定路径，降低对话灵活性，也浪费大模型对测评、开放回答和过程资料形成独特解释的能力。解决方法不是取消规则，而是采用分层自主权。
+风险/规则
+AI权限
+Gate与系统行为
+HARD或HIGH
+不得覆盖或自治执行
+拒绝、暂停、人工或明确安全路径
+MEDIUM
+可提出Proposal和理由
+需A04E/澄清/额外复核，完成新Gate/Commit才执行
+LOW＋SOFT/PRIOR/ADVISORY
+可比较候选并选择，也可有理由偏离默认表项
+Gate独立校验后Core提交
+OUT_OF_SCHEMA/NO_APPLICABLE_RULE
+可形成谨慎表外解释和低风险澄清
+记录不确定性与Challenge Candidate，不自动改表
+合理自由度　AI拥有‘理解、提出、比较、选择’的权力；没有‘越过HARD、自己批准风险、直接写Evidence/Belief/Action、隐瞒不确定性、自动修改专业资料’的权力。这样既保留大模型能力，也避免不可审计的自由发挥。
+6　为什么五张表仍重要，但不能决定一切
+规则类型
+对AI的作用
+例子性解释
+HARD
+不可覆盖的安全、权限、法律、证据与产品红线
+不能暗示标准答案、不能无授权读取资料
+SOFT
+强专业默认；偏离须充分理由与Gate裁决
+通常先澄清再挑战，但情境可例外
+PRIOR
+概率性注意线索，不是问题路线
+测评倾向提示可能关注某Slot，不直接写Evidence
+ADVISORY
+专家经验、语言建议和备选策略
+可帮助候选生成，但不应锁定问法
+表3统一为PRIOR；它告诉AI‘值得关注什么’，不能提前证明教师知道什么。
+表2 Anchor决定正式Evidence能否成立；外部知识、测评分数和Belief都不能替代教师span。
+表4/表5的HARD边界继续由Gate强制；其他规则通过claimed/adjudicated alignment保留可解释偏离。
+AI发现表外情境时生成A12 OntologyChallengeCandidate，离线评审后才可能更新Production。
+7　新增能力：为什么增加、位置与作用
+7.1　Contextual Belief State
+为什么增加：测评与过程资料能支持情境假设，但不一定满足正式Evidence Anchor。若只有Evidence，系统会忽视有价值但尚未证实的信息；若混写，又会污染专业判断。
+架构位置：Facts与Canonical Evidence并列的独立namespace；首问由A00初始化，逐轮由A02B更新。
+主要作用：保存可撤销、可竞争、带来源和不确定性的情境假设，为Planner提供比固定画像更灵活的理解。
+权力边界：不能冒充Evidence；Belief Manager是Mutation Owner，Core持久化；状态与Evidence版本独立。
+7.2　ContextualTeacherModelSnapshot
+为什么增加：Planner需要统一读取Facts、Belief、Evidence和教师议题，但不能让多个模块各自产生一份自由文本画像。
+架构位置：Snapshot Builder在已提交状态之后构建的派生只读模型。
+主要作用：给A03提供一致、版本化、可重放的当前教师情境视图。
+权力边界：只引用正式状态和不确定性，不成为第二个假设源；stale Snapshot不得用于Commit。
+7.3　AI Agent Planner（A03）
+为什么增加：原系统缺少真正进行情境比较与专业行动选择的AI中心。
+架构位置：Snapshot之后、Risk Gate之前；普通轮次读取A06，必要时暂停等待A05。
+主要作用：形成多候选或结构化例外，选择一个selected_action，说明why_this_now、替代项、风险、表格一致性和fallback。
+权力边界：只输出Proposal；不能写Action、不能自批风险、不能覆盖HARD。
+7.4　Decision/Risk Gate（A04/A04E）
+为什么增加：给予AI更多判断权后，需要一个独立、可测试且fail-closed的治理层。
+架构位置：A03最终Proposal之后、Core Commit之前。
+主要作用：验证权限、HARD、隐私、风险、Evidence合法性、表格一致性、单目标和Fallback。
+权力边界：不替Planner重新进行开放式语义选择；输出adjudicated结果和授权。
+7.5　TurnResolutionBarrier
+为什么增加：Evidence与Belief由不同Owner独立提交；Planner若读取一新一旧的混合状态，会产生不可重放决策。
+架构位置：A02/A02B terminal之后、A06/A03之前。
+主要作用：等待COMMIT|NO_CHANGE|FAILED，发布唯一TurnResolutionSnapshot。
+权力边界：不合并两个状态，也不因一方失败回滚另一方。
+7.6　PRDM A06/A07双接口
+为什么增加：互动信号需要在Planner前发挥作用，而表达策略必须在Action提交后受fingerprint保护。
+架构位置：A06在Barrier后；A07在Action Commit后。
+主要作用：分别提供会话内互动观察与已批准行动的DialoguePlan。
+权力边界：不输出专业行动建议、不生成教师文本、不改Evidence/Belief/Action。
+7.7　RAG Permission/Release双Gate与双通道
+为什么增加：Planner应能自主判断何时缺知识，但internal知识不能泄露给教师，检索内容也可能包含隐私、过期信息和Prompt injection。
+架构位置：A03内部条件式A05工具调用；结果回到同一planning attempt。
+主要作用：在授权范围内提供有来源知识，并物理分离internal与teacher-facing pack。
+权力边界：不直接建议下一行动，不写Evidence/Belief/Action，不自动Promotion。
+7.8　Constraint Checker与可选A09
+为什么增加：A08可能在重写时偏离行动或产生多问、暗示答案、诊断性语言。
+架构位置：每次Generation草稿之后、发送之前。
+主要作用：确定性检查每稿必过；只有标记语义风险时才调用A09复核。
+权力边界：A09不能替代确定性检查，也不能改专业行动。
+8　各模块在新架构中的准确关系
+模块
+主要输入
+主要输出
+它支持AI的方式
+禁止成为
+Ontology/OntoAgent
+教师span、专业版本、Proposal
+语义、Anchor验证、约束、Challenge候选
+给可验证专业边界
+行动选择器
+Belief Manager
+A00/A02B＋来源/版本
+Committed Belief
+保留表外与不确定理解
+Evidence Engine
+AI Planner
+Snapshot、A06、Ontology工具、可选RAG
+AgentDecisionProposal
+真正进行情境行动选择
+状态写入者/自我审批者
+Risk Gate
+Proposal、HARD、权限、风险
+DecisionGateResult
+使自主权可安全上线
+第二个开放式Planner
+Core
+授权结果、expected versions
+Action Commit/fingerprint
+提供事务、幂等、Replay
+专业语义决策者
+PRDM
+互动快照或Committed Action
+A06信号/A07 DialoguePlan
+使行动适应当前互动
+目标选择或文本生成器
+RAG
+获准RAGRequest
+来源知识包
+补足Planner知识缺口
+Evidence/行动来源
+Generator
+Action＋DialoguePlan＋获准语义上下文
+文本草稿
+把行动自然表达
+重新规划器
+9　正式状态Owner与唯一写入关系
+状态域
+Mutation Owner
+验证/授权者
+Persistence Writer
+Raw / Facts
+Core Context Manager
+权限/输入Validator
+Core State Store
+Contextual Belief
+Belief Manager
+Belief Validator
+Core State Store
+Canonical Evidence
+Ontology Evidence Engine
+Anchor/Registry Validator
+Core State Store
+Teacher Model Snapshot
+Snapshot Builder
+版本/引用Validator
+Core State Store
+ProfessionalActionPlan
+Orchestrator/Core
+Decision/Risk Gate
+Core State Store
+PRDM Dialogue State
+PRDM
+PRDM Validators＋fingerprint
+Core State Store
+RAG Runtime State
+RAG
+Permission/Release/Security
+Core State Store
+Challenge/Candidate
+Governance
+专业/隐私/评测审核
+Evaluation Store
+AI调用返回Proposal并不意味着没有决策权；它意味着生产状态变化必须经过相应Owner和验证者。所有状态物理写入由Core完成，避免模块直连数据库和混合版本。
+10　第一问：AI如何依据已有资料发起
+教师完成题目后，AI第一问不是从空气中生成，也不是从固定五表直接取一句话。系统先保存测评、开放回答、过程资料和权限引用；A00形成可撤销情境解释；Snapshot Builder聚合Facts/Belief/Evidence；A03比较候选并选择；A04验证；A07/A08实现。
+Assessment/Process SAVED→ deterministic scores/Prior→ Evidence = UNKNOWN/null→ A00 ContextInterpretationProposal→ Belief validate/commit→ ContextualTeacherModelSnapshot→ A03 Planner [optional A05]→ A04/A04E→ Core ActionCommit + fingerprint→ A07 FIRST_TURN_DEFAULT DialoguePlan→ A08 + deterministic Constraint + optional A09→ first teacher-visible question
+第一问依据
+可以怎样使用
+不能怎样使用
+测评题与确定性分数
+作为事实和Prior
+直接证明教师具有/缺少某能力
+开放回答/过程资料
+形成带source ref的Belief候选
+无Anchor就写Evidence
+历史资料
+在授权scope内提供上下文
+默认读取全部个人历史
+五表
+给概念、Prior、策略、边界与stop policy
+预先锁定唯一首问
+AI模型
+比较多种解释与行动并选择
+越过Gate或隐藏不确定性
+11　教师回应后的三步循环
+用户此前确认的‘教师回应第一问以后，才进入AI语义分析—Ontology验证—新Evidence驱动下一行动’在V0.2中被扩展为更完整的双状态循环：语义解释同时服务Evidence和Belief，二者独立提交后再共同驱动下一行动。
+1. AI semantic interpretation   RAW_TURN_SAVED → A01 → A02 Evidence Proposal + A02B Belief Proposal2. Professional/state validation   Ontology validates span + Anchor → Evidence terminal   Belief Manager validates sources/uncertainty → Belief terminal   Barrier → TurnResolutionSnapshot → A06 interaction signal3. New state drives next action   A03 Planner [optional A05] → A04 Gate → Core Commit   → A07 DialoguePlan → A08 text → Constraint/A09
+Evidence回答‘教师原话是否满足正式专业Anchor’，Belief回答‘当前有哪些可撤销情境解释’；二者不能相互冒充。
+A06只提供当前互动负荷、纠正、请求支持、局部进展等信号，不决定下一目标。
+每一轮只提交一个primary_target_slot和一个single_cognitive_task；supporting slots不能偷换主目标。
+可见文本必须反向追溯到唯一Action Commit与原始教师turn。
+12　AI调用点—输入—输出—验证—状态—降级—评测责任表
+调用
+核心输入
+结构化输出
+验证者/状态写入者
+失败降级
+评测
+A00
+测评/过程Facts refs、权限、版本
+ContextInterpretationProposal
+Belief Manager / Core
+fact-only＋CONTEXT_DEGRADED
+来源、校准、首问增益
+A01
+已保存raw turn＋当前Snapshot
+SemanticAnalysisProposal
+Schema/Privacy / 无写
+规则抽取或标FAILED
+span、语义准确、隐私
+A02
+A01＋Anchor registry
+EvidenceUpdateProposal
+Ontology Evidence Engine / Core
+NO_CHANGE/FAILED
+Anchor、误写率、校准
+A02B
+A01＋Belief state；必要时已提交Evidence
+BeliefUpdateProposal
+Belief Manager / Core
+NO_CHANGE/FAILED
+来源、可撤销性、污染=0
+A03
+Snapshot、A06、Ontology tools、可选RAG
+AgentDecisionProposal
+A04 / 无写
+已发布LOW fallback送Gate
+专业相关性、候选质量、Evidence Gain
+A04
+A03、HARD、权限、风险、版本
+DecisionGateResult
+Gate / Core按授权Commit
+Gate不可用fail closed
+风险误放=0、误拒、alignment
+A04E
+MEDIUM Proposal＋冲突/约束
+EvaluatorRecommendation
+Gate / 无写
+澄清、拒绝、转人工
+中风险一致性、越权=0
+A05
+获准RAGRequest
+RAGResult/NO_CALL
+Permission＋Release / Core写rag state
+R0或无RAG继续
+检索、来源、安全、Agent增益
+A06
+TurnResolutionSnapshot＋当前对话
+InteractionSignalSnapshot
+PRDM Validator / Core写prdm state
+UNKNOWN/NEUTRAL
+纠正召回、UNKNOWN校准
+A07
+Committed Action＋fingerprint
+DialoguePlan
+Plan Validator / Core写prdm state
+最小Adapter；hash错则阻塞
+单问、适配、action drift=0
+A08
+Action＋Plan＋获准语义上下文
+GenerationResult
+Constraint / generation log
+绑定Action安全短模板
+自然度、忠实度、负荷
+A09
+被标记草稿＋约束上下文
+SemanticReviewResult
+Constraint policy / 无写
+拒绝/再生成/转模板
+漏检、误检、延迟
+A10
+会话状态与已提交引用
+ConversationSummaryProposal
+Summary Validator / Core
+确定性短摘要或不写
+事实忠实、无新结论
+A11/A12
+去标识失败/表外候选
+Failure/Challenge Candidate
+Evaluation/Governance
+排队或丢弃
+复发、专业审核、Promotion安全
+责任表的核心　模型产生Proposal，Validator/Gate决定是否合规，Mutation Owner决定状态是否变化，Core State Store执行物理写入。失败降级必须事先发布并可评测，不能由模块临时编造。
+13　第一阶段工程范围
+13.1　必须完成
+冻结A00—A09 Contract、State Owner、事件、Feature Flag、错误码和本地Runbook。
+实现Facts/Belief/Evidence独立状态、Snapshot Builder、TurnResolutionBarrier、版本/幂等/stale控制。
+实现A03 Planner、A04 Risk Gate和Core Action Commit，先SHADOW后LOW_RISK。
+把Ontology改造成专业语义/Anchor/约束服务，而不是Top Action选择器。
+实现PRDM A06/A07最小纵切、Generator fingerprint和每稿Constraint。
+实现RAG R0/NO_CALL、少量高质量K1—K4、R1/R2、Permission/Release与双通道；R3可暂不开放。
+以第八题为ILLUSTRATIVE_TEST_FIXTURE_NOT_PRODUCTION，完成首问与多轮Replay、Gold、Stress、Failure和消融。
+13.2　第一阶段明确不做
+不开放HIGH风险自治行动，不让AI覆盖HARD规则。
+不把五表、Prompt、RAG知识或教师对话自动写入Production。
+不训练或保存稳定人格、心理、能力标签；不记录隐藏思维链。
+不要求每轮调用A04E、A05、A09或复杂R3；条件调用和低延迟优先。
+不一次上线十题全自治；先用Q8纵切验证，再复制Contract而非复制硬编码内容。
+14　第一阶段建设顺序
+阶段
+目标
+项目负责人看到的证据
+Pre-Task
+审计现程序中AI是否只在A08
+真实调用图、State Owner、差距表
+Task 0
+冻结Contract、Owner、Flags、错误与命令
+Schema/ADR/矛盾清零
+Task 1
+情境状态与事务层
+Facts/Belief/Evidence隔离、Barrier与Replay
+Task 2
+A03 Planner
+多候选、selected action、理由和替代项
+Task 3
+A04 Gate＋Core Commit
+claimed/adjudicated、fingerprint、fail closed
+Task 4
+Ontology/PRDM/RAG/Generator接线
+端到端首问和逐轮事件
+Task 5
+Q8 SHADOW
+生产零干扰、Legacy/AI盲评差异
+Task 6
+LOW_RISK
+selected_by=AI_PLANNER、回滚和监测
+15　如何证明AI没有被限制死，也没有失控
+要证明的命题
+证据
+AI真的做了情境判断
+A00 Belief、A03多候选/选择/why_this_now、与Legacy或Prior不同的有理由行动
+规则没有替代AI
+非HARD偏离可提出；claimed与adjudicated分离；OUT_OF_SCHEMA有安全入口
+AI没有越权
+HARD bypass=0、Gate fail closed、所有Commit有授权、Owner越权=0
+五表科学性可持续改进
+Challenge Queue、A12、人工评审、版本化Promotion和回滚
+教师资料被合理利用
+source refs、权限、Belief不确定性、资料移除/增加的消融
+不是只把话说漂亮
+A08-only不得通过AI介入验收；专业相关性/Evidence Gain而非自然度单指标
+灵活性没有牺牲稳定性
+情境变体Stress、候选多样性、规则遵守、失败降级和Replay
+16　评测、上线与停止规则
+维度
+第一阶段必须测
+零容忍/停止信号
+专业质量
+相关性、下一行动合理性、Evidence Gain、专家盲评
+持续劣于Legacy或出现系统性误导
+自主性
+AI选择率、合理偏离率、候选质量、表外处理
+只剩固定Top Action＋A08
+安全
+HARD、隐私、权限、Prompt injection、Gate
+任何未授权HIGH/HARD执行
+状态
+Evidence/Belief污染、版本、幂等、Barrier
+无span Evidence、混合版本Commit
+互动
+纠正召回、单问、负荷、同行感、action drift
+PRDM/Generator换目标或诊断教师
+知识
+来源、Release、R0、检索、双通道
+internal泄露、无来源展示、自动Promotion
+性能成本
+端到端p50/p95、timeout、token、R0比例
+无条件调用导致不可接受等待
+SHADOW只写evaluation.shadow_*，生产Action、Belief、Evidence和可见文本零干扰。
+LOW_RISK只允许Gate adjudicated LOW；Planner自报LOW不算授权。
+Gate不可用fail closed；Fallback是已发布结果类型，不是Planner模式，也不算AI选择。
+Feature Flag按会话或审计运行段固定；回滚不改写历史。
+上线采用Canary、阈值监测、专家抽检、自动停止与新会话回退。
+17　十二份编码前说明文件的关系
+层级
+文件
+回答的问题
+总说明
+TCIM第一阶段工程总说明与AI作用说明_V0.2
+为什么改、AI到底做什么、一期怎样建
+总体
+01-1 TCIM总体架构_V0.2
+模块和端到端架构是什么
+规范
+01-2 TCIM工程执行规范_V0.2
+跨模块Owner、Contract、发布怎样约束
+操作
+01-3 TCIM开发操作手册_V0.2
+程序员逐项怎么做、怎么验收
+Ontology架构
+02-1 Ontology与OntoAgent架构说明_V0.2
+专业约束与Evidence服务在哪
+Ontology工程
+02-2 Ontology工程执行规范_V0.2
+Ontology如何编码、验证和发布
+专业配置
+02-3 Ontology专业配置与五表使用手册_V0.2
+专家如何维护五表
+PRDM架构
+03-1 PRDM架构说明_V0.2
+互动观察和计划如何分层
+PRDM工程
+03-2 PRDM工程执行规范_V0.2
+PRDM如何编码、测试和降级
+RAG架构
+04-1 RAG总体架构_V0.2
+Planner如何按需使用知识工具
+运行契约
+TCIM_AI运行契约与工程责任表_V0.2
+每个AI调用的精确责任是什么
+Q8 Fixture
+TCIM第八题_AI介入完整运行示例_V0.2
+一个纵切如何产生可验收事件
+文件优先级　总说明用于统一理解，不覆盖具体Contract。架构边界以01-1为准；Owner与工程约束以01-2为准；调用字段与责任以AI运行契约为准；模块文件不得重新定义跨模块权力。发现冲突应先修文档和ADR，再编码。
+18　给程序员的最终回应
+可以直接作为项目口径　你们的判断指出了原设计的真实风险：如果按照旧流程实现，AI很可能只在最后生成句子。现在的V0.2不是让Ontology、PRDM或RAG退出，而是让它们回到正确位置。AI Planner负责基于教师当前资料和情境理解选择下一专业行动；Ontology验证证据和边界；Gate决定能否安全执行；Core提交；PRDM决定互动实现；RAG在确有知识缺口时供知；Generator写出一句话。请用A03、A04和Action Commit的完整谱系，而不是‘是否调用过大模型’，验收AI是否真正介入。
+19　最终决策清单
+确认TCIM的产品定义是专业约束下的Agent，而非规则引擎＋语言润色。
+确认AI拥有LOW风险情境解释、候选生成与行动选择权；HARD和HIGH不开放。
+确认五表是版本化专业基线，可被质疑和治理，不是穷尽真实情境的唯一真理。
+确认A03 Planner、A04 Gate、Core Commit三者职责分离；Proposal不直接写生产状态。
+确认Facts、Belief、Evidence、Action、PRDM、RAG分别独立Owner与版本。
+确认第一问先A00/A03/A04，教师回应后才A01/A02/A02B。
+确认PRDM拆A06/A07、RAG作为A05工具、A08唯一生成、每稿必过确定性Constraint。
+确认Q8只是测试Fixture；通过SHADOW后再LOW_RISK，所有阶段可回滚和Replay。
+第一阶段完成定义　第一阶段的成功不是‘所有模块都写完’，而是程序能够稳定地证明：AI基于真实可授权资料形成独特但可撤销的情境理解，选择了一个专业行动，该行动经过独立治理并被忠实实现；与此同时，Evidence、规则、隐私、版本和失败路径始终可验证、可追溯、可回滚。
+
+############################################################
+## [2/5] 01-3 TCIM开发操作手册
+############################################################
+编码前正式说明文件
+01-3 TCIM开发操作手册
+从旧程序复现到AI Planner低风险上线的逐项Runbook
+文件编号：01-3
+版本：V0.2
+日期：2026年8月24日
+文件状态：V0.2 编码前冻结稿
+主要使用者：项目负责人、架构负责人、模块开发、测试与专业数据维护人员
+修订依据：TCIM_AI情境自主判断权增强_架构调整与说明性文件修订总方案_V0.1
+本版冻结结论　本手册把已冻结架构转换为可执行操作：AI Planner负责情境解释、候选行动比较与低风险行动选择；Ontology验证Evidence与专业边界；Risk Gate裁决；Core提交；PRDM调节互动；RAG按需供给知识；Generator只实现已批准行动。只有A03→A04→Action Commit完整可追溯，才能声称AI参与了专业判断。
+文件导航
+先复现旧基线，再冻结Contract与State Owner；不得一边猜接口一边开发。
+按Pre-Task和Task 0—6推进；一次只做一个Task，通过门禁后才进入下一项。
+首问和逐轮对话使用两条不同Runbook；首问前不得伪造教师对话Evidence。
+SHADOW先验证AI决策谱系零生产干扰，再开放经Gate批准的LOW_RISK行动。
+本手册不重新发明跨模块字段；权威契约以01-1、01-2及AI运行契约V0.2为准。
+1　为什么修订，以及与前版的关系
+1.1　为什么必须修订
+原手册以Ontology ReRank和Decision Orchestrator选择为中心，容易让开发者把五表或固定流程当成专业判断主体，把大模型缩减为A08语言润色。V0.2保留工程治理、版本控制和逐步上线方法，但把操作中心改为可验证的Agent决策链。
+1.2　继续保留的基础
+新电脑先复现旧版；依赖以锁文件和README为准，密钥、个人资料和.env不得入库。
+建立Git基线标签；一次只做一个Task；每个Task提交自动测试、事件证据和人工验收。
+专业资料遵循source→compile→validate→regression→release，PRDM与RAG分阶段启用。
+保留Worktree边界、每日安全流程、回滚、里程碑和非技术负责人验收方法。
+1.3　本版发生的实质变化
+将‘Ontology给Top Action、Orchestrator选择’改为‘AI Planner选择、Gate裁决、Core提交’。
+将五表从穷尽真理改为版本化Professional Baseline：HARD不可覆盖，SOFT/PRIOR/ADVISORY可由AI提出有理由的情境化偏离。
+增加Facts、Belief、Evidence及派生Teacher Model Snapshot的独立状态与原子边界。
+增加A00—A09、首问事务、逐轮Barrier、PRDM observe/plan、A05工具暂停/恢复和严格Fallback。
+将‘调用LLM即AI介入’改成A03 Proposal＋A04裁决＋Action Commit三项证据。
+版本关系　本文件经项目负责人确认后，作为《01-3 TCIM开发操作手册》原稿的V0.2替代稿；旧版保留用于历史追溯，但不再单独决定编码口径。若本文件与01-1/01-2 V0.2冲突，以01-1的架构权责和01-2的Contract/State Owner规则为准。
+2　手册地位、使用方法与权威资料
+操作手册的边界　01-3回答‘程序员下一步怎么做、怎么验收、出错怎么查’，不负责重新定义总体架构、状态Owner或跨模块Schema。遇到冲突，停止当前Task并修订权威文件，不得在代码里自行解释。
+主题
+权威来源
+本手册如何使用
+模块关系与行动权
+01-1 TCIM总体架构_V0.2
+按其边界接线，不在局部模块重建决策中心
+Owner、工程约束、发布
+01-2 TCIM工程执行规范_V0.2
+用于Commit、权限、Flag与发布门禁
+Ontology与五表
+02-1/02-2/02-3 V0.2
+用于Evidence验证、规则分级和专业版本
+调用点与失败责任
+TCIM_AI运行契约与工程责任表_V0.2
+直接生成Schema、事件和Contract测试
+第八题验收Fixture
+TCIM第八题_AI介入完整运行示例_V0.2
+仅作测试样例，不得生产硬编码
+PRDM与RAG
+03-1/03-2/04-1 V0.2
+分别实现互动适配与条件式知识工具
+术语
+本套文件的唯一含义
+AI选择权
+AI Planner在绿色低风险范围内比较候选并明确selected_action；这是真实行动判断，不只是提供一组备选。
+Proposal
+模型输出在工程上仍以结构化Proposal传递；Proposal不等于AI没有决策，而是状态提交必须经过Owner验证。
+正式提交权
+Core/Orchestrator在Risk Gate通过后写入唯一ProfessionalActionPlan并生成fingerprint。
+Canonical Evidence
+经当前Production Anchor验证、能够回指教师原话的正式证据状态。
+Contextual Belief
+AI基于多源资料形成的可撤销情境假设；可以表外，但不能冒充正式Evidence。
+五表偏离
+AI不按默认Prior/Probe/Stop路径行动；Planner声明claimed_table_alignment，Gate裁决adjudicated_table_alignment。取值统一为SUPPORT/PARTIAL/CONFLICT/OUT_OF_SCHEMA/NO_APPLICABLE_RULE。
+3　角色、工作节奏与每项交付
+角色
+主要责任
+每个Task必须看到的证据
+项目负责人
+冻结范围、风险权、是否进入下一Task
+非技术验收结论、未解决风险、上线决定
+架构负责人
+Contract、Owner、事件顺序、Flag
+ADR、Schema diff、越权测试
+模块开发
+在授权目录内实现，不扩大模块权力
+变更清单、运行方法、自动测试、trace
+测试负责人
+Gold/Stress/Failure/Replay与非干扰
+失败样例、断言、复现步骤和结论
+专业数据维护
+五表、知识语料、规则级别和版本审核
+编译报告、专业复核、版本签名
+一次只推进一个正式Task；Contract、Owner和Core提交逻辑禁止多人并行修改。
+每项报告必须说明：改了什么、没有改什么、如何运行、事件证据、测试结果、残余风险。
+没有事件谱系和失败路径的功能，不得以页面看起来正常作为完成证据。
+不记录隐藏思维链；只保存结构化Proposal、简短reason codes、来源引用、版本与裁决。
+4　本地环境、旧基线与仓库治理
+4.1　新环境必须先做的事
+确认仓库根目录、当前分支、锁文件、运行时版本和数据存储位置。
+按项目README复现旧版启动、停止、测试和第八题流程；保存可重复的recorded replay。
+建立只读基线标签，记录页面地址、服务入口、测试命令和已知缺陷。
+将实际本地命令冻结到docs/tcim/LOCAL_RUNBOOK.md；本手册不臆造npm、Python、数据库或云服务命令。
+确认密钥、真实教师资料、园所标识和日志脱敏策略；个人数据不得进入Fixture或提交历史。
+git status --shortgit rev-parse --show-toplevelgit branch --show-currentgit tag --listgit diff --statgit diff --name-only
+4.2　建议目录与修改边界
+目录/资产
+用途
+边界
+docs/tcim/architecture
+架构、ADR、Owner矩阵
+变更须架构评审
+contracts
+A00—A09与状态Schema
+禁止模块私有复制后自行演化
+core/state
+Barrier、版本、幂等、Commit
+唯一Persistence Writer
+ontology / prdm / rag
+模块实现
+只能写各自授权namespace
+fixtures/q08
+第八题测试资料和期望事件
+ILLUSTRATIVE_TEST_FIXTURE_NOT_PRODUCTION
+tests/gold, stress, failure, replay
+质量与非干扰
+Recorded与Re-execution分开
+professional-data
+五表、语料、registry
+必须版本化、编译、审核、回滚
+5　运行模式与Feature Flag操作
+legacy_interview = true|falsetcim_modular_core = true|falsecontextual_teacher_model_enabled = true|falsecontextual_belief_enabled = true|falseagent_planner_mode = OFF|SHADOW|LOW_RISK|CONDITIONALtable_override_mode = OFF|LOG_ONLY|LOW_RISKsecond_evaluator_enabled = true|falselegacy_deterministic_rerank_fallback = true|falseprdm_v01 = true|falserag_v01 = true|false
+模式/Flag
+真实含义
+禁止误解
+OFF
+Planner不控制生产行动，走明确Legacy路径
+不是静默失败
+SHADOW
+AI完整运行但只写evaluation.shadow_*；可见文本与生产状态仍由Legacy控制
+不是AI没有运行，也不能声称AI已上线
+LOW_RISK
+只有Gate裁定LOW且批准的AI行动可提交
+Planner自称LOW不构成授权
+CONDITIONAL
+按已发布条件开放不同风险路径
+不得临时放宽HARD或隐私边界
+FALLBACK
+一次运行的降级结果；selected_by=FALLBACK_POLICY
+不是agent_planner_mode第五个值
+prdm_v01=false
+使用确定性最小Dialogue Adapter，保持Action fingerprint
+不得改变专业目标
+rag_v01=false
+R0/NO_CALL，零模型、零缓存、零向量检索、零外部访问
+不得伪造source refs
+会话固定　所有Flag通过feature_flag_snapshot_id固化到会话或明确的新运行段。禁止在同一运行段静默切换模式；回滚必须保持历史可重放。
+6　Pre-Task：只读审计现有程序流
+本步骤只形成差距清单，不改业务代码。目标是确认当前程序里AI究竟参与了什么，而不是根据模块名称推断。
+画出教师完成第八题到首问、教师回应到下一问的真实调用图。
+列出全部LLM调用点，并标明它是否影响行动选择，还是只生成语言。
+列出所有状态表、实际写入者、版本字段和越权路径。
+检查Ontology、PRDM、RAG、Generator是否能够绕过Core修改Evidence、Belief或Action。
+盘点Fallback、超时、重复请求、stale proposal、Gate不可用和部分提交路径。
+确认每段可见文本能否追溯至A03、A04和唯一Action Commit；若只有A08，结论必须是‘AI尚未进入专业行动决策链’。
+审计产物
+最低内容
+停止条件
+current-flow.svg/md
+真实调用点、同步/异步、分支和可见文本出口
+任何主路径不清楚即停止
+state-owner-audit.csv
+状态、读者、Mutation Owner、Persistence Writer
+存在两个Owner即停止
+llm-call-inventory.csv
+输入、输出、是否影响行动、失败处理
+存在不可追溯调用即停止
+gap-register.md
+旧实现与V0.2逐项差异、风险和迁移顺序
+负责人未确认不得进入Task 0
+7　正式Task 0—6：一次一项、逐门通过
+Task
+目标
+核心产物
+通过门禁
+0 契约冻结
+字段、Owner、事件、模式、调用顺序
+Schema/ADR/本地命令/错误枚举
+契约可加载；跨文档矛盾清零
+1 情境状态层
+Facts、Belief、Evidence、Snapshot、Barrier
+独立namespace与原子Commit
+Owner隔离、版本、幂等、stale测试
+2 AI Planner
+A03生成候选并选择低风险行动
+AgentDecisionProposal
+至少两候选或结构化例外；单目标/单认知任务
+3 Risk Gate
+A04/A04E裁决、Fallback授权
+DecisionGateResult
+Planner不能自批；Gate异常fail closed
+4 模块接线
+Ontology、PRDM、RAG、Core、A00—A09
+端到端事件链
+版本、权限、fingerprint、降级合同通过
+5 Q8 SHADOW
+AI影子链与Legacy对照
+影子trace与评测
+生产状态/文本零污染
+6 LOW_RISK
+提交经Gate批准的AI行动
+可审计Action Commit
+可回滚、零HARD绕过、上线阈值满足
+7.1　每个Task的标准动作
+冻结允许修改目录、禁止范围、输入版本和预期事件；先写失败测试。
+只实现本Task的最小纵切；不得借机重构其他Owner或变更专业数据。
+运行Contract、Gold、Stress、Failure和Replay中与本Task相关的测试。
+生成一个可被非技术负责人阅读的验收包：输入摘要、调用序列、状态差异、可见结果、失败结果。
+通过后单独提交并停止；未通过时记录原因，不以临时硬编码跨门。
+8　教师完成题目后：AI发起第一问Runbook
+首问关键事实　此时教师尚未回应AI，因此不能先运行A01/A02。首问依据是已保存的测评答案、开放回答、过程资料、确定性评分、授权历史引用及当前专业数据版本；Canonical Evidence保持UNKNOWN/null，直到教师对话span通过正式Anchor验证。
+Assessment/Process SAVED→ deterministic scoring/Prior→ Evidence initialized UNKNOWN/null→ A00 ContextInterpretationProposal→ Belief Manager VALIDATE_AND_COMMIT→ Snapshot Builder: ContextualTeacherModelSnapshot→ A03 Planner [optional A05 tool pause/resume]→ A04/A04E Gate→ Core ACTION_PLAN_COMMIT + fingerprint→ A07 PRDM.plan→ A08 GenerationResult→ DETERMINISTIC_CONSTRAINT_CHECK (every draft)→ A09 only if flagged→ teacher-visible first question
+步骤
+操作者与输入
+检查点
+保存上下文
+Core保存测评、过程资料、权限和版本refs
+原文不可被模型输出覆盖
+A00
+AI基于授权事实提出Belief候选、竞争解释与不确定性
+只出Proposal；不写Evidence
+Belief Commit
+Belief Manager验证后由Core持久化
+单独版本；可撤销；有source refs
+Snapshot
+Snapshot Builder从Facts/Belief/Evidence refs派生
+无第二套自由文本假设源
+A03
+Planner比较候选、选selected_action、说明why_this_now
+claimed risk/alignment不是最终裁决
+A04
+Gate验证HARD、风险、权限与表格一致性
+输出adjudicated risk/alignment
+Commit
+Core提交ProfessionalActionPlan和fingerprint
+selected_by与Gate批准结果一致
+A07/A08
+PRDM规划互动；Generator实现文本
+不得改变主目标；每稿必过确定性约束
+8.1　首问最低验收
+可见首问前已有A00、A03、A04、Action Commit、A07和A08；SHADOW则为对应shadow事件。
+LOW_RISK中Action Commit的selected_by=AI_PLANNER，且selected_action与Gate批准行动一致。
+ProfessionalActionPlan.table_alignment与risk_level复制Gate的adjudicated值，而非Planner claimed值。
+Evidence没有被测评分数、表3 Prior或过程资料直接写成PARTIAL/SUFFICIENT。
+A08只实现行动；A09是确定性检查标记后的条件语义复核，不得替代每稿Constraint Checker。
+9　教师回应后：双状态解析与下一行动Runbook
+RAW_TURN_SAVED→ A01 SemanticAnalysisProposal→ A02 EvidenceUpdateProposal || A02B BeliefUpdateProposal→ Evidence / Belief independently VALIDATE_AND_COMMIT→ TurnResolutionBarrier waits COMMIT|NO_CHANGE|FAILED→ TurnResolutionSnapshot→ A06 PRDM.observe (model or deterministic fast path)→ A03 Planner [optional A05: WAITING_FOR_TOOL → resume same lineage]→ A04/A04E Gate → Core Commit→ A07 PRDM.plan → A08 → deterministic Constraint → optional A09→ visible text
+原始教师回应先保存；A01只能引用已保存span。
+A01、A02、A02B可以来自一次模型请求，但必须形成三个独立Schema和事件；若A02B要读取本轮已提交Evidence，必须在Evidence terminal后另行调用。
+Evidence和Belief各自提交；一个FAILED不回滚另一个。Barrier等待两者达到COMMIT、NO_CHANGE或FAILED后才发布Snapshot。
+A06是每轮逻辑阶段，可由模型或确定性快速路径生成InteractionSignalSnapshot；不可用时显式UNKNOWN/NEUTRAL，不能静默缺失。
+A03若需要知识，以同一planning lineage进入WAITING_FOR_TOOL；Tool/Permission Gate批准A05后，Planner恢复并只输出一个最终AgentDecisionProposal。
+A04批准后Core才能提交；A07、A08和RAG均不得改写primary_target_slot、single_cognitive_task或action fingerprint。
+10　State Owner、物理写入与版本
+状态域
+Mutation Owner
+Persistence Writer
+其他模块权限
+context.raw / facts
+Core Context Manager
+Core State Store
+只提取、引用
+context.belief_state
+Belief Manager
+Core State Store
+AI只提交Proposal
+teacher_model_snapshot
+Snapshot Builder
+Core State Store
+派生只读模型
+ontology.evidence_state
+Ontology Evidence Engine
+Core State Store
+AI只提交span＋anchor Proposal
+core.action_plan
+Orchestrator/Core
+Core State Store
+Planner选择；Gate授权；模块只读
+prdm.dialogue_state
+PRDM
+Core State Store
+不得改Action
+rag.runtime_state
+RAG
+Core State Store
+不得写Evidence/Belief/Action
+evaluation.challenge
+Governance
+Evaluation Store
+在线模块只提Candidate
+两个概念必须分开　Mutation Owner有权决定某状态域内容如何变化；Core State Store是执行原子持久化的唯一Persistence Writer。Owner也不能绕过Core直接写数据库。所有Commit检查expected version、authorized mutation id、幂等键和stale proposal。
+11　A00—A09操作口径
+调用
+触发
+核心输出
+正式状态写权
+A00
+首问前一次
+ContextInterpretationProposal
+无
+A01
+Raw turn已保存
+SemanticAnalysisProposal
+无
+A02
+A01后
+EvidenceUpdateProposal
+无
+A02B
+A01或Evidence terminal后
+BeliefUpdateProposal
+无
+A03
+Snapshot就绪
+AgentDecisionProposal；可暂停等待A05
+无
+A04
+A03最终Proposal后
+DecisionGateResult
+无；只授权/拒绝
+A04E
+MEDIUM且政策允许
+EvaluatorRecommendation
+无
+A05
+Planner提出KnowledgeNeedProposal且获准
+RAGResult或R0/NO_CALL
+仅rag.runtime_state
+A06
+TurnResolutionSnapshot后
+InteractionSignalSnapshot
+仅prdm.dialogue_state
+A07
+Action Commit后
+DialoguePlan
+仅prdm.dialogue_state
+A08
+DialoguePlan后
+GenerationResult草稿
+无
+A09
+确定性约束标记
+语义复核结果
+无
+AIRequestEnvelope {  trace_id, proposal_id, call_point, session_id, turn_id?, question_id,  input_refs[], input_state_versions{facts,belief,evidence,action},  professional_data_version, model_id, prompt_version, schema_version,  timeout_ms, attempt_id, feature_flag_snapshot_id, created_at}
+请求只传不可变引用和版本；Proposal接口不得写生产状态；Commit必须检查版本、授权与幂等；错误必须返回结构化status和reason_code。
+12　PRDM、RAG、Generator的接线操作
+模块
+正确操作
+失败降级
+不可越界
+PRDM A06
+读取TurnResolutionSnapshot，输出互动负荷/节奏等观察信号
+UNKNOWN/NEUTRAL快照
+不判断专业目标，不写Evidence/Belief/Action
+PRDM A07
+读取已提交Action＋fingerprint，制定DialoguePlan
+确定性最小Plan
+不生成可见文本，不改变fingerprint
+RAG A05
+由Planner提出need，Tool Gate授权，检索后同一A03恢复
+R0/NO_CALL或结构化失败，Planner走预声明fallback_without_rag
+不输出clarification/action，不写Evidence/Belief/Action
+Generator A08
+只读ActionPlan、DialoguePlan及获准teacher-facing pack
+安全模板仍保持已批准行动
+不得读取internal RAG pack或自行换目标
+13　第八题SHADOW操作与LOW_RISK推广
+13.1　SHADOW七步
+固定Q8 fixture、professional data version、模型/Prompt/Schema和Feature Flag快照。
+保存Legacy recorded replay；不得把新模型重跑冒充历史记录。
+运行shadow.A00/A03/A04/A07/A08及逐轮链，结果只写evaluation.shadow_*。
+教师可见文本仍由Legacy路径输出；比较行动目标、理由、风险、约束、延迟和专家评分。
+验证初始Evidence全部UNKNOWN/null；Q8-S4 primary、S5 supporting只是Fixture期望，不是生产硬编码。
+验证HARD绕过、无span Evidence、stale commit、action drift、未批准Promotion均为零。
+形成盲评与差异报告，项目负责人决定是否进入LOW_RISK。
+13.2　LOW_RISK与Fallback
+LOW_RISK启用前：SHADOW非干扰、Gate政策、隐私、安全、谱系查询、回滚演练和监测阈值全部通过。
+Planner失败或Proposal被拒时，只能把已发布的LOW fallback送Gate单独审批；Gate可用且批准后才能提交。
+Gate服务不可用时fail closed；不得用Fallback绕过Gate。安全暂停、交接或明确系统提示必须可观测。
+Fallback Commit标记selected_by=FALLBACK_POLICY与fallback_policy_id，不得算作AI自主选择。
+14　自动测试、人工验收与AI介入判据
+测试组
+最低断言
+Contract
+Schema正反例、必填字段、枚举、unknown field、版本兼容
+Owner
+越权写入为0；Evidence/Belief/Action版本独立；重复Commit幂等
+Planner/Gate
+至少两候选或结构化例外；claimed/adjudicated分离；HARD不可覆盖；Gate fail closed
+首问
+A00→A03→A04→Commit→A07→A08；Evidence仍UNKNOWN/null
+逐轮
+Raw先存；A01/A02/A02B；Barrier；A06；唯一Action Commit；fingerprint不漂移
+SHADOW
+生产状态、可见文本、计分、Evidence/Belief零干扰
+PRDM/RAG
+关闭时可降级；internal知识不泄露；PRDM不换目标；RAG ON/OFF不改Evidence/Belief
+Replay
+Recorded与Re-execution区分；历史版本可恢复；失败和Fallback可重建
+AI真正参与的最低判据　在LOW_RISK运行中，必须存在可追溯的A03 AgentDecisionProposal、A04批准结果和与其一致的Action Commit，且selected_by=AI_PLANNER。只有A08文本生成记录，不构成AI参与专业判断和决策。
+15　Trace、排障与非技术检查
+visible_text→ generation_result / constraint_result→ dialogue_plan→ action_commit + fingerprint→ gate_result→ planner_proposal→ turn_resolution_snapshot→ evidence/belief terminal events→ raw teacher turn
+症状
+首查证据
+责任边界
+首问像固定模板
+A00/A03/A04是否存在；selected_by
+Planner/Gate/Core
+AI只做语言
+是否只有A08，没有A03谱系
+编排配置
+SHADOW影响生产
+shadow namespace与生产版本差异
+Core
+Evidence错误
+span、Anchor、ValidationResult
+Ontology
+Belief被当证据
+A02B输入、状态Owner与引用
+Belief Manager
+循环读旧状态
+Barrier、input_state_versions
+Core
+Gate不可用仍输出
+是否绕过fail closed
+Gate/Core
+问题目标漂移
+Action fingerprint
+PRDM/Generator
+延迟过高
+A04E/A05/A09是否被无条件调用
+编排层
+15.1　项目若暂无CLI，应在Task 0冻结等价能力
+tcim doctortcim config show --session &lt;id&gt;tcim fixture run q08 --planner-mode SHADOWtcim trace show --session &lt;id&gt; --turn &lt;id&gt;tcim state inspect --session &lt;id&gt;tcim replay recorded --session &lt;id&gt;tcim replay compare --fixture q08 --left LEGACY --right SHADOWtcim data validate --version &lt;version&gt;tcim release gate --target LOW_RISK
+命令只是能力名称示例；实际命令由仓库现状冻结。失败须返回非零状态，默认输出不得包含完整个人资料、密钥或未授权原文。
+16　专业数据、Git、并行开发与发布回滚
+五表是版本化Professional Baseline，不是唯一情境真相；每条规则标记HARD、SOFT、PRIOR或ADVISORY。
+AI偏离SOFT/PRIOR/ADVISORY必须声明claimed_table_alignment、理由和来源；Gate输出adjudicated_table_alignment。HARD永不覆盖。
+专业数据变更必须重新compile、validate、regression、专业审核和release；运行会话固定professional_data_version。
+数据、Fixture和只读分析可并行；Contract、State Owner、Core Commit和Gate策略禁止多Worktree并行修改。
+每个Task单独提交；发布报告附Flag、模型、Prompt、Schema、专业数据和语料版本。
+回滚以新会话或明确运行段生效；保留历史Action、Belief、Evidence与Trace，不重写既有记录。
+17　交给编码助手的任务模板
+任务：仅实现 &lt;Task编号/能力&gt;。权威文件：&lt;文件与版本&gt;。允许修改：&lt;目录&gt;；禁止修改：Contract/Owner/Core等未授权范围。必须保留：A03选择、A04裁决、Action Commit谱系；不得只完成A08。输入版本：&lt;schema/prompt/model/professional-data/flags&gt;。必须提交：变更清单、运行方法、事件样例、自动测试、失败测试、残余风险。完成条件：&lt;Gate断言&gt;。完成后停止，不进入下一Task。
+18　最终检查清单
+旧版基线可复现，实际运行命令已冻结，真实教师资料与密钥未入库。
+Contract、State Owner、Flag、错误枚举、A05暂停/恢复和A06逻辑阶段没有跨文档矛盾。
+首问与逐轮事件链均可从可见文本反向追溯至原始输入。
+Ontology不替Planner选择，PRDM不换行动，RAG不写状态，Generator不作专业决策。
+SHADOW零干扰；LOW_RISK只提交Gate批准行动；Gate不可用fail closed。
+AI介入验收同时检查专业增益与事件可追溯性，不能只看语言自然度。
+
+############################################################
+## [3/5] 03-1 PRDM架构说明
+############################################################
+编码前正式说明文件
+03-1 PRDM架构说明
+A06互动观察与A07对话规划的时序隔离架构
+文件编号：03-1
+版本：V0.2
+日期：2026年8月24日
+文件状态：V0.2 编码前冻结稿
+主要使用者：架构师、PRDM/Planner/Generator开发、测试与专业评审人员
+修订依据：TCIM_AI情境自主判断权增强_架构调整与说明性文件修订总方案_V0.1
+本版冻结结论　PRDM是对话互动策略模块，不是专业行动规划器，也不是教师可见文本生成器。A06 PRDM.observe在TurnResolutionSnapshot之后、AI Planner之前生成会话内可观察互动信号；A07 PRDM.plan在Action Commit与fingerprint之后生成DialoguePlan。A08 Generator是唯一教师文本生成点。
+文件导航
+先看A06与A07的两个架构位置，再看各自Schema与禁止字段。
+Interaction Read、Local Progress、Uptake、Stance、Move、Challenge、Load与Dose继续保留。
+专业目标由Planner选择、Gate裁决、Core提交；PRDM只能观察互动并实现已提交行动。
+第一问使用FIRST_TURN_DEFAULT，不伪造PRDM.observe，也不从测评推断教师人格或互动风格。
+所有DialoguePlan必须绑定Action fingerprint，Generator与每次重写都要复核。
+1　为什么修订，以及与前版的关系
+1.1　为什么必须修订
+原PRDM思想本身合理，但把Interaction Read放在plan内部、把‘怎样继续谈’写得过宽，并在PRDM事件里容纳Generator输出，容易让实现者把PRDM做成第二个Planner或文本生成器。V0.2通过时序拆分，使互动信号可以合法服务Planner，同时保证已提交专业行动不被PRDM重选。
+1.2　继续保留的基础
+保留Interaction Read、Local Progress、Uptake、Stance、Dialogue Move、Challenge、Question Load和Response Dose。
+保留纠正优先、Repair优先、单问、避免反思饱和、减少无效文字负荷等原则。
+保留DialoguePlan与教师可见文本分层，保留PRDM不写Canonical Evidence的边界。
+1.3　本版发生的实质变化
+把原单体PRDM拆为Planner前A06 observe与Action Commit后A07 plan。
+A06只给互动信号，不给target/action/SHIFT/STOP建议；A07只实现已提交Action，不接收候选行动集。
+拆分PRDMObserveEvent和PRDMPlanEvent，Generator/Constraint事件不再归PRDM所有。
+用Action fingerprint、专业元素只读引用和三次校验防止行动漂移。
+低置信互动字段显式UNKNOWN；禁止稳定人格、能力或心理诊断。
+版本关系　本文件经项目负责人确认后，作为《03-1 PRDM架构说明》原稿的V0.2替代稿；旧版保留用于历史追溯，但不再单独决定编码口径。若本文件与01-1/01-2 V0.2冲突，以01-1的架构权责和01-2的Contract/State Owner规则为准。
+2　PRDM V0.2的定义与非目标
+PRDM是
+PRDM不是
+当前会话、当前互动的可观察信号提取器
+教师人格、能力、动机或心理诊断器
+已提交专业行动的互动实现规划器
+Ontology、Evidence Engine或Belief Manager
+节奏、承接、挑战度、负荷、剂量的调节器
+AI Agent Planner、Risk Gate或Orchestrator
+结构化DialoguePlan的Owner
+教师可见文本生成器或第二套RAG
+可被ON/OFF消融评测的互动层
+用温和措辞绕过风险裁决的工具
+一句话边界　A06可以让Planner知道‘当前互动发生了什么’，A07可以决定‘如何以合适互动方式实现已批准行动’，但两者都不能决定‘下一专业行动是什么’。
+3　在总体架构中的两个位置
+RAW_TURN_SAVED→ A01 / A02 / A02B→ Evidence &amp; Belief terminal→ TurnResolutionSnapshot        ↓   A06 PRDM.observe        ↓ InteractionSignalSnapshot   A03 AI Planner [optional A05]        ↓ AgentDecisionProposal   A04 Risk Gate / A04E        ↓   Core ActionCommit + fingerprint        ↓   A07 PRDM.plan        ↓ validated DialoguePlan   A08 Generator → deterministic Constraint → optional A09        ↓   teacher-visible text
+接口
+架构位置
+正式输出
+可改变
+不可改变
+A06 PRDM.observe
+TurnResolutionSnapshot后、Planner前
+InteractionSignalSnapshot＋LocalProgressSnapshot
+prdm.dialogue_state
+Evidence、Belief、目标、行动
+A07 PRDM.plan
+Action Commit/fingerprint后
+DialoguePlan
+prdm.dialogue_state
+Action、risk、专业元素、教师文本
+A08 Generator
+DialoguePlan验证后
+教师可见草稿
+generation trace
+Action、Evidence、DialoguePlan
+A07在Gate拒绝、CLARIFY但尚未重规划、没有Action Commit、fingerprint缺失或版本已变化时不得运行。
+4　第一问是特殊路径
+Assessment/Process SAVED→ A00 Context/Belief→ Snapshot→ A03 Planner→ A04 Gate→ ActionCommit + fingerprint→ A07 PRDM.plan(interaction_status=FIRST_TURN_DEFAULT)→ A08 Generator
+第一问前没有教师对AI的对话回应，因此不得伪造A06事件。
+不得从测评分数、开放回答或历史材料推断教师的互动风格、心理状态、人格或抗拒程度。
+A07可使用FIRST_TURN_DEFAULT及发布的通用低负荷策略，但仍须读取当前Action fingerprint。
+第一问之后，才进入A06 observe→Planner→A07 plan的常规循环。
+5　A06 PRDM.observe：只观察当前互动
+5.1　输入边界
+当前已保存原话、最近2—3轮可引用对话、教师明确纠正或支持请求、recent moves与Evidence delta引用。
+教师正在回应的上一已提交行动及其observed_action_fingerprint。
+不输入稳定人格标签；不把长期Teacher Model自由文本当作互动事实。
+所有强判断须有当前话语span；低置信字段写UNKNOWN，而不是为填满Schema而猜测。
+5.2　输出信号的准确含义
+信号
+允许表达
+禁止推断
+pragmatic_move
+回答、纠正AI、求澄清、请求支持、拒答、转议题、元评论、UNKNOWN
+教师专业水平或动机
+repair
+NONE/POSSIBLE/REQUIRED/UNKNOWN
+把不同意见自动当错误
+response_depth
+当前回应的表面展开程度
+稳定表达能力
+certainty
+当前话语显现的确定程度
+稳定自信或人格
+load
+当前互动负荷的可观察信号
+心理诊断、焦虑或能力不足
+engagement
+当前是否继续、减弱或脱离
+长期投入度
+support_request
+明确请求或UNKNOWN
+未经表达的需要
+纠正优先　若教师明确纠正AI，CORRECT_AI/repair信号优先于其他互动分类。A06只报告并引用span；若纠正影响专业目标，必须交Planner重规划，不能由PRDM自行修补行动。
+6　InteractionSignalSnapshot Contract
+InteractionSignalSnapshot {  snapshot_id, session_id, turn_id,  observed_action_id, observed_action_fingerprint,  mode: RULE_FAST_PATH|MODEL_ASSISTED|FALLBACK_UNKNOWN,  pragmatic_move: ANSWER|CORRECT_AI|ASK_CLARIFICATION|REQUEST_SUPPORT|                  DECLINE|SHIFT_AGENDA|META_COMMENT|UNKNOWN,  repair: NONE|POSSIBLE|REQUIRED|UNKNOWN,  response_depth: MINIMAL|DIRECT|ELABORATED|MIXED|OFF_TARGET|UNKNOWN,  certainty: LOW|MEDIUM|HIGH|MIXED|UNKNOWN,  load: LOW|MEDIUM|HIGH|UNKNOWN,  engagement: CONTINUING|WEAKENING|DISENGAGED|UNKNOWN,  support_request: NONE|EXPLICIT|UNKNOWN,  source_spans[{signal,turn_id,span_ref,text_hash}],  confidence_by_field{}, unknown_fields[], local_progress_ref?,  policy_version, created_at}
+A06是每轮逻辑阶段；实现可走确定性fast path或模型辅助。失败时仍产生FALLBACK_UNKNOWN快照，使Planner显式看到UNKNOWN/NEUTRAL，而不是把缺失误当‘互动正常’。
+7　Local Progress：给Planner的局部信号
+LocalProgressSnapshot {  progress_id, session_id, turn_id,  observed_action_id, observed_action_fingerprint,  status: ADVANCING|SLOW|STUCK|COMPLETE_LOCAL|UNKNOWN,  turns_on_action, evidence_delta_ref?, semantic_repeat_score,  no_gain_streak, unresolved_current_objective,  planner_signal: NONE|IMPLEMENTATION_NARROWING|IMPLEMENTATION_REFRAME|                  PROFESSIONAL_REPLAN_NEEDED|LOCAL_COMPLETE,  reason_codes[], policy_version}
+Local Progress
+PRDM允许做的事
+仍由Planner/Gate决定
+ADVANCING
+报告当前推进
+继续追问、换焦点或总结
+SLOW
+报告重复/增益变小
+收窄、重构或继续
+STUCK
+发PROFESSIONAL_REPLAN_NEEDED
+换策略、换Slot、暂停
+COMPLETE_LOCAL
+发LOCAL_COMPLETE
+SHIFT、STOP或新目标
+UNKNOWN
+不猜测
+按其他状态与风险规划
+Local Progress只绑定教师正在回应的上一Action fingerprint；Action切换后计数重置，不跨题累积为教师稳定特征。禁止字段包括next_target_slot、recommended_action_type、stop_decision。
+8　A07 PRDM.plan：实现已提交行动
+8.1　唯一合法输入
+PRDMPlanInput {  session_id, turn_id, question_id,  committed_action_ref {    action_id, action_plan_version, action_fingerprint, action_type,    primary_target_slot?, supporting_slot_refs[], professional_objective,    probe_strategy?, single_cognitive_task, cognitive_task_code,    adjudicated_risk_level, gate_dialogue_limits {      max_challenge_level, allowed_moves[], required_mitigations[], max_questions    },    protected_professional_elements_ref  },  interaction_status: OBSERVED|FIRST_TURN_DEFAULT|FALLBACK_UNKNOWN,  interaction_signal_ref?, local_progress_ref?, allowed_uptake_span_refs[],  recent_prdm_state_ref?, recent_move_refs[], permitted_rag_summary_ref?,  feature_flag_snapshot_id, prdm_policy_version}
+A07不接收候选行动集，不参与ProfessionalAction选择。
+专业目标、primary slot、probe strategy、risk和protected elements均为只读。
+permitted_rag_summary_ref只能指向Release Gate批准的teacher-facing pack；不得读取internal pack。
+没有有效Action Commit或fingerprint时不得生成DialoguePlan，也不得调用Generator。
+9　Uptake、Stance与Dialogue Move的授权条件
+策略
+可以使用的条件
+越界示例
+BRIEF/EXPLICIT UPTAKE
+只承接获准span，且不加入新专业判断
+把承接写成新的Evidence结论
+EXPERT_SUPPORT
+已提交Action明确允许支持/解释
+仅因教师请求支持就自行给建议
+TENSION_AND_PROBE
+Action中已有经Gate批准的张力
+PRDM自行发现跨来源冲突并挑战
+GENTLY_CHALLENGE
+Action允许且不超Gate上限
+把被拒绝的强挑战改软后发送
+REPAIR
+已提交Action为修复，或不改变专业目标的表达修复
+用Repair掩盖目标已经失效
+DIRECT_PROBE
+与已批准probe strategy相容
+换成另一个Slot或认知任务
+10　互动挑战度不等于系统风险
+effective_challenge_max = min(  published_policy.max_challenge_by_risk,  committed_action.gate_dialogue_limits.max_challenge_level)
+概念
+Owner
+作用
+dialogue_challenge_level = 0..3
+PRDM
+在Gate给定上限内控制表达强度
+adjudicated_risk_level = LOW|MEDIUM|HIGH
+Risk Gate
+决定行动是否允许自治执行及所需复核
+PRDM不得把MEDIUM改写为LOW；LOW行动也不能超过Gate限制。
+MEDIUM只有在模式允许、所需Evaluator/澄清完成、Core正式提交后才可A07实现。
+HIGH不得进入自治PRDM→Generator路径。缺少MEDIUM必需互动限制视为Contract error。
+第八题强张力候选被Gate返回CLARIFY后，A07调用次数必须为0；新中性Proposal经Gate-2和新Commit后才可处理。
+11　DialoguePlan：互动约束，不是教师话术
+DialoguePlan {  dialogue_plan_id, session_id, turn_id, committed_action_id,  action_plan_version, protected_action_fingerprint,  interaction_signal_ref?, local_progress_ref?,  uptake_mode: NONE|BRIEF|EXPLICIT, uptake_focus_span_refs[],  professional_stance: LISTEN|CO_INQUIRE|GENTLY_CHALLENGE|EXPERT_SUPPORT,  dialogue_move: DIRECT_PROBE|BRIEF_UPTAKE_PROBE|NOTICE_AND_PROBE|                 TENSION_AND_PROBE|GENTLE_CHALLENGE|REPAIR,  dialogue_challenge_level, question_load: LIGHT|STANDARD,  response_dose: LOW|MEDIUM|HIGH, reflection_budget,  max_chars, max_sentences, max_questions: 1, single_cognitive_task: true,  protected_professional_elements_ref,  prdm_required_interaction_elements[], prdm_optional_interaction_elements[],  gate_required_risk_mitigations[], forbidden_patterns[],  selection_reason_codes[], plan_status: VALID|FALLBACK,  prdm_policy_version, created_at}
+字段组
+来源/Owner
+作用
+protected_professional_elements_ref
+Committed Action，只读
+防止PRDM增加结论、Slot、Evidence要求或新建议
+prdm_required_interaction_elements
+PRDM
+如简短承接、允许纠正、单问
+prdm_optional_interaction_elements
+PRDM
+预算允许时的互动元素
+gate_required_risk_mitigations
+Risk Gate，只读
+不可遗漏的风险缓解
+forbidden_patterns
+Gate/PRDM政策
+禁止说教、暗示答案、多问或过度诊断
+禁止字段　DialoguePlan不得出现teacher_visible_text、draft_text、question_text、new_primary_target_slot、new_professional_objective、new_probe_strategy、risk_override、evidence_mutation或belief_mutation。
+12　Action fingerprint保护
+DialoguePlan持久化前，核对committed_action_id、action version与protected_action_fingerprint。
+Generator调用前，重新读取当前Action Commit并核对fingerprint。
+每次重生成和最终发送前再次核对；旧Plan不得通过‘更新hash’复用。
+fingerprint缺失、hash不一致、Action版本变化或旧Plan用于新Action时必须拒绝并按当前Action重建。该情形不是普通PRDM失败，不能使用绑定旧Action的降级计划。
+13　特殊互动情形的职责分配
+情形
+A06观察
+Planner/Gate
+A07实现
+教师纠正AI
+CORRECT_AI＋span
+判断是否重规划并审批修复行动
+实现已提交Repair
+教师请求支持
+REQUEST_SUPPORT
+决定是否形成支持行动及风险
+只调节已批准支持
+STUCK
+PROFESSIONAL_REPLAN_NEEDED
+继续、换策略或换目标
+不自行换目标
+COMPLETE_LOCAL
+LOCAL_COMPLETE
+继续、SHIFT或STOP
+实现已提交决定
+拒答/转议题
+报告可观察事实
+决定尊重、澄清或转向
+不推断动机
+高负荷
+load=HIGH＋span
+保证专业要素仍有效
+降低表达负荷，不删专业必需语义
+14　与Generator、Constraint、RAG的关系
+相邻模块
+PRDM可以接收/输出
+隔离规则
+Generator A08
+输出validated DialoguePlan；接收generation_event_ref
+A08是唯一教师文本生成者；PRDM不输出完整句子
+Constraint
+提供max questions、forbidden patterns、fingerprint
+每稿确定性检查；A09仅在标记时语义复核
+RAG A05
+仅A07可接收teacher-facing pack ref
+A06不主动检索；两者均不能读internal pack
+Planner
+A06给InteractionSignalSnapshot；A07只读Committed Action
+禁止A06输出target recommendation，禁止A07重选行动
+15　状态Owner与事件
+PRDMDialogueState {  state_version, current_action_id, current_action_fingerprint,  turns_on_current_action, previous_move?, same_move_streak,  reflection_count_last_3_turns, no_progress_streak, last_visible_length,  last_interaction_snapshot_ref?, last_dialogue_plan_ref?}
+事件
+拥有的字段
+只能引用、不能拥有
+PRDMObserveEvent
+observed fingerprint、snapshot_id、mode、validation、policy version
+raw text、Evidence/Belief Commit
+PRDMPlanEvent
+committed action、protected fingerprint、dialogue_plan_id、validation
+Generator output、Constraint result
+GenerationEvent
+draft/final refs、model/prompt、fingerprint
+PRDM只保存generation_event_ref
+PRDM是prdm.dialogue_state的Mutation Owner；Core State Store负责物理持久化。PRDM状态失败不回滚已提交Evidence、Belief或Action。
+16　Feature Flag与失败降级
+情形
+降级
+必须保持
+prdm_v01=false
+A07使用确定性最小Dialogue Adapter
+Action fingerprint、单问、低剂量、Constraint
+A06失败
+FALLBACK_UNKNOWN/NEUTRAL供Planner读取
+不虚构互动信号；Evidence/Belief不变
+A07策略失败
+教师纠正时REPAIR，否则与Action兼容的DIRECT_PROBE最小Plan
+当前fingerprint与专业元素
+Action缺失/hash不符
+拒绝并重建；不发送文本
+不使用旧Plan或旧模板
+Gate不可用
+fail closed
+不得借PRDM发送专业追问
+Generator失败
+绑定当前Action的安全短模板
+仍过fingerprint和Constraint
+17　评测与发布
+评测层
+指标/断言
+Observe
+Interaction标签F1、多评审一致性、纠正召回率、UNKNOWN校准、无稳定人格推断
+DialoguePlan
+Gold policy match、单问率、挑战/负荷匹配、Repair正确率、语义重复率
+边界
+A06时序、A07时序、Action fingerprint覆盖率100%、PRDM越权Mutation=0
+端到端
+Professional Fit、同行感盲评、Evidence Gain/minute、Added Text Cost、P95延迟
+消融
+PRDM ON/OFF时Evidence/Belief不变；行动目标不变；仅互动实现合理变化
+18　架构验收清单
+A06_before_TurnResolutionSnapshot=0；第一问前伪造A06=0。
+A07_before_ActionCommit=0；A07_called_for_rejected_action=0。
+teacher_text_generated_by_PRDM=0；PRDM对Evidence/Belief/Action的Mutation=0。
+Action fingerprint校验覆盖率100%；不匹配文本发送数=0。
+稳定人格、能力或心理标签输出=0；无依据强制填充互动标签=0。
+Q8强张力候选CLARIFY后没有DialoguePlan；新Proposal经新Gate/Commit后才有新Plan。
+PRDM关闭、A06/A07失败和并发stale均有可测试降级，且不绕过Constraint。
+架构完成定义　PRDM的价值不是接管专业判断，而是让AI已批准的专业行动在当前互动中更像真正的同伴对话：承接得当、负荷适中、挑战有度、必要时修复，同时始终不越过Evidence、Belief、Action和文本生成边界。
+
+############################################################
+## [4/5] 03-2 PRDM工程执行规范
+############################################################
+编码前正式说明文件
+03-2 PRDM工程执行规范
+observe/plan双接口、fingerprint与非干扰的可编码标准
+文件编号：03-2
+版本：V0.2
+日期：2026年8月24日
+文件状态：V0.2 编码前冻结稿
+主要使用者：PRDM、Core、Planner、Generator开发，测试、运维和架构评审人员
+修订依据：TCIM_AI情境自主判断权增强_架构调整与说明性文件修订总方案_V0.1
+本版冻结结论　工程实现必须把A06 observe与A07 plan拆成独立Contract、Validator、事件和失败路径。PRDM只授权修改prdm.dialogue_state；Core负责持久化；A08是唯一教师文本生成点。无有效Action Commit或fingerprint不一致时，任何DialoguePlan和教师文本都不得发送。
+文件导航
+第2章为永久工程不变量；任何实现、Prompt或配置都不得覆盖。
+第4—10章分别冻结A06、A07、Validator、fingerprint和Risk Gate接线。
+第13—17章冻结状态、Flag、失败、日志、隐私与Gold资料。
+第18—20章提供测试矩阵、建设顺序与Definition of Done。
+1　为什么修订，以及与前版的关系
+1.1　为什么必须修订
+原工程规范中PRDM观察、计划和文本生成边界不够物理化，Prompt甚至可能被理解为可直接生成自然语言，事件还容纳generator_output与constraint_result。V0.2把权责落实到包、Schema、Validator、幂等键、事件Owner、失败码和零容忍测试。
+1.2　继续保留的基础
+保留PRDM策略维度、Gold/Stress、Replay、指标、隐私、Flag和分阶段发布。
+保留可观察session-local信号、Repair优先、单问、挑战/负荷/剂量限制。
+保留PRDM不写Evidence、不改变已批准ProfessionalAction的工程原则。
+1.3　本版发生的实质变化
+观察与计划拆成prdm/observe和prdm/plan，分别使用A06、A07 Schema与事件。
+Generator、Constraint、Planner从prdm包中移除；PRDM Prompt禁止输出教师文本。
+新增Interaction Validator、DialoguePlan Validator、Action fingerprint并发与stale处理。
+新增UNKNOWN/NEUTRAL、最小Dialogue Adapter、Gate fail closed等分级降级。
+Gold的gold_next_turn移到Generator/端到端资料，PRDM Gold只评互动信号与计划约束。
+版本关系　本文件经项目负责人确认后，作为《03-2 PRDM工程执行规范》原稿的V0.2替代稿；旧版保留用于历史追溯，但不再单独决定编码口径。若本文件与01-1/01-2 V0.2冲突，以01-1的架构权责和01-2的Contract/State Owner规则为准。
+2　永久工程不变量
+A06只能在TurnResolutionSnapshot发布后运行；第一问前不运行A06。
+A07只能在Risk Gate批准、Core ActionCommit和fingerprint生成后运行。
+A08 Generator是唯一教师可见文本生成点；PRDM不得输出完整教师话术。
+PRDM不得写Canonical Evidence、Contextual Belief或ProfessionalActionPlan。
+A06不得输出target/action/SHIFT/STOP recommendation；A07不得改变primary target、objective、probe strategy或risk。
+所有DialoguePlan、草稿、重写和最终发送必须绑定并复核当前Action fingerprint。
+UNKNOWN优于无证据推断；教师明确纠正优先于其他互动分类。
+PRDM关闭或失败不得绕过确定性Constraint，也不得改变Evidence/Belief合法性。
+3　包结构、依赖方向与公共枚举
+prdm/  observe/  interaction_validator/  local_progress/  plan/  dialogue_plan_validator/  fallback_adapter/  contracts/  replay/# 不属于prdm/planner/  generator/  constraints/  ontology/  core/state/
+包
+唯一职责
+禁止依赖/行为
+observe
+生成InteractionSignalSnapshot
+不得依赖Planner候选或输出行动建议
+interaction_validator
+span、置信、禁止标签、Schema
+不得补写模型遗漏的强标签
+local_progress
+上一Action的局部进展
+不得决定新目标/SHIFT/STOP
+plan
+把Committed Action映射为互动参数
+不得输出完整句子
+dialogue_plan_validator
+fingerprint、专业元素、风险限制、单问
+不得自动软化并放行被拒行动
+fallback_adapter
+当前Action绑定的最小Plan
+不得在无Commit/hash不符时运行
+replay
+重放A06/A07输入输出与版本
+不得改写历史Production
+公共枚举必须来自contracts包：dialogue_challenge_level、adjudicated_risk_level、protected_action_fingerprint、FIRST_TURN_DEFAULT、UNKNOWN、PRDMObserveEvent和PRDMPlanEvent。服务内不得另造同义值。
+4　A06接口实现规范
+PRDMObserveInput {  request_id, session_id, turn_id, question_id, raw_turn_ref,  turn_resolution_snapshot_ref,  observed_action_ref {action_id, action_plan_version, action_fingerprint},  evidence_delta_ref?, recent_turn_refs[max_3],  recent_dialogue_plan_refs[], recent_visible_reply_refs[],  feature_flag_snapshot_id, prdm_policy_version}idempotency_key = session_id + turn_id + observed_action_fingerprint + prdm_policy_version
+4.1　执行顺序
+校验TurnResolutionSnapshot存在、turn一致、Evidence/Belief均已terminal。
+校验observed_action_ref是教师正在回应的上一已提交行动，而非即将规划的新行动。
+确定性fast path先识别明确纠正、拒答、支持请求和简单回答；必要时调用模型辅助。
+Interaction Validator校验span、置信、禁止字段和稳定诊断；不合格字段改UNKNOWN或整体REJECT。
+生成LocalProgressSnapshot并由Core原子保存prdm namespace；发布PRDMObserveEvent。
+超时或不可用时生成FALLBACK_UNKNOWN，Planner仍能继续。
+4.2　Validator必须拒绝
+没有当前话语span依据的强判断；把低置信强制转换为确定标签。
+能力、人格、动机、心理、疾病或长期风格诊断。
+next_target_slot、recommended_action、stop_decision或风险裁决。
+把测评资料、历史评分或Belief当成当前互动观察。
+包含原始个人身份信息、密钥或未授权长文本的日志输出。
+5　InteractionSignalSnapshot与禁止字段
+InteractionSignalSnapshot {  snapshot_id, session_id, turn_id, observed_action_id,  observed_action_fingerprint, mode, pragmatic_move, repair,  response_depth, certainty, load, engagement, support_request,  source_spans[], confidence_by_field{}, unknown_fields[],  local_progress_ref?, policy_version, created_at}forbidden = [  next_target_slot, recommended_action_type, stop_decision,  personality_label, ability_label, psychological_diagnosis]
+校验
+通过条件
+失败处理
+span integrity
+span_ref属于raw_turn_ref，hash一致
+字段UNKNOWN或REJECT
+field confidence
+达到字段阈值；阈值版本化
+UNKNOWN，不强填
+turn locality
+信号只描述当前/最近会话行为
+删除稳定化表述
+forbidden output
+无行动、诊断、专业判断字段
+整体REJECT＋告警
+schema/version
+无未知字段，版本兼容
+INVALID_SCHEMA
+6　LocalProgress状态机
+状态
+主要输入
+唯一允许的Planner信号
+计数规则
+ADVANCING
+新语义/证据增益
+NONE
+继续当前Action计数
+SLOW
+重复上升、增益变小
+IMPLEMENTATION_NARROWING/REFRAME
+只在同fingerprint内
+STUCK
+连续无增益且目标未解决
+PROFESSIONAL_REPLAN_NEEDED
+达到发布阈值；不自动换Action
+COMPLETE_LOCAL
+当前objective局部完成
+LOCAL_COMPLETE
+不自动STOP
+UNKNOWN
+数据不足/失败
+NONE
+不延续为稳定标签
+状态绑定observed_action_fingerprint；Action切换时turns_on_action、repeat和no_gain计数重置。跨题累积只能进入经治理的研究指标，不能成为运行时教师标签。
+7　A07接口实现规范
+idempotency_key = session_id + turn_id + committed_action_fingerprint + prdm_policy_versionPRDMPlanInput {  session_id, turn_id, question_id, committed_action_ref{...},  interaction_status, interaction_signal_ref?, local_progress_ref?,  allowed_uptake_span_refs[], recent_prdm_state_ref?, recent_move_refs[],  permitted_rag_summary_ref?, feature_flag_snapshot_id, prdm_policy_version}
+从Core读取最新ActionCommit，校验Gate批准状态、action version和fingerprint。
+载入只读protected_professional_elements_ref与gate_dialogue_limits；不载入候选行动集。
+选择Uptake、Stance、Move、Challenge、Load、Dose、反思预算和长度上限。
+生成结构化DialoguePlan；禁止输出完整教师句子。
+DialoguePlan Validator验证fingerprint、专业元素、风险缓解、单问和禁止字段。
+Core持久化prdm.dialogue_state并发布PRDMPlanEvent；随后才允许A08。
+8　DialoguePlan Validator
+检查项
+MUST
+失败码/动作
+Action binding
+当前Action ID/version/fingerprint完全一致
+STALE_ACTION；废弃并重建
+Professional elements
+只引用，不删改、不新增
+ACTION_DRIFT；拒绝
+Gate mitigations
+required mitigations完整
+RISK_MITIGATION_MISSING
+Single task
+single_cognitive_task=true；max_questions≤1
+MULTI_TASK/MULTI_QUESTION
+Move compatibility
+Move/Stance与Action、risk和allowed_moves相容
+MOVE_NOT_ALLOWED
+Load/challenge
+不超过Gate及政策较小上限
+CHALLENGE_LIMIT_EXCEEDED
+Text fields
+无draft/question/assistant_message
+TEACHER_TEXT_FORBIDDEN
+RAG ref
+仅Release批准teacher-facing pack
+INTERNAL_KNOWLEDGE_REF
+9　Fingerprint、版本、并发与stale
+Core对ProfessionalActionPlan使用冻结的canonical serialization生成fingerprint；字段顺序和空值规则版本化。
+A07开始、DialoguePlan Commit、A08开始、每次重写和最终发送均读取并比对当前Action version/fingerprint。
+Action并发更新时，旧DialoguePlan标STALE并不可发送；重试必须重新读取当前Commit。
+不得给旧Plan简单替换hash后复用；所有professional elements和Gate mitigations必须重新解析。
+日志记录expected/actual version、old/new fingerprint和处理结果，但不记录隐藏思维链。
+10　Risk Gate集成
+adjudicated risk
+A07前置条件
+PRDM权限
+LOW
+Gate APPROVE＋Core Commit
+在gate_dialogue_limits内实现
+MEDIUM
+模式允许＋所需A04E/澄清完成＋新Gate APPROVE＋Core Commit
+只能实现新批准Action；不得自行降风险
+HIGH
+不得进入自治执行链
+不生成DialoguePlan
+REJECT/CLARIFY未重规划
+无合法Action Commit
+A07调用次数必须为0
+Gate unavailable
+fail closed
+PRDM不得以安全措辞绕过
+11　Repair、Support、Stuck、Complete责任表
+信号
+A06职责
+Planner职责
+A07职责
+CORRECT_AI
+标记并引用span
+判断重规划/修复Action
+实现已提交Repair
+REQUEST_SUPPORT
+报告明确请求
+决定支持内容和风险
+调节已批准支持Action
+STUCK
+报告局部停滞
+继续/换策略/换目标
+不自行换目标
+COMPLETE_LOCAL
+报告局部完成
+继续/SHIFT/STOP
+实现已提交决定
+12　Generator与Constraint集成
+GeneratorInput = {  committed_action_ref, validated_dialogue_plan_ref,  allowed_semantic_context_ref, teacher_facing_rag_pack_ref?,  protected_action_fingerprint}
+Generator不得重新读取完整五表或候选行动后换目标；只能实现已提交Action。
+每个草稿和每次重写携带相同fingerprint；生成前后均核对当前Action。
+每个草稿必过确定性Constraint；A09只在Constraint标记语义风险时调用。
+Generator失败可使用绑定当前Action的安全短模板；模板仍须fingerprint与Constraint。
+PRDM事件只能引用generation_event_ref，不拥有generator_output或constraint_result。
+13　状态、事务与事件
+对象
+Mutation Owner
+持久化/事件
+事务边界
+InteractionSignalSnapshot
+PRDM
+Core＋PRDMObserveEvent
+A06单独提交，不回滚Evidence/Belief
+LocalProgressSnapshot
+PRDM
+Core＋observe关联
+与observed fingerprint绑定
+DialoguePlan
+PRDM
+Core＋PRDMPlanEvent
+与当前Action原子绑定
+GenerationResult
+Generator
+GenerationEvent
+PRDM只持有引用
+ConstraintResult
+Constraint/A09
+ConstraintEvent
+每稿独立
+PRDMObserveEvent {  event_id, turn_id, observed_action_fingerprint, snapshot_id,  mode, validation_status: PASS|FALLBACK|REJECT, policy_version}PRDMPlanEvent {  event_id, turn_id, committed_action_id, protected_action_fingerprint,  dialogue_plan_id, validation_status: PASS|FALLBACK|REJECT, policy_version}
+14　Feature Flag组合
+组合
+A06
+A07
+生产影响
+prdm_v01=true＋SHADOW
+运行并写shadow
+运行并写shadow
+可见文本和生产PRDM state不变
+prdm_v01=true＋LOW_RISK
+正常/fast path
+只处理批准LOW Action
+允许互动实现影响可见文本
+prdm_v01=false
+按总编排返回UNKNOWN/NEUTRAL
+确定性最小Adapter
+Action/Evidence/Belief不变
+second_evaluator=false＋MEDIUM
+可观察
+无合法MEDIUM Commit则不运行
+不得自治发送
+rag_v01=false
+不受影响
+无RAG pack；仍按Action实现
+不得伪造知识
+若未来新增prdm_observe_enabled，必须单独ADR与跨文档修订；不得暗中改变prdm_v01在现有V0.2文件中的含义。
+15　失败分类与降级
+故障
+结构化结果
+降级
+是否允许发文本
+A06 timeout/model error
+FALLBACK_UNKNOWN
+Planner收UNKNOWN/NEUTRAL
+后续取决于新Action
+A06 invalid span/diagnosis
+REJECT
+字段UNKNOWN＋告警
+不直接影响已有文本
+A07 strategy error
+FALLBACK
+当前Action最小Adapter
+通过Validator后允许
+fingerprint mismatch/stale
+STALE_ACTION
+废弃并重建
+不允许
+无Action Commit
+PRECONDITION_FAILED
+回编排层
+不允许
+Gate unavailable
+GATE_UNAVAILABLE
+fail closed
+不允许专业追问
+Generator error
+GENERATION_FAILED
+当前Action安全短模板
+重新过约束后允许
+16　Logging、Replay与隐私
+记录输入引用、observed/committed fingerprint、规则或模型模式、confidence、UNKNOWN字段、policy/model/prompt/schema版本、fallback和延迟。
+记录A06信号是否被Planner实际读取，A07为何选择某Move/Stance/Load的reason codes。
+不记录隐藏思维链；原始引文按隐私策略保存，通用事件优先存span ref、hash和去标识摘要。
+Recorded Replay恢复当时输出；Re-execution Replay用新版本比较但不得改写历史Production。
+会话删除、保留期、访问审计和数据主体请求必须覆盖PRDM状态、日志、缓存与Gold候选。
+17　Gold、Stress与测试数据
+数据集
+必须包含
+不得包含/承担
+Observe Gold
+gold labels、span、confidence、允许UNKNOWN
+稳定人格诊断
+DialoguePlan Gold
+allowed plan集合/约束、forbidden moves、expected fallback
+gold_next_turn完整话术
+End-to-end Gold
+Action、Plan、Generator、Constraint及可见结果
+把PRDM当唯一生成者
+Stress
+纠正、拒答、高负荷、支持请求、重复、转议题、短回应
+只测顺畅长回答
+Concurrency
+Action更新、重复A06/A07、stale plan、重试
+用更新hash复用旧Plan
+18　测试矩阵与发布指标
+层级
+关键测试
+发布指标
+单元
+枚举、阈值、LocalProgress、challenge max
+分支覆盖与正反例
+Contract
+禁止字段、版本、幂等、unknown field
+通过率100%
+集成
+A06时序、A07时序、Gate/Generator/Constraint
+越权与绕过=0
+Replay
+Q8首问、强张力CLARIFY、新fingerprint
+历史可复现
+质量
+纠正召回、UNKNOWN校准、Gold policy match、同行感
+阈值由发布Gate冻结
+性能
+A06/A07与端到端p50/p95、Added Text Cost
+不得无条件调用模型
+消融
+PRDM ON/OFF
+Evidence/Belief/Action不变
+19　开发顺序与变更控制
+阶段
+实现
+门禁
+1
+Schema、Owner、枚举和错误码
+Contract正反例
+2
+A06 observe＋Interaction Validator
+span/UNKNOWN/诊断测试
+3
+LocalProgress
+fingerprint内计数与重置
+4
+A07 plan＋DialoguePlan Validator
+单问/专业元素/风险限制
+5
+fingerprint全链与并发
+stale发送=0
+6
+Generator/Constraint集成
+PRDM文本生成=0
+7
+Flag与降级
+组合矩阵通过
+8
+Q8 Replay＋Shadow
+生产零干扰
+9
+LOW_RISK发布
+阈值、回滚和监测通过
+任何Schema、Owner、调用顺序、risk映射或fingerprint算法变更都须单独ADR、跨模块评审、版本升级与Replay兼容检查。
+20　Definition of Done
+A06_before_TurnResolutionSnapshot=0；A07_before_ActionCommit=0；A07_called_for_rejected_action=0。
+teacher_text_generated_by_PRDM=0；PRDM对Evidence/Belief/Action未授权Mutation=0。
+Action fingerprint校验覆盖率100%；fingerprint不匹配文本发送=0。
+稳定人格/能力/心理标签=0；无依据强制互动标签=0。
+Q8中Gate-1 CLARIFY后无DialoguePlan；Gate-2新Commit后才有新Plan。
+prdm_v01=false、A06失败、A07失败、stale并发和Generator失败均有测试并保持Action。
+每个草稿确定性Constraint覆盖率100%；MEDIUM未经所需复核直接执行=0。
+Gold、Replay、消融、隐私、性能与回滚报告齐全，负责人批准发布。
+工程完成定义　只有当PRDM在真实事件和失败场景中都能证明‘观察不越权、计划不重选、文本不自产、Action不漂移’，同时带来可测的互动适配增益，才算V0.2工程完成。
+
+############################################################
+## [5/5] 04-1 RAG总体架构
+############################################################
+编码前正式说明文件
+04-1 RAG总体架构
+Planner按需申请、权限治理、双通道隔离的A05知识工具
+文件编号：04-1
+版本：V0.2
+日期：2026年8月24日
+文件状态：V0.2 编码前冻结稿
+主要使用者：架构师、Planner/RAG/Core/Generator开发、知识治理与安全测试人员
+修订依据：TCIM_AI情境自主判断权增强_架构调整与说明性文件修订总方案_V0.1
+本版冻结结论　RAG是AI Agent Planner按需申请的条件式A05知识工具，不是专业行动决策者。Planner提出KnowledgeNeedProposal，Tool/Permission Gate授权范围，RAG检索并返回有来源的知识包；同一A03 planning attempt恢复并完成行动选择，Risk Gate审查，Core提交。RAG只授权写rag.runtime_state。
+文件导航
+第3—5章先冻结RAG不是谁、由谁触发、A03怎样暂停和恢复。
+第6—9章描述R0—R3、阶段权限、双通道和运行组件。
+第10章给出可编码Contract；第11—15章覆盖知识组织、来源、隐私、安全和缓存。
+第16—20章覆盖失败、Owner、知识演进、Flag、Replay与评测。
+RAG不应每轮调用，也不是证明AI存在的方式；它只在知识确实可能改进行动时介入。
+1　为什么修订，以及与前版的关系
+1.1　为什么必须修订
+原文已正确设计Runtime/Evolution双平面、R0—R3、K1—K5、来源治理和Evidence non-interference，但仍由Decision Orchestrator判断knowledge_need并最终选择行动。这会把AI Planner的工具判断权和情境决策权收回规则编排层。V0.2保留知识工程基础，将运行时改为Planner提出需要、Gate授权、RAG执行、Planner恢复选择。
+1.2　继续保留的基础
+保留Runtime Retrieval Plane与Knowledge Evolution Plane分离。
+保留RAG不是第二个Ontology、运行时只读Production、K1—K5、Capability-centered Knowledge Units。
+保留R0默认克制、R2主力、R3例外、来源/版本/有效期/缓存/回滚/人工Promotion。
+保留DIAGNOSE_INTERNAL默认不对教师展示及RAG ON/OFF不干扰Canonical Evidence的原则。
+1.3　本版发生的实质变化
+knowledge_need从Orchestrator布尔值改成Planner结构化KnowledgeNeedProposal。
+A03可进入WAITING_FOR_TOOL；A05结束后同一planning lineage恢复并只产生一个最终AgentDecisionProposal。
+RAGResult删除clarification/action recommendation，增加Belief/Action等完整禁写边界。
+internal与teacher-facing知识包物理分离，增加调用前Permission Gate和调用后Release Gate。
+增加Prompt injection、隐私最小化、严格R0/NO_CALL、Corpus Registry与可重放版本。
+版本关系　本文件经项目负责人确认后，作为《04-1 RAG总体架构》原稿的V0.2替代稿；旧版保留用于历史追溯，但不再单独决定编码口径。若本文件与01-1/01-2 V0.2冲突，以01-1的架构权责和01-2的Contract/State Owner规则为准。
+2　RAG V0.2的定位与非目标
+RAG解决
+RAG不负责
+核实专业概念、政策、研究、案例、迁移或资源
+替代Ontology或五张专业表
+在Production知识中查找可追溯材料以降低Planner不确定性
+生成或验证教师Canonical Evidence
+在REFLECT/SUPPORT阶段提供经许可的教师可见材料
+生成Contextual Belief或Teacher Model
+区分NO_RESULT、CORPUS_GAP、QUERY_FAILURE、BLOCKED
+选择专业行动、目标、SHIFT/STOP
+提供来源、版本、适用性和使用限制
+直接生成教师话术或在线自动学习
+边界判断　RAG可以判断如何在授权范围内查询、路由、过滤、重排及来源是否有效；这些是检索判断。是否需要知识、知识如何影响当前教师对话、最终选择什么行动，属于AI Planner。
+3　RAG与各模块的权责
+模块
+与RAG有关的权力
+明确没有的权力
+AI Agent Planner
+提出knowledge need/query intent/expected use；读取获准结果并选择行动
+不能绕过Permission Gate直接调用
+Tool/Permission Gate
+批准阶段、来源、预算、route ceiling、隐私与teacher-facing请求
+不代替Planner选择专业行动
+RAG
+查询、路由、检索、重排、来源/安全验证、结果打包
+不写Evidence/Belief/Action
+Ontology
+提供capability、概念、Anchor与专业约束
+RAG知识不能替代teacher span＋Anchor
+Risk Gate
+审查使用RAG后的最终AgentDecisionProposal
+不由RAG结果自动提交行动
+Core
+持久化rag.runtime_state和最终ActionPlan
+不改变RAG或Planner语义判断
+PRDM/Generator
+只使用获准teacher-facing pack
+不得读取internal pack或主动检索
+Governance
+离线管理Production、Candidate与Promotion
+不进入教师等待路径
+4　Runtime Retrieval Plane：条件式工具闭环
+TurnResolution/TeacherModel Snapshot        ↓A03 AI Agent Planner begins        ↓KnowledgeNeedProposal?  ├─ NO → R0/NO_CALL → Planner finalizes proposal  └─ YES → Planner state = WAITING_FOR_TOOL             ↓       Tool/Permission Gate         ├─ DENY/DOWNGRADE → R0/NO_CALL or lower route         └─ APPROVE → A05 RAG                         ↓ Query privacy → R1/R2/R3 → provenance/security/version                         ↓                Knowledge Release Gate                         ↓ RAGResult             same A03 planning attempt resumes                         ↓              final AgentDecisionProposal                         ↓          A04 Risk Gate → Core Action Commit                         ↓               PRDM → Generator → Constraint
+同一planning lineage　A05不是A03之后另一个决策中心。Planner先形成工具需要并暂停；获得RAGResult后在同一parent_planner_trace_id下恢复，最终只提交一个AgentDecisionProposal。任何‘RAG先建议下一问、Orchestrator再照搬’均属越权实现。
+5　何时可以提出Knowledge Need
+缺少可验证的专业概念、政策、研究、案例、迁移方法或资源，且当前Production知识可能提供答案。
+该知识可能实质改变候选行动的专业相关性、风险或支持质量，而不是仅使措辞更丰富。
+当前phase、consent、隐私scope、来源tier、延迟和成本预算允许。
+Planner已提供fallback_without_rag；检索失败时对话仍可安全继续。
+预期收益大于等待、信息泄露、过度说教和错误引用的风险。
+knowledge_need不得是无理由布尔值；Proposal必须说明gap、expected use、请求范围、预算、来源和无RAG路径。首问前也可以基于已提交Snapshot条件调用，但RAG永远不回写Evidence。
+6　R0—R3检索等级
+Level
+定义
+是否A05
+执行口径
+R0
+NO_CALL
+否
+默认克制；Core记录RAGNoCallEvent；不进入RAG
+R1
+Cache / Knowledge Capsule
+是
+高频、版本有效、短知识包；仍过Permission和Release
+R2
+Standard Retrieval
+是
+metadata filter＋semantic retrieval＋rerank，第一阶段主力
+R3
+Governed Agentic Retrieval
+是
+复杂多步例外；单独批准、白名单和更严预算
+R0不是RAGResult.route；不得发生模型调用、缓存读取、向量查询或外部访问。
+Gate批准route_ceiling=R2时，RAG不得自行升级R3。
+R3不是更高级的默认模式，而是风险、成本和攻击面更高的例外；第一阶段可保持关闭。
+R1缓存命中不等于teacher-facing批准，也不能绕过版本、有效期和安全检查。
+7　对话阶段、知识权限与物理双通道
+phase
+internal使用
+teacher-facing
+原则
+DIAGNOSE_INTERNAL
+允许
+默认禁止
+只辅助Planner理解；不进入PRDM/Generator
+REFLECT
+允许
+条件式
+仅Release批准的中性背景/比较材料
+SUPPORT
+允许
+条件式允许
+仍需来源、剂量、权限和PRDM调节
+internal_evidence_pack_ref     # Planner/Risk Gate onlyteacher_facing_pack_ref?        # PRDM/Generator only after Release Gate
+权限概念
+含义
+teacher_facing_eligibility
+Knowledge Unit自身是否具备展示资格
+teacher_facing_requested
+Planner本次是否希望将知识用于教师可见内容
+teacher_facing_allowed
+Release Gate对本次请求的最终授权结果
+必须物理隔离　不能用一个布尔字段包住同一段内容。Planner/Risk Gate可读internal pack；PRDM/Generator只能读teacher-facing pack。后者不得包含内部诊断、能力标签、检索诊断、原始Knowledge Unit指令或隐私信息。
+8　Tool/Permission Gate与Knowledge Release Gate
+8.1　调用前Permission检查
+rag_v01、phase、consent/privacy scope、capability/question范围、requested source tiers。
+teacher-facing intent、route ceiling、latency/token/cost预算、max results。
+query是否含不必要身份资料；Planner是否提供可运行fallback_without_rag。
+R3工具、域名、最大步数和外部访问是否在白名单。
+8.2　调用后Release检查
+来源、版本、有效期、适用地区/人群、版权/使用范围和专业审核状态。
+phase、teacher-facing eligibility、隐私、Prompt injection、内容安全和引用完整性。
+internal与teacher-facing物理分包；被拒知识不得通过Action required elements间接泄露。
+安全失败返回SECURITY_BLOCKED，不得静默过滤后假装结果完整。
+9　Runtime Retrieval Plane内部组件
+组件
+输入/输出
+是否可用模型
+失败责任
+Request Validator
+RAGRequest→validated request
+否
+INVALID_REQUEST
+Query Builder
+sanitized seed→query plan
+可选
+QUERY_FAILURE
+Query Privacy Sanitizer
+context refs→最小化查询
+规则为主
+PRIVACY_BLOCKED
+Runtime Router
+permission/need→R1/R2/R3
+可选
+不得超route ceiling
+R1 Cache/Capsule
+keys/version→capsule
+否
+STALE转R2/NO_RESULT
+R2 Retriever/Reranker
+query/filters→ranked units
+可选
+NO_RESULT/PARTIAL
+R3 Retrieval Agent
+批准工具计划→多步结果
+是
+限步、限域、不可扩权
+Provenance/Validity
+units→有效来源
+规则为主
+过期/冲突标记
+Injection Scanner
+content→安全状态
+混合
+SECURITY_BLOCKED
+Release Gate
+安全结果＋权限→pack refs
+规则为主
+internal only/deny
+Result Packager
+verified units→RAGResult
+可选摘要
+不得输出行动建议
+Runtime State Writer
+trace/result→rag.runtime_state
+否
+Core持久化
+10　可编码Contract
+10.1　KnowledgeNeedProposal
+KnowledgeNeedProposal {  knowledge_need_id, parent_planner_trace_id, session_id, turn_id?,  question_id, phase: DIAGNOSE_INTERNAL|REFLECT|SUPPORT,  capability_ids[], need_type: CONCEPT_VERIFY|POLICY|RESEARCH|CASE|TRANSFER|RESOURCE,  intent_code, sanitized_query_seed, knowledge_gap_description,  expected_use: INTERNAL_PLANNING|TEACHER_REFLECTION|TEACHER_SUPPORT,  teacher_facing_requested, source_tiers_requested[],  latency_budget_ms, max_results, fallback_without_rag, source_refs[],  state_versions{facts,belief,evidence}, professional_data_version}
+10.2　ToolPermissionDecision与RAGRequest
+ToolPermissionDecision {  permission_decision_id, knowledge_need_id,  decision: APPROVE|DENY|DOWNGRADE|R0_NO_CALL, reason_codes[],  authorized_phase, authorized_capability_ids[], authorized_source_tiers[],  teacher_facing_request_allowed, route_ceiling: R1|R2|R3,  latency_budget_ms, max_results, privacy_scope, policy_version, expires_at}RAGRequest {  request_id, trace_id, knowledge_need_id, permission_decision_id,  session_id, turn_id?, question_id, phase, capability_ids[], intent_code,  sanitized_query_seed, teacher_facing_requested, source_tiers_allowed[],  route_ceiling, latency_budget_ms, max_results, context_refs[],  professional_data_version, corpus_snapshot_version, request_schema_version}
+RAGRequest必须带有效permission_decision_id；不得携带无过滤完整教师档案；query seed是数据而非可执行指令；RAG不得在运行时自行扩字段、权限或上下文范围。
+10.3　RAGNoCallEvent
+RAGNoCallEvent {  trace_id, knowledge_need_id?, mode: R0, call_status: NO_CALL,  reason_code: NO_KNOWLEDGE_NEED|RAG_FLAG_OFF|PERMISSION_DENIED|               PHASE_NOT_ALLOWED|BUDGET_EXHAUSTED,  fallback_without_rag, feature_flag_snapshot_id, created_at}
+10.4　KnowledgeReleaseDecision与RAGResult
+KnowledgeReleaseDecision {  release_decision_id, request_id,  decision: INTERNAL_ONLY|TEACHER_FACING_APPROVED|TEACHER_FACING_DENIED,  approved_unit_ids[], denied_unit_ids[], reason_codes[],  phase_check, provenance_check, validity_check, privacy_check, security_check,  allowed_length, citation_required, policy_version}RAGResult {  request_id, knowledge_need_id,  status: OK|PARTIAL|NO_RESULT|BLOCKED|TIMEOUT|INVALID_REQUEST|          SECURITY_BLOCKED|ERROR,  route: R1|R2|R3, internal_evidence_pack_ref?, teacher_facing_pack_ref?,  teacher_facing_allowed, knowledge_unit_refs[], source_refs[],  provenance_status, corpus_snapshot_version, source_versions[],  release_decision_id, use_caveats[], knowledge_gap_detected,  gap_type: CORPUS_GAP|QUERY_FAILURE|PERMISSION_GAP|VERSION_GAP|NONE,  content_security_status, cache_status: HIT|MISS|STALE|NOT_APPLICABLE,  latency_ms, retrieval_diagnostic_codes[], result_schema_version}
+RAGResult禁止字段　evidence_state_updates、belief_updates、target_slot_override、selected_action、professional_action_plan、global_stop、score_update、teacher_state_update、clarification_proposal和executable_instructions均禁止。use_caveats只是资料使用限制，不得作为可执行系统约束。
+10.5　RAGRuntimeState与知识缺口Proposal
+RAGRuntimeState {  session_id, latest_request_id?, latest_no_call_event_id?, knowledge_need_id?,  phase, status, route?, permission_decision_id?, release_decision_id?,  internal_pack_ref?, teacher_facing_pack_ref?, source_refs[],  corpus_snapshot_version?, cache_status?, latency_ms?, fallback_reason?, updated_at}KnowledgeGapCandidateProposal {  candidate_id, request_id, capability_ids[], gap_type, deidentified_case_refs[],  failed_query_fingerprint, expected_knowledge, source_tiers_searched[],  corpus_snapshot_version, recurrence_count, confidence, review_status: DRAFT}
+RAG只输出KnowledgeGapCandidateProposal；Evaluation/Governance才有权写Candidate Buffer。运行时不得把缺口、真实教师话语或模型建议自动Promotion到Production。
+11　Capability-centered Knowledge Unit与K1—K5
+Canonical Capability是长期知识组织中心，question_id只是情境链接。同一Capability可服务多题；五张Ontology表不是普通RAG chunk，而是通过capability_id、question_id和professional_data_version建立引用关系。
+层级
+内容
+进入Production的条件
+K1 Authority
+法规、指南、权威标准
+版本、有效期、辖区、专业审核；不假定永远有效
+K2 Research
+研究证据
+研究设计、证据强度、适用人群与限制
+K3 Expert
+专家知识
+身份/来源、评审、版本和适用边界
+K4 Support
+教师支持与案例材料
+phase与teacher-facing eligibility、来源和安全
+K5 Local Empirical Candidate
+本地互动经验候选
+不得实时检索；只在Candidate Buffer，人工Promotion
+KnowledgeUnit {  unit_id, capability_ids[], question_links[], knowledge_tier: K1|K2|K3|K4,  source_type, title, content_ref, concise_summary, canonical_source_id,  source_locator, publisher, authors[], published_at, effective_from, expires_at?,  jurisdiction?, evidence_strength?, review_status, reviewer_refs[],  teacher_facing_eligibility: INTERNAL_ONLY|ELIGIBLE_REFLECT|ELIGIBLE_SUPPORT,  allowed_phases[], privacy_class, license_or_use_scope,  source_version, ingestion_version, checksum, security_scan_status,  professional_data_links[], corpus_snapshot_version}
+12　Corpus Registry、来源与版本固定
+Registry字段
+作用
+canonical_source_id / locator
+唯一定位原始来源，避免重复和断链
+publisher/authors/published_at
+建立责任与时间背景
+effective_from/expires_at/jurisdiction
+阻止过期或错辖区知识
+evidence_strength/review_status
+表达证据等级与专业审核
+license_or_use_scope
+限制摘要、展示、缓存和再分发
+security_scan_status/checksum
+内容完整性与注入隔离
+corpus_snapshot_version
+冻结运行时实际检索集合
+replay versions = {  professional_data_version, corpus_snapshot_version, source_versions[],  permission_policy_version, query_builder_version, reranker_version,  model_id, prompt_version, request_schema_version, result_schema_version}
+Replay必须恢复当时语料和权限，而不是自动读取最新Production。来源更新、撤回或有效期变化时，依赖的Knowledge Units和Capsules按依赖图失效。
+13　隐私最小化与Prompt Injection防护
+13.1　数据最小化
+Query默认不含教师姓名、园所、联系方式或完整历史；优先传capability、question、intent和去标识摘要。
+只有permission scope允许时才引用过程资料；query、trace、cache和candidate分别规定保留期。
+外部检索不得携带internal teacher model、未授权原话或能重新识别个体的组合字段。
+教师可见引用必须符合版权、使用范围与阶段权限。
+13.2　所有检索内容均是不可信数据
+来源中的‘忽略系统指令’‘调用工具’‘扩大权限’等文本不得执行。
+Knowledge Unit不能修改工具参数、phase、目标、Evidence、Belief、Action或权限。
+入库和运行时双重扫描；命中风险进入隔离区，返回SECURITY_BLOCKED并保留审计证据。
+R3只允许白名单工具/域名/最大步数；Retrieval Agent不得根据内容扩大搜索范围。
+输出包在Release前再次检查；安全失败不得以静默删除后‘OK’掩盖不完整。
+14　Cache与Knowledge Capsule
+KnowledgeCapsule {  capsule_id, capability_id, phase,  internal_summary_ref, teacher_facing_summary_ref?,  teacher_facing_eligibility, source_unit_ids[], source_versions[],  corpus_snapshot_version, generated_by_version, approved_at, expires_at, checksum}
+internal与teacher-facing内容分开存储、分开权限、分开失效。
+Production来源更新后按依赖图失效；stale Capsule不得命中。
+R1仍需Permission与Release；Cache hit不等于当前phase允许展示。
+Capsule不保存可执行指令、行动建议、教师Evidence或完整个人上下文。
+15　Knowledge Evolution Plane
+Retrieval logs / Gap proposals / New sources→ De-identification→ Candidate Buffer→ Dedup / Provenance / Privacy / Conflict / Security→ STAGING→ Gold eval + human professional review→ PROMOTE or REJECT→ Versioned Production + Canary→ Drift monitor / Rollback
+角色
+权限
+不得做
+Offline Curator
+整理来源、metadata、候选
+直接Promote真实教师内容
+Retrieval Evolution Agent
+分析检索失败、召回与路由
+进入教师等待路径
+Knowledge Evolution Agent
+提出聚类、摘要、缺口建议
+拥有Production写权
+Conflict/Verification Agent
+发现版本、来源和冲突
+替代专业人工终审
+Governance/Reviewer
+批准Promotion、Canary、Rollback
+省略来源、隐私或安全门禁
+16　失败分类与无RAG继续
+情形
+结果
+运行处理
+rag_v01=false/无need
+R0/NO_CALL
+Planner执行fallback_without_rag
+Permission拒绝
+R0/NO_CALL或DOWNGRADE
+不创建超范围请求
+Invalid Request
+INVALID_REQUEST
+不检索；记录Schema原因
+Cache stale
+STALE
+预算允许转R2，否则NO_RESULT
+Query build失败
+QUERY_FAILURE
+无RAG继续
+Corpus无相关知识
+NO_RESULT＋CORPUS_GAP
+提交去标识候选Proposal
+权限阻断
+BLOCKED
+不向Generator输出任何pack
+Prompt injection
+SECURITY_BLOCKED
+隔离来源；不静默放行
+Timeout
+TIMEOUT
+取消剩余检索；同一A03恢复
+部分来源有效
+PARTIAL
+只返回通过验证部分及caveats
+State/version过期
+STALE_RESULT
+丢弃；按政策最多重试一次
+总降级原则　RAG失败不丢教师原始回应，不改变Evidence、Belief或已提交Action，不伪造引用。Planner必须预先声明无RAG路径；未通过Release的内容不能进入PRDM/Generator。
+17　State Owner与Non-interference
+状态
+RAG权限
+context.raw/facts
+只读获准引用
+ontology.evidence_state
+无写权
+context.belief_state
+无写权
+core.action_plan
+无写权；Planner可基于结果产生不同Proposal
+prdm.dialogue_state
+无写权
+rag.runtime_state
+唯一运行时Mutation Owner；Core物理持久化
+generation/final_text
+无写权；只提供teacher-facing pack
+Production KB
+Runtime只读
+Candidate Buffer
+只输出Proposal，由Governance写
+同一教师turn下RAG ON/OFF的Canonical Evidence提交必须一致。
+同一教师turn下RAG ON/OFF的Contextual Belief提交必须一致。
+ActionPlan可因可靠知识产生合理差异，但必须引用RAG source refs并经过A04。
+RAG不得通过知识摘要间接改变Anchor合法性或把外部知识当教师Evidence。
+18　Feature Flag、观察性与Replay
+rag_v01 = true|falserag_route_ceiling = R1|R2|R3rag_teacher_facing_enabled = true|falserag_r3_enabled = true|falserag_shadow_mode = true|false
+rag_v01=false的严格含义：不创建正式RAGRequest、不调用Model Gateway、不读RAG Cache、不查向量库、不访问外部来源；只记录RAGNoCallEvent，Planner走无RAG路径，不产生伪造source refs。
+Replay必须记录
+目的
+KnowledgeNeedProposal与parent planner trace
+证明由Planner提出并保持同一lineage
+PermissionDecision＋RAGRequest/NoCallEvent
+恢复授权、route ceiling和预算
+query fingerprint、filters、route、cache
+复现检索行为而不泄露原query
+Knowledge Units、来源与语料版本
+恢复当时实际知识
+Security/Release＋RAGResult
+证明双通道与阻断
+Planner消费的result refs与最终Action
+评估知识是否实质影响决策
+latency/token/cost/fallback
+评估收益与代价
+19　评测体系
+层级
+关键指标
+硬边界
+RAG写Evidence/Belief/Action=0；DIAGNOSE泄露=0；注入扩权=0；无来源可见知识=0；自动Promotion=0
+Retrieval
+Recall@K、Precision@K、MRR/NDCG、capability/source tier match、filter/rerank、gap分类
+Permission/Grounding
+release precision、来源覆盖100%、引用一致、过期拦截、双通道串漏=0
+性能成本
+R0比例、cache hit/stale、R1/R2/R3 p50/p95、timeout、token、单轮成本
+Agent增益
+Professional Relevance、Evidence Gain、RAG ON/OFF行动差异的来源支持、无结果完整性
+互动副作用
+是否增加说教、暗示答案、文本负荷或教师等待
+20　第一阶段建设顺序与验收
+Task
+建设内容
+门禁
+R0 Contract
+A05、Need、Permission、Owner、错误枚举、NO_CALL
+禁写字段与零内部调用
+R1 Corpus
+少量K1—K4、Corpus Registry、版本/权限
+100%来源、有效期、审核
+R2 Runtime
+Query、metadata、retriever、rerank、cache
+Gold检索与延迟
+R3 双通道
+Permission/Release、internal/teacher-facing隔离
+DIAGNOSE泄露=0
+R4 安全
+Prompt injection、隐私、过期、来源冲突
+攻击集绕过=0
+R5 Planner接线
+A03暂停/恢复、A05 trace、A04
+RAG不直接决定行动
+R6 Shadow上线
+OFF/R0/R1/R2对照、Replay、专家盲评
+满足阈值后才考虑R3例外
+20.1　最终验收清单
+只有Planner提出Need且Permission批准后才产生A05；R0时零RAG内部调用。
+RAGResult无Evidence、Belief、Action、STOP、clarification或可执行指令字段。
+DIAGNOSE internal pack无法进入PRDM/Generator；teacher-facing pack有ReleaseDecision和完整来源。
+NO_RESULT/TIMEOUT/BLOCKED/SECURITY_BLOCKED后同一A03恢复并安全继续。
+RAG ON/OFF不改变Evidence和Belief；Action差异有来源、Gate和trace。
+Production知识全部有来源、版本、有效期、审核和安全状态；K5只在Candidate Buffer。
+R3不能越过route ceiling、白名单和预算；Replay可恢复当时Need、权限、语料、结果与行动。
+架构完成定义　RAG只有在Planner确有知识缺口时被合法调用，能提供可追溯、可隔离、可降级的知识增益，并且绝不成为第二个Evidence来源、第二个Planner或隐形文本通道，才算V0.2完成。

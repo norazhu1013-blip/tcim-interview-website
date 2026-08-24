@@ -128,6 +128,7 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
 | `prototype.html` | 交互原型(**简版**:聚焦四大功能 答题/记录/评分/访谈,底部4 Tab,单主色扁平) |
 | `数据导入规范.md` | 5 类导入文件的 JSON 格式 + 校验规则 |
 | `DOC/` | 原始数据源(题库/赋分/映射/10题知识库13表/流程手册) |
+| `docs/tcim/` | TCIM 文档索引 + 权威参考(V0.1/V0.2 研究团队 docx 可读归档)+ V0.2 迁移/部署手册。**入口 `docs/tcim/README.md`**(索引+来源说明);`V0.2_SECOND_BATCH_REFERENCE.txt`(第二批 V0.2: PRDM A06/A07、RAG KnowledgeNeedProposal、开发手册、总说明);`Q8_AI_EXAMPLE_REFERENCE.txt`(八题示例);`V0.2_MIGRATION_AND_DEPLOYMENT.md`(迁移+部署);`DEPLOYMENT_RUNBOOK.md`(操作者执行清单) |
 | `demo/` | 可查看可运行样例(见下) |
 
 ### demo/ 目录(数据格式 + 全流程可运行演示)
