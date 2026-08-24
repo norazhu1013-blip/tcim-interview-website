@@ -78,16 +78,18 @@ async function main() {
   {
     const teacherTurn = '我会先看地面湿不滑，篮球架附近有没有别的孩子。';
     const { core, input } = lowTeacherInput('Q1', teacherTurn, 0);
-    // 注入一个「合法」的语义 provider：给出 candidate_span（回指原话），但 level 由确定性引擎裁决
+    // 注入一个「合法」的语义 provider：给出 candidate_span（回指原话）+ slot_evidence_proposal，但 level 由确定性引擎裁决
     setProvider(() => ({
-      candidate_spans: [{ text: '地面湿不滑', slot_id: 'Q1-S2', span_type: 'supporting', confidence: 0.6 }],
-      candidate_slots: [{ slot_id: 'Q1-S2', relevance: 'risk' }],
+      candidate_spans: [{ text: '地面湿不滑', candidate_slots: ['Q1-S2'] }],
+      slot_evidence_proposals: [{ slot_id: 'Q1-S2', proposed_level: 1, confidence: 0.6, supporting_spans: ['地面湿不滑'] }],
       no_change_reasons: [{ slot_id: 'Q1-S1', reason: '未提代际关系' }]
     }));
     const result = await runOntologyTurn(core, input);
     // 语义信号应出现在 diagnostics（semantic_ 前缀）
     const hasSemanticSpan = (result.diagnostics || []).some((d) => d.reason === 'semantic_span');
+    const hasSlotProposal = (result.diagnostics || []).some((d) => d.reason === 'semantic_slot_proposal' && d.proposed_level === 1);
     assert.ok(hasSemanticSpan, '语义 span 应透传到 diagnostics');
+    assert.ok(hasSlotProposal, 'slot_evidence_proposal 应透传到 diagnostics');
     // 但 evidence_state 的 level 仍由确定性引擎决定：这条回答过于笼统，Q1-S2 不应被抬到 2
     const ev = result.state_updates.ontology_state.evidence_state;
     // teacherTurn 只回了「地面湿不滑」+ 别的小孩，未到确定性 2 级所需的完整阈值 → 不因此升级
@@ -102,8 +104,8 @@ async function main() {
     core.shared.ontology_state.evidence_state = {};
     // 一个「幻觉」的 provider：无中生有给出 span + candidate_slot，想抬高等级
     setProvider(() => ({
-      candidate_spans: [{ text: '教师注重自主生成和规则协商', slot_id: 'Q1-S1', span_type: 'supporting', confidence: 0.9 }],
-      candidate_slots: [{ slot_id: 'Q1-S1', relevance: 'high' }]
+      candidate_spans: [{ text: '教师注重自主生成和规则协商', candidate_slots: ['Q1-S1'] }],
+      slot_evidence_proposals: [{ slot_id: 'Q1-S1', proposed_level: 2, confidence: 0.9, supporting_spans: [] }]
     }));
     let upgraded = false;
     for (let i = 0; i < 4; i += 1) {
@@ -118,7 +120,8 @@ async function main() {
       }
       core.shared.ontology_state.evidence_state = ev;
       setProvider(() => ({
-        candidate_spans: [{ text: '教师注重自主生成', slot_id: 'Q1-S1', span_type: 'supporting', confidence: 0.9 }]
+        candidate_spans: [{ text: '教师注重自主生成', candidate_slots: ['Q1-S1'] }],
+        slot_evidence_proposals: [{ slot_id: 'Q1-S1', proposed_level: 2, confidence: 0.9, supporting_spans: [] }]
       }));
     }
     assert.equal(upgraded, false, '低能力教师即使有语义幻觉也不得被升级到高等级');

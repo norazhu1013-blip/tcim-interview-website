@@ -219,12 +219,13 @@ exports.main = async (event) => {
   const teacherTurn = String(event.teacherTurn || '').trim();
   const anchors = Array.isArray(event.anchors) ? event.anchors : [];
   const evidenceSummary = event.evidenceSummary || {};
+  const validSlotIds = new Set(anchors.map((a) => a.slot_id).filter(Boolean));
   const selected = resolveLLMProfile(event);
   const system = buildSystemPrompt();
   const user = buildUserPrompt(event, anchors, evidenceSummary);
 
   let fallback = '';
-  let proposal = emptyProposal(teacherTurn, 'semantic-v0.1');
+  let proposal = emptyProposal(teacherTurn, 'semantic-v0.2');
   let llmRaw = '';
 
   try {
@@ -234,13 +235,13 @@ exports.main = async (event) => {
     const obj = parseModelJSON(raw);
     if (!obj) throw new Error('LLM 未返回严格JSON');
     const normalized = normalizeProposal(obj);
-    const { ok, errors, proposal: cleaned } = validateProposal(normalized, teacherTurn);
+    const { ok, errors, proposal: cleaned } = validateProposal(normalized, teacherTurn, validSlotIds);
     // 即便 G05 判定词出现，也保留已清洗的 spans（它们已回指原话且非判定词）；只把整条打上 invalid 标记。
     proposal = cleaned;
     if (!ok) fallback = 'G05_violation:' + errors.join(';');
   } catch (e) {
     fallback = 'semantic_llm_error:' + (e && e.message || '');
-    proposal = emptyProposal(teacherTurn, 'semantic-v0.1'); // 失败 → 空 proposal，不丢回答、不猜测
+    proposal = emptyProposal(teacherTurn, 'semantic-v0.2'); // 失败 → 空 proposal，不丢回答、不猜测
   }
 
   // 服务端再对最终 spans 做一次内容安全（可选）

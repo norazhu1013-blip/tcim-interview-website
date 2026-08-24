@@ -48,7 +48,7 @@ const JUDGE_RE = /能力|人格|动机|心理|性格|智力水平|属于.{0,3}(�
 
 /** 离线默认：什么都不提供，返回空 Proposal（与未接入等价）。 */
 function offlineSemantic(teacherTurn) {
-  return { candidate_spans: [], candidate_slots: [], conflict_candidates: [], false_evidence_flags: [], no_change_reasons: [], source_turn: teacherTurn || '', provider_version: 'offline-v0.1' }
+  return { candidate_spans: [], slot_evidence_proposals: [], conflict_candidates: [], false_evidence_flags: [], no_change_reasons: [], uncertainty: [], source_turn: teacherTurn || '', provider_version: 'offline-v0.2' }
 }
 
 /** 规范化 Proposal：缺失的数组字段补空数组（LLM 输出天然不完整），保证下游拿到合格形状。 */
@@ -57,10 +57,10 @@ function normalizeSemanticProposal(raw) {
   return {
     proposal_type: p.proposal_type || 'EvidenceAnalysisProposal',
     candidate_spans: Array.isArray(p.candidate_spans) ? p.candidate_spans : [],
-    candidate_slots: Array.isArray(p.candidate_slots) ? p.candidate_slots : [],
+    slot_evidence_proposals: Array.isArray(p.slot_evidence_proposals) ? p.slot_evidence_proposals : [],
     conflict_candidates: Array.isArray(p.conflict_candidates) ? p.conflict_candidates : [],
     false_evidence_flags: Array.isArray(p.false_evidence_flags) ? p.false_evidence_flags : [],
-    uncertainty: typeof p.uncertainty === 'number' ? p.uncertainty : 0,
+    uncertainty: Array.isArray(p.uncertainty) ? p.uncertainty : [],
     no_change_reasons: Array.isArray(p.no_change_reasons) ? p.no_change_reasons : [],
     source_turn: p.source_turn || null,
     provider_version: p.provider_version || 'custom'
@@ -81,10 +81,19 @@ async function analyzeSemantic(teacherTurn, ctx) {
   }
   const errors = []
   const normalized = normalizeSemanticProposal(raw)
+  const validSlotIds = ctx && ctx.validSlotIds
   for (const s of normalized.candidate_spans) {
     const text = s && s.text
     if (!text) errors.push('candidate_spans 某条缺少 text')
     else if (turn && !turn.includes(text)) errors.push(`span「${text}」未出现在教师原话中`)
+  }
+  for (const sp of normalized.slot_evidence_proposals) {
+    if (!sp || !sp.slot_id) errors.push('slot_evidence_proposal 缺 slot_id')
+    else if (validSlotIds && !validSlotIds.has(sp.slot_id)) errors.push(`slot 「${sp.slot_id}」不存在于本题`)
+    if (typeof sp.proposed_level === 'number' && (sp.proposed_level < 0 || sp.proposed_level > 3)) errors.push(`slot 「${sp.slot_id}」 proposed_level 越界: ${sp.proposed_level}`)
+    if (Array.isArray(sp.supporting_spans) && sp.supporting_spans.length) {
+      for (const t of sp.supporting_spans) if (turn && !turn.includes(t)) errors.push(`slot 「${sp.slot_id}」 supporting_span「${t}」未回指教师原话`)
+    }
   }
   if (JUDGE_RE.test(JSON.stringify(normalized))) errors.push('proposal 出现能力/人格/动机直接判定词（G05）')
   if (errors.length) return { proposal: offlineSemantic(turn), ok: false, errors, provider: 'invalid' }
@@ -556,16 +565,22 @@ export async function processTeacherTurn(session, teacherTurn) {
 
   // ---- A01 语义预筛（Step 1：LLM 只做 Proposal，裁决权仍在确定性 updateEvidence）----
   // 只作为语义层的「观察/线索」透传，绝不改 level/confidence（G04/G05）。
+  const item = TCIM_DATA.items[session.itemId]
+  const validSlotIds = new Set(((item.ontology && item.ontology.slots) || []).map((s) => s.slot_id))
   const semantic = await analyzeSemantic(trimmed, {
     itemId: session.itemId,
     turnId,
     evidenceSummary: session.evidence,
-    questionTitle: (TCIM_DATA.items[session.itemId] && TCIM_DATA.items[session.itemId].metadata && TCIM_DATA.items[session.itemId].metadata.title) || ''
+    questionTitle: (item.metadata && item.metadata.title) || '',
+    validSlotIds
   })
   if (semantic.ok && semantic.proposal) {
     const p = semantic.proposal
     for (const span of p.candidate_spans || []) {
-      replayEvent(session, { event: 'SemanticEvent', type: 'span', slot: span.slot_id || '?', span: span.text, span_type: span.span_type || 'supporting', provider: semantic.provider })
+      replayEvent(session, { event: 'SemanticEvent', type: 'span', span: span.text, slots: span.candidate_slots || [], provider: semantic.provider })
+    }
+    for (const sp of p.slot_evidence_proposals || []) {
+      replayEvent(session, { event: 'SemanticEvent', type: 'slot_proposal', slot: sp.slot_id, proposed_level: sp.proposed_level, confidence: sp.confidence, supporting_spans: sp.supporting_spans || [], provider: semantic.provider })
     }
     for (const c of p.conflict_candidates || []) {
       replayEvent(session, { event: 'SemanticEvent', type: 'conflict_candidate', slot: c.slot_id || '?', note: c.reason, provider: semantic.provider })

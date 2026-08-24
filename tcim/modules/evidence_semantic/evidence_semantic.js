@@ -28,14 +28,14 @@
 
 const EMPTY_PROPOSAL = Object.freeze({
   proposal_type: 'EvidenceAnalysisProposal',
-  candidate_spans: [],        // [{ text, slot_id?, span_type: 'supporting|conflict|false', confidence }]
-  candidate_slots: [],        // 本轮语义上相关、值得确定性引擎进一步核对的 slot 集合 { slot_id, relevance }
+  candidate_spans: [],        // [{ text, candidate_slots[] }] —— 多 Slot 取词
+  slot_evidence_proposals: [], // [{ slot_id, proposed_level, confidence, supporting_spans[] }]
   conflict_candidates: [],    // [{ slot_id, reason }] 疑似与当前已有证据冲突
   false_evidence_flags: [],   // [{ slot_id, reason }] 疑似「伪证据/空话/泛泛而谈」的信号
-  uncertainty: 0,             // 0..1，仅表示本轮语义判断的不确定性，不写入状态
+  uncertainty: [],            // [string] 若干条尚不清楚、需澄清的判断
   no_change_reasons: [],      // 解释「为何不升级」的原因（供审计/回放）
   source_turn: null,
-  provider_version: 'offline-v0.1'
+  provider_version: 'offline-v0.2'
 });
 
 /**
@@ -44,7 +44,7 @@ const EMPTY_PROPOSAL = Object.freeze({
  * @returns {EvidenceAnalysisProposal}
  */
 function offlineProvider() {
-  return { ...EMPTY_PROPOSAL, candidate_spans: [], candidate_slots: [], conflict_candidates: [], false_evidence_flags: [], no_change_reasons: [] };
+  return { ...EMPTY_PROPOSAL, candidate_spans: [], slot_evidence_proposals: [], conflict_candidates: [], false_evidence_flags: [], no_change_reasons: [] };
 }
 
 /** 供外部注册的真实提供者；缺省为离线。 */
@@ -69,26 +69,40 @@ function normalizeProposal(proposal) {
   return {
     proposal_type: p.proposal_type || 'EvidenceAnalysisProposal',
     candidate_spans: Array.isArray(p.candidate_spans) ? p.candidate_spans : [],
-    candidate_slots: Array.isArray(p.candidate_slots) ? p.candidate_slots : [],
+    slot_evidence_proposals: Array.isArray(p.slot_evidence_proposals) ? p.slot_evidence_proposals : [],
     conflict_candidates: Array.isArray(p.conflict_candidates) ? p.conflict_candidates : [],
     false_evidence_flags: Array.isArray(p.false_evidence_flags) ? p.false_evidence_flags : [],
-    uncertainty: typeof p.uncertainty === 'number' ? p.uncertainty : 0,
+    uncertainty: Array.isArray(p.uncertainty) ? p.uncertainty : [],
     no_change_reasons: Array.isArray(p.no_change_reasons) ? p.no_change_reasons : [],
     source_turn: p.source_turn || null,
     provider_version: p.provider_version || 'custom'
   };
 }
 
-/** 简单的合格性校验：任何 provider 的输出必须保持 Proposal 形状才能被下游使用（Schema 门）。 */
-function validateProposal(proposal, teacherTurn) {
+/** 合格的 Proposal 形状（G04/G05 Schema 门）：span 必须回指原话；含 slot_evidence_proposals 且合法。 */
+function validateProposal(proposal, teacherTurn, validSlotIds) {
   const errors = [];
   if (!proposal || typeof proposal !== 'object') return { ok: false, errors: ['proposal 不是对象'] };
-  // G04：每一条 span 都必须能回指教师原话（teacher_span 里出现，或在 spans 里有出处）
+  // G04：candidate_spans[].text 必须回指教师原话
   const spans = Array.isArray(proposal.candidate_spans) ? proposal.candidate_spans : [];
   for (const s of spans) {
     const text = s && s.text;
     if (!text) { errors.push('candidate_spans 某条缺少 text'); continue; }
     if (teacherTurn && !teacherTurn.includes(text)) errors.push(`span「${text}」未出现在教师原话中`);
+  }
+  // G04 + 合法 Slot：slot_evidence_proposals 的 slot_id 属本题、proposed_level 0-3、supporting_spans 回指
+  const sps = Array.isArray(proposal.slot_evidence_proposals) ? proposal.slot_evidence_proposals : [];
+  for (const sp of sps) {
+    if (!sp || !sp.slot_id) { errors.push('slot_evidence_proposal 缺 slot_id'); continue; }
+    if (validSlotIds && !validSlotIds.has(sp.slot_id)) errors.push(`slot 「${sp.slot_id}」不存在于本题`);
+    if (typeof sp.proposed_level === 'number' && (sp.proposed_level < 0 || sp.proposed_level > 3)) {
+      errors.push(`slot 「${sp.slot_id}」 proposed_level 越界: ${sp.proposed_level}`);
+    }
+    if (Array.isArray(sp.supporting_spans) && sp.supporting_spans.length) {
+      for (const t of sp.supporting_spans) {
+        if (!teacherTurn || !teacherTurn.includes(t)) errors.push(`slot 「${sp.slot_id}」 supporting_span「${t}」未回指教师原话`);
+      }
+    }
   }
   // G05：不得出现能力/人格/动机的直接判定词（这些是确定性裁决的事，不在语义预筛）
   const judgeRe = /能力|人格|动机|心理|性格|智力水平|属于.{0,3}(高|中|低)能力/;
@@ -112,9 +126,9 @@ async function analyze(teacherTurn, ctx) {
     // Provider 崩溃：降级空 Proposal，不丢教师回答（G01/G03）。
     return { proposal: { ...EMPTY_PROPOSAL, source_turn: turn, provider_version: 'provider-error' }, ok: false, errors: [`semantic_provider_error:${e && e.message}`], provider: 'error' };
   }
-  // Schema 门（G03）：先规范化（缺失数组补空），再校验内容合法性（G04/G05）。
+  // Schema 门（G03）：先规范化（缺失数组补空），再校验内容合法性（G04/G05 + 合法 Slot）。
   const normalized = normalizeProposal(proposal);
-  const { ok, errors } = validateProposal(normalized, turn);
+  const { ok, errors } = validateProposal(normalized, turn, ctx && ctx.validSlotIds);
   if (!ok) {
     // Provider 输出了越界内容（span 不在原话 / 能力人格判定）→ 降级为空 Proposal，不信任其内容。
     return { proposal: { ...EMPTY_PROPOSAL, source_turn: turn, provider_version: normalized.provider_version || 'invalid' }, ok: false, errors, provider: _provider === offlineProvider ? 'offline' : 'custom' };

@@ -36,7 +36,8 @@ async function run() {
 
   // ---- 测试2：注入合法 provider → SemanticEvent 入 replay，但不直接抬 level ----
   setSemanticProvider((turn) => ({
-    candidate_spans: [{ text: '地面湿不滑', slot_id: 'Q1-S2', span_type: 'supporting', confidence: 0.7 }],
+    candidate_spans: [{ text: '地面湿不滑', candidate_slots: ['Q1-S2'] }],
+    slot_evidence_proposals: [{ slot_id: 'Q1-S2', proposed_level: 1, confidence: 0.6, supporting_spans: ['地面湿不滑'] }],
     conflict_candidates: [{ slot_id: 'Q1-S5', reason: '未提及规则协商' }],
     no_change_reasons: [{ slot_id: 'Q1-S1', reason: '未提代际' }]
   }))
@@ -53,8 +54,8 @@ async function run() {
 
   // ---- 测试3：幻觉 provider（把 teacherTurn 之外的 span 塞进来）→ 引擎侧拦截，不入 replay、不抬 level ----
   setSemanticProvider(() => ({
-    candidate_spans: [{ text: '教师能力很强', slot_id: 'Q1-S2', span_type: 'supporting', confidence: 0.9 }],
-    candidate_slots: [{ slot_id: 'Q1-S2', relevance: 'high' }]
+    candidate_spans: [{ text: '教师能力很强', candidate_slots: ['Q1-S2'] }],
+    slot_evidence_proposals: [{ slot_id: 'Q1-S2', proposed_level: 2, confidence: 0.9, supporting_spans: [] }]
   }))
   {
     const session = initTcisSession('Q1', ['A', 'C', 'B', 'D'], [])
@@ -80,7 +81,8 @@ async function run() {
 
   // ---- 测试5：G05 —— provider 返回能力/人格判定词 span → 引擎侧拦截，不入 replay、不抬 level ----
   setSemanticProvider(() => ({
-    candidate_spans: [{ text: '教师具有高能力', slot_id: 'Q1-S2', span_type: 'supporting', confidence: 0.9 }],
+    candidate_spans: [{ text: '教师具有高能力', candidate_slots: ['Q1-S2'] }],
+    slot_evidence_proposals: [{ slot_id: 'Q1-S2', proposed_level: 2, confidence: 0.9, supporting_spans: [] }],
     no_change_reasons: [{ slot_id: 'Q1-S1', reason: '明显是低能力教师' }]
   }))
   {

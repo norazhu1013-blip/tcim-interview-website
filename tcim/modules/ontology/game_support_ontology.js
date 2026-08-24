@@ -239,7 +239,8 @@ async function process(input, ctx) {
       turnId: input.turn_id,
       anchorBySlot: anchorsBySlot,
       evidenceSummary: newEvidence,
-      questionTitle: (item.metadata && item.metadata.title) || ''
+      questionTitle: (item.metadata && item.metadata.title) || '',
+      validSlotIds: new Set(((item.ontology && item.ontology.slots) || []).map((s) => s.slot_id))
     };
     const sem = await analyze(input.turn_context.teacher_turn, semanticCtx);
     semantic = sem;
@@ -281,7 +282,10 @@ async function process(input, ctx) {
   if (semantic && semantic.ok && semantic.proposal) {
     const p = semantic.proposal;
     for (const span of p.candidate_spans || []) {
-      semanticSignals.push({ slot: span.slot_id || '?', reason: 'semantic_span', span: span.text, span_type: span.span_type || 'supporting' });
+      semanticSignals.push({ slot: (span.candidate_slots && span.candidate_slots[0]) || '?', reason: 'semantic_span', span: span.text, slots: span.candidate_slots || [] });
+    }
+    for (const sp of p.slot_evidence_proposals || []) {
+      semanticSignals.push({ slot: sp.slot_id, reason: 'semantic_slot_proposal', proposed_level: sp.proposed_level, confidence: sp.confidence, supporting_spans: sp.supporting_spans || [] });
     }
     for (const c of p.conflict_candidates || []) {
       semanticSignals.push({ slot: c.slot_id || '?', reason: 'semantic_conflict_candidate', note: c.reason });

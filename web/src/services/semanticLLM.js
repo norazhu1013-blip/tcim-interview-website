@@ -19,8 +19,6 @@ import { callGateway } from './web-gateway.js'
 // 引擎不 import 本模块，故静态 import 无循环依赖，保证 provider 在开机前同步就位。
 import { setSemanticProvider as engineSetSemanticProvider } from '../core/tcim/engine.js'
 
-// 允许的候选 span 标签（与引擎/云函数一致）
-const SPAN_TYPES = ['supporting', 'conflict', 'false']
 // 能力/人格/动机判定词（G05 硬拦）
 const JUDGE_RE = /能力|人格|动机|心理|性格|智力水平|属于.{0,3}(高|中|低)能力/
 
@@ -29,39 +27,36 @@ function emptyProposal(turn) {
   return {
     proposal_type: 'EvidenceAnalysisProposal',
     candidate_spans: [],
-    candidate_slots: [],
+    slot_evidence_proposals: [],
     conflict_candidates: [],
     false_evidence_flags: [],
-    uncertainty: 0,
+    uncertainty: [],
     no_change_reasons: [],
     source_turn: turn || '',
-    provider_version: 'offline-v0.1'
+    provider_version: 'offline-v0.2'
   }
 }
 
-/** 规范化服务器返回的 Proposal（缺失数组补空，span 回指原话 + 类型合法 + 过滤低置信 + G05 拦截）。 */
+/** 规范化服务器返回的 Proposal（缺失数组补空，span 回指原话 + 多 Slot + G05 拦截）。 */
 function normalizeServerProposal(raw, turn) {
   const p = raw && typeof raw === 'object' ? raw : {}
   const spans = Array.isArray(p.candidate_spans) ? p.candidate_spans : []
   const cleanSpans = spans
     .filter((s) => s && s.text && turn.includes(s.text)) // G04：必须回指原话
-    .filter((s) => (typeof s.confidence === 'number' ? s.confidence >= 0.25 : true))
     .map((s) => ({
       text: s.text,
-      slot_id: s.slot_id || null,
-      span_type: SPAN_TYPES.includes(s.span_type) ? s.span_type : 'supporting',
-      confidence: typeof s.confidence === 'number' ? s.confidence : 0.3
+      candidate_slots: Array.isArray(s.candidate_slots) ? s.candidate_slots : []
     }))
   const proposal = {
     proposal_type: 'EvidenceAnalysisProposal',
     candidate_spans: cleanSpans,
-    candidate_slots: Array.isArray(p.candidate_slots) ? p.candidate_slots : [],
+    slot_evidence_proposals: Array.isArray(p.slot_evidence_proposals) ? p.slot_evidence_proposals : [],
     conflict_candidates: Array.isArray(p.conflict_candidates) ? p.conflict_candidates : [],
     false_evidence_flags: Array.isArray(p.false_evidence_flags) ? p.false_evidence_flags : [],
     no_change_reasons: Array.isArray(p.no_change_reasons) ? p.no_change_reasons : [],
-    uncertainty: typeof p.uncertainty === 'number' ? p.uncertainty : 0,
+    uncertainty: Array.isArray(p.uncertainty) ? p.uncertainty : [],
     source_turn: turn || '',
-    provider_version: p.provider_version || 'semantic-v0.1'
+    provider_version: p.provider_version || 'semantic-v0.2'
   }
   // G05 拦截：整条 Proposal（spans + 各审计字段）若出现能力/人格/动机判定词，把对应 span 剔除，
   // 并打 g05_flag 供引擎/审计层废弃其升级意图（语义层绝不出带判定词的内容）。
