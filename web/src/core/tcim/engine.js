@@ -288,7 +288,7 @@ function probeForSlot(itemId, slotId) {
 }
 
 /** 确定性 Generator：为选中的 target_slot 生成教师可见问题（单问、非诱导）。 */
-function generateQuestion(itemId, ev, turnNo, history) {
+function generateQuestion(itemId, ev, turnNo, history, preferredSlot) {
   const ranked = rankSlots(itemId, ev)
   if (!ranked.length) return { question: '感谢您的分享，本情境的访谈先到这里。', done: true }
 
@@ -307,14 +307,23 @@ function generateQuestion(itemId, ev, turnNo, history) {
     })
   }
 
-  // 候选槽：按缺口排序，跳过「模板已全部问过」的槽
-  const candidates = ranked.filter((r) => {
-    const p = probeForSlot(itemId, r.slot.slot_id)
-    const freshTemplates = [p && p.typical_question, p && p.followup_question]
-      .filter((t) => t && !templateAsked(t))
-    return freshTemplates.length > 0
-  })
-  const top = candidates[0] || ranked[0]
+  // V0.2：若指定 preferredSlot（Planner 选中），且该槽有未问过的模板，则以它为目标；否则按缺口排序
+  let top
+  if (preferredSlot) {
+    const pp = probeForSlot(itemId, preferredSlot)
+    const freshPreferred = [pp && pp.typical_question, pp && pp.followup_question].filter((t) => t && !templateAsked(t))
+    if (freshPreferred.length) top = { slot: { slot_id: preferredSlot } }
+  }
+  if (!top) {
+    // 候选槽：按缺口排序，跳过「模板已全部问过」的槽
+    const candidates = ranked.filter((r) => {
+      const p = probeForSlot(itemId, r.slot.slot_id)
+      const freshTemplates = [p && p.typical_question, p && p.followup_question]
+        .filter((t) => t && !templateAsked(t))
+      return freshTemplates.length > 0
+    })
+    top = candidates[0] || ranked[0]
+  }
   const slotId = top.slot.slot_id
   const p = probeForSlot(itemId, slotId)
   const st = ev[slotId]
@@ -533,7 +542,10 @@ export function initTcisSession(itemId, ranking, tags, pretest) {
     history: [],
     done: false,
     replay: [],   // 结构化 Replay：每轮决策记录
-    pretest: pretest || null
+    pretest: pretest || null,
+    ranking: (ranking || []).slice(),   // A00 输入：教师排序
+    processTags: (tags || []).slice(),  // A00 输入：过程标签
+    contextual_belief_state: { beliefs: {}, version: 0 } // V0.2 Belied State
   }
 }
 
@@ -544,6 +556,61 @@ function replayEvent(session, event) {
     ts: Date.now(),
     engine_version: ENGINE_VERSION
   }, event))
+}
+
+/**
+ * V0.2 首问链路：A00（情境解释/Teacher Model）→ A03（Planner 选 action）→ A04（Risk Gate）→ 生成首问。
+ * 在教师尚未回答时调用。disabled 模式回退到模板首问。
+ * @param {object} session 由 initTcisSession 返回（会原地更新 contextual_belief_state / replay）
+ * @returns {{ question, done, target_slot, gate, replay }}
+ */
+export function firstQuestion(session) {
+  const item = TCIM_DATA.items[session.itemId]
+  const isV2 = getSemanticMode() !== 'disabled'
+  if (!isV2) {
+    // 规则基线：用现有 generateQuestion 首问（模板/通用问）
+    const gen = generateQuestion(session.itemId, session.evidence, session.turnNo, session.history)
+    session.turnNo += 1
+    if (gen.question) session.history.push({ role: 'ai', text: gen.question, ts: Date.now() })
+    return { question: gen.question || '', done: gen.done, target_slot: gen.target_slot || null, gate: null, replay: session.replay }
+  }
+
+  // ---- A00：情境解释 / Teacher Model（用 ranking + processTags + pretest）----
+  const factRefs = [session.itemId, ...(session.ranking || []).map((r) => `OPT-${r}`)]
+  const a00 = teacherModel.buildContextInterpretationProposal({
+    factRefs,
+    assessmentSnapshot: { open_text: session.pretest && session.pretest.total != null ? String(session.pretest.total) : null },
+    processTags: session.processTags || [],
+    questionTitle: (item.metadata && item.metadata.title) || ''
+  })
+  // A00 → Belief：把 A00 的 proposed_beliefs 提交为 Belief(ADD)
+  const bs = session.contextual_belief_state || { beliefs: {}, version: 0 }
+  for (const b of (a00.proposed_beliefs || [])) {
+    const mut = { op: 'ADD', claim: b.claim, confidence: b.confidence, uncertainty: 0.6, source_refs: b.source_refs || factRefs, alternatives: b.alternatives || [] }
+    const v = beliefState.validateBeliefMutation(mut, bs)
+    if (v.ok) { const r = beliefState.applyBeliefMutation(bs, mut, 'init'); session.contextual_belief_state = r.state }
+  }
+  // Teacher Model 快照
+  const teacherModelSnapshot = teacherModel.buildTeacherModelSnapshot({
+    factRefs,
+    beliefState: session.contextual_belief_state,
+    evidenceStateRef: session.itemId,
+    turnId: 'init'
+  })
+  replayEvent(session, { event: 'TeacherModelEvent', active_belief_refs: teacherModelSnapshot.active_belief_refs, competing_belief_refs: teacherModelSnapshot.competing_belief_refs, builder_version: teacherModelSnapshot.builder_version })
+  // ---- A03 Planner：选绿色低风险 action ----
+  const agentDecision = agentPlanner.planDecision({ item, evidence: session.evidence, teacherModel: teacherModelSnapshot, beliefState: session.contextual_belief_state })
+  replayEvent(session, { event: 'PlannerEvent', selected_action_id: agentDecision.selected_action_id, primary_target_slot: agentDecision.primary_target_slot, claimed_table_alignment: agentDecision.claimed_table_alignment, claimed_risk_level: agentDecision.claimed_risk_level, rejected_action_ids: agentDecision.rejected_action_ids })
+  // ---- A04 Risk Gate ----
+  const gateResult = decisionGate.validateDecision(agentDecision, { expectedStateVersion: session.contextual_belief_state.version, committedStateVersion: session.contextual_belief_state.version })
+  replayEvent(session, { event: 'GateEvent', decision: gateResult.decision, approved_action_id: gateResult.approved_action_id, adjudicated_risk_level: gateResult.adjudicated_risk_level, adjudicated_table_alignment: gateResult.adjudicated_table_alignment, evaluator_required: gateResult.evaluator_required })
+
+  // ---- 生成首问：绑定 Planner 选中的 target_slot 的探测模板（仍是「非诱导问法」，non-leaking）----
+  const gen = generateQuestion(session.itemId, session.evidence, session.turnNo, session.history, agentDecision.primary_target_slot)
+  session.turnNo += 1
+  const q = gen.question || ''
+  if (q) session.history.push({ role: 'ai', text: q, ts: Date.now() })
+  return { question: q, done: gen.done, target_slot: agentDecision.primary_target_slot, gate: gateResult, replay: session.replay }
 }
 
 /**

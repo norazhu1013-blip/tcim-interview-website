@@ -10,7 +10,7 @@
  *
  * 运行：node web/src/core/tcim/semantic.test.mjs
  */
-import { initTcisSession, processTeacherTurn, setSemanticProvider, setSemanticMode, getSemanticMode } from './engine.js'
+import { initTcisSession, processTeacherTurn, setSemanticProvider, setSemanticMode, getSemanticMode, firstQuestion } from './engine.js'
 
 let failures = 0
 function ok(cond, label) {
@@ -115,6 +115,23 @@ async function run() {
     ok(replay.some((e) => e.event === 'TeacherModelEvent' && Array.isArray(e.active_belief_refs)), 'V2 应有 TeacherModelEvent')
     ok(replay.some((e) => e.event === 'PlannerEvent' && e.selected_action_id), 'V2 应有 PlannerEvent')
     ok(replay.some((e) => e.event === 'GateEvent' && e.decision === 'APPROVE'), 'V2 绿色应 APPROVE')
+  }
+  setSemanticMode('disabled')
+
+  // ---- 测试7：首问 A00→A03→A04 链（fallback_allowed）→ Belief/TeacherModel/Planner/Gate + 生成问题 ----
+  setSemanticMode('fallback_allowed')
+  setSemanticProvider(() => ({ candidate_spans: [], slot_evidence_proposals: [], uncertainty: ['首问前的待澄清点'], conflict_candidates: [], no_change_reasons: [] }))
+  {
+    const session = initTcisSession('Q8', ['A', 'C', 'B', 'D'], ['首位强摇摆'], { total: 2 })
+    const gen = firstQuestion(session)
+    const replay = gen.replay || []
+    ok(gen.question, '首问应生成问题')
+    ok(replay.some((e) => e.event === 'TeacherModelEvent' && Array.isArray(e.active_belief_refs)), '首问应有 TeacherModelEvent')
+    ok(replay.some((e) => e.event === 'PlannerEvent' && e.selected_action_id), '首问应有 PlannerEvent')
+    ok(replay.some((e) => e.event === 'GateEvent' && e.decision === 'APPROVE'), '首问绿色应 APPROVE')
+    ok(typeof gen.target_slot === 'string' && gen.target_slot, '首问应有 target_slot')
+    ok(session.contextual_belief_state && session.contextual_belief_state.beliefs, '首问应初始化 Belief State')
+    ok(!/得分|标准答案|评分/.test(gen.question), '首问不泄露');
   }
   setSemanticMode('disabled')
 

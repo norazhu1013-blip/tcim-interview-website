@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ITEMS } from '../generated/data.js'
 import { kbSlice } from '../core/interview.js'
 import { computeProcess } from '../core/process.js'
-import { initTcisSession, processTeacherTurn } from '../core/tcim/engine.js'
+import { initTcisSession, processTeacherTurn, firstQuestion, isV2Enabled } from '../core/tcim/engine.js'
 import { isTcisMode } from '../core/tcim/mode.js'
 import { getProfile, getSession, saveSession } from '../services/storage.js'
 import { interviewNext, reportInterview } from '../services/api.js'
@@ -72,11 +72,11 @@ function tcimEnsureSession() {
   return tcimSession.value
 }
 
-/** TCIM 首问：教师尚未输入，只初始化并生成第一个问题。 */
+/** TCIM 首问：教师尚未输入，只初始化并生成第一个问题。V0.2 走 A00→A03→A04；disabled 回退模板。 */
 async function tcimFirstQuestion() {
   tcimEnsureSession()
-  const gen = await processTeacherTurn(tcimSession.value, '')
-  return { ok: true, question: gen.question, done: gen.done, stage: 'S1_CONTEXT', nextStage: 'S1_CONTEXT', evidenceHint: [] }
+  const gen = firstQuestion(tcimSession.value)
+  return { ok: true, question: gen.question, done: gen.done, stage: 'S1_CONTEXT', nextStage: 'S1_CONTEXT', evidenceHint: [], target_slot: gen.target_slot }
 }
 
 /** TCIM 后续轮：传入教师最新原话。 */
