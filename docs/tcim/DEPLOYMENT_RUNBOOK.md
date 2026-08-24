@@ -88,10 +88,10 @@
 这些是 **纯逻辑 CJS**，Vite 的 `@rollup/plugin-commonjs` 默认**不转换 node_modules 之外的源码**，会把 `module.exports` 原样带进浏览器包 → 运行时 `module is not defined` 崩溃。
 
 两个必须同时满足，缺一不可：
-1. **`web/vite.config.js`** 必须含 `build.commonjsOptions.include: [/tcim\/modules\//]`，让插件确定性把导入的 CJS 转成 ESM。
+1. **`web/vite.config.js`** 必须含 `build.commonjsOptions.include: [/tcim\/[a-z]+\//, /node_modules/]`，让插件确定性把**整个 `tcim/` 树**(`core/` + `modules/`)的 CJS 转成 ESM。⚠️ 仅覆盖 `/tcim\/modules\//` 不够——`tcim/modules/*` 会 require `tcim/core/contracts.js`(STATE_OWNERS/TABLE_ALIGNMENT 等)，若 `core/` 没被转换，`contracts.js` 的 `module.exports` 会泄漏。
 2. **导入回退**用 `ns.default || ns`，**不要**用 `ns['module.exports']`——后者可能被 minifier 改写成裸 `module` 引用。
 
-**验证方法**：`cd web && npm run build` 后，确认 `dist/assets/index-*.js` 里 `module.exports` 出现次数为 **0**。若 >0，说明构建未走 CJS 转换，需检查 `commonjsOptions.include`。
+**验证方法**：`cd web && npm run build` 后，确认 `dist/assets/index-*.js` 里 `module.exports` 出现次数为 **0**。若 >0，说明构建未走 CJS 转换，需检查 `commonjsOptions.include` 是否覆盖整个 `tcim/`。
 > 旧缓存/旧包（文件名如 `index-CC5HCUkb.js`）若有残留会继续报错；务必用**新构建产物**发布。
 
 ---
