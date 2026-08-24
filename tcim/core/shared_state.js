@@ -13,6 +13,7 @@ function createEmptyState() {
   return {
     session_state: { status: 'created', question_id: null, turn_id: 0 },
     ontology_state: { evidence_state: {} },
+    contextual_belief_state: { beliefs: {}, version: 0 }, // V0.2：Belief State（可撤销情境假设）
     dialogue_state: {},
     rag_runtime_state: {},
     teacher_state: {},

@@ -11,13 +11,17 @@
  * 不能直接把能力等级填进去。
  */
 
-const STATE_VERSION = '2026-08-21-evidence-v1';
+const STATE_VERSION = '2026-08-24-evidence-v2';
+
+// V0.2 冻结：status/level 唯一映射（UNKNOWN/null、NOT_DEMONSTRATED/0、PARTIAL/1、SUFFICIENT/2、HIGH_QUALITY/3）
+const EVIDENCE_STATUS = Object.freeze(['UNKNOWN', 'NOT_DEMONSTRATED', 'PARTIAL', 'SUFFICIENT', 'HIGH_QUALITY']);
 
 function createSlotState(slotId, opts = {}) {
   return {
     slot_id: slotId,
-    status: opts.status || 'UNKNOWN',      // UNKNOWN|PARTIAL|SUFFICIENT|HIGH_QUALITY
-    level: typeof opts.level === 'number' ? opts.level : 0, // 0..3
+    // V0.2：无证据 = UNKNOWN/null（不得写 '0/UNKNOWN'）
+    status: opts.status || 'UNKNOWN',
+    level: typeof opts.level === 'number' ? opts.level : null, // null(UNKNOWN) | 0..3
     confidence: opts.confidence ?? 0,       // 0..1
     supporting_spans: opts.supporting_spans ? opts.supporting_spans.slice() : [],
     conflicting_spans: opts.conflicting_spans ? opts.conflicting_spans.slice() : [],
@@ -37,7 +41,7 @@ function createEvidenceState(slotIds, prior = {}) {
     state[slotId] = createSlotState(slotId, {
       uncertainty: p.uncertainty ?? 0,
       probe_status: p.probe_status,
-      level: 0,
+      level: null,
       status: 'UNKNOWN'
     });
   }
@@ -45,7 +49,7 @@ function createEvidenceState(slotIds, prior = {}) {
 }
 
 function statusFromLevel(level) {
-  if (level <= 0) return 'UNKNOWN';
+  if (level === null || level === undefined || level <= 0) return 'UNKNOWN';
   if (level === 1) return 'PARTIAL';
   if (level === 2) return 'SUFFICIENT';
   return 'HIGH_QUALITY';
@@ -71,4 +75,4 @@ function updateSlot(state, slotId, patch) {
   return state;
 }
 
-module.exports = { createSlotState, createEvidenceState, updateSlot, statusFromLevel, STATE_VERSION };
+module.exports = { createSlotState, createEvidenceState, updateSlot, statusFromLevel, STATE_VERSION, EVIDENCE_STATUS };

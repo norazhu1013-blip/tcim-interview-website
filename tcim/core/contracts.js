@@ -19,6 +19,7 @@ const ACTION_TYPES = Object.freeze([
 const STATE_OWNERS = Object.freeze({
   session_state: 'core',
   ontology_state: 'ontology',
+  contextual_belief_state: 'belief_manager', // V0.2 新增：可撤销情境信念（与 Evidence 并列）
   dialogue_state: 'prdm',
   rag_runtime_state: 'rag',
   teacher_state: 'teacher_state', // future, disabled

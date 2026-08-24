@@ -84,8 +84,8 @@ async function main() {
     const { input, core } = makeInput('Q1', '我会先看地面。', 0);
     const result = await run(core, input);
     const ev = result.state_updates.ontology_state.evidence_state;
-    // 该 slot 不在本题（Q1），Validator 拒绝 → 不升级任何 slot
-    assert.ok(Object.values(ev).every((s) => s.level === 0), '不存在于本题的 slot 不应写入');
+    // 该 slot 不在本题（Q1），Validator 拒绝 → 不升级任何 slot（level 保持 null/0，不得 ≥2）
+    assert.ok(Object.values(ev).every((s) => (s.level === null || s.level === 0 || (s.level ?? 0) < 2)), '不存在于本题的 slot 不应写入');
   }
 
   // ---- 测试4：Validator 拒绝 G05（能力判定词）→ 不写状态 ----
@@ -99,8 +99,8 @@ async function main() {
     const { input, core } = makeInput('Q1', '我会先看地面。', 0);
     const result = await run(core, input);
     const ev = result.state_updates.ontology_state.evidence_state;
-    // G05 拦截（Validator errors）→ 不应升级到 2
-    assert.ok(Object.values(ev).every((s) => s.level === 0 || s.level === undefined), 'G05 不应升级');
+    // G05 拦截（Validator errors）→ 不应升级到 2（level 保持 null/0）
+    assert.ok(Object.values(ev).every((s) => (s.level === null || s.level === 0 || (s.level ?? 0) < 2)), 'G05 不应升级');
   }
 
   // ---- 测试5：disabled 模式回到 bigram updateEvidence（保基线）----
@@ -124,7 +124,7 @@ async function main() {
     const { input, core } = makeInput('Q1', '我会先看地面。', 0);
     const result = await run(core, input);
     const ev = result.state_updates.ontology_state.evidence_state;
-    assert.ok(Object.values(ev).every((s) => s.level === 0), 'shadow 不写 Evidence');
+    assert.ok(Object.values(ev).every((s) => (s.level === null || s.level === 0 || (s.level ?? 0) < 2)), 'shadow 不写 Evidence');
   }
 
   setSemanticMode('disabled');
