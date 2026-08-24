@@ -94,3 +94,158 @@ G04/G05 三层拦截），为「AI 介入」搭好了脚手架（接缝、Schema
 是的，按这个标准，AI 还没有真正介入 Evidence 判断——现在做主的是规则；
 LLM 已经被允许在场，但还没有被赋予「出研判」的职权。要让它真正介入，
 核心改动是把它从「旁路」挪到「主干」上（见第四节），且这不触碰打分/筛题红线。
+
+----------------------------------------------------
+六、研究团队补充诊断（重要增量，比第四节更根本）
+----------------------------------------------------
+（依据：两份补充说明，其中「五表规则/固定优先级/PRDM 决策表/模板输出」的质疑与 Q8 例子）
+
+1. 根本问题：系统存在两条互不相干的判断链
+   当前实际路径是：
+     教师回答 → bigram 关键词/锚点匹配 → 直接更新 Evidence State
+             → LLM 语义分析 → Proposal 只进 diagnostics/replay
+             → 固定 ReRank、PRDM、输出
+   这意味着：
+     - 规则已先把 Evidence 结论写完；
+     - AI 随后分析得再好，也不能改变结果；
+     - 下一专业行动读取的是规则产生的 Evidence；
+     - AI 只是在事后发表意见。
+   所以不是「AI 受 Ontology 约束」，而是「规则系统完成判断，AI 在旁边写一份没有
+   决策效力的分析报告」。这是 AI 没真正介入的核心原因——比「AI 能力不足」更本质。
+
+2. 默认 Provider 实际上关闭了 AI
+   默认 _provider = offlineProvider，空 Proposal 可静默回退。即使代码里存在 LLM 接口，
+   默认运行形态仍是纯规则系统。网页端注册 semanticLLM 也不等于真实生效，还取决于：
+   Provider 是否配置 / 网关是否可用 / 调用是否发生 / 输出是否验证通过 / 输出是否进入状态提交 /
+   失败后是否被静默替换为空结果。「可配置 AI」与「产品默认路径使用 AI」是两回事。
+
+3. 存在两个事实来源（比没有 AI 更危险）
+   当前两套并行逻辑：
+     bigram 结果   → 真正 Evidence
+     LLM Proposal  → 日志建议
+   Replay 可能显示 AI 识别了 Q8-S3/S4/S5，但实际 Evidence 未更新——研究人员会误以为
+   系统行为来自 AI。系统必须只有一条 Evidence 提交路径：
+     LLM Analyzer ─┐
+                   ├→ 统一 EvidenceUpdateProposal
+     规则 Fallback ─┘        ↓
+                      同一个 Validator
+                      同一个 Committer
+   模型和规则可以是不同 Proposal 来源，但不能各自维护一套 Evidence 逻辑。
+
+4. fallback 反客为主
+   bigram 适合做：模型不可用时降级 / 显性关键词辅助信号 / LLM 与规则差异监控 / 离线基线与消融比较。
+   它不适合做默认、唯一、最终的专业语义裁决。当前恰恰相反：fallback 是主路径，LLM 是旁路。
+
+5. Replay 不能证明 AI 产生了决策影响
+   仅记录 provider_version 和语义摘要不够。每次 Evidence 更新至少应保存：
+   turn_id / model_id / model_version / prompt_version / schema_version / provider_status /
+   semantic_mode(LLM | RULE_FALLBACK) / 完整 EvidenceAnalysisProposal /
+   Validator 接受/拒绝结果及 reason codes / Evidence before-after / Action proposals before-after /
+   最终选择的 ProfessionalActionPlan / latency / token / error / fallback。
+   不保存隐藏思维链，但必须保存结构化决策证据。
+
+6. 修正报告的一句话
+   报告称「LLM 决定 Proposal，Ontology 只做验证器」。方向对，但「Ontology 只做验证器」
+   易被误解。更准确：LLM 拥有语义判断的主要提议权；Ontology 拥有专业结构、Anchor、合法
+   状态转换、证据提交和状态所有权；Core 拥有最终写入控制。
+   即：LLM 不直接写 Evidence；Ontology 也不是简单检查 JSON 格式——需验证 Slot、Anchor、
+   原文 span、状态转换、冲突、幂等和权限；但 Ontology 不能再改用 bigram 做一次最终语义裁决。
+   否则会出现：LLM 识别「换坡度/换管子」属 Q8-S4/S5 → Validator 要求命中旧 SYNONYMS →
+   因未命中而拒绝 → 表面 AI 进主路径，实际仍由关键词决定。
+
+----------------------------------------------------
+七、正确的最小闭环（重构 processTurn）
+----------------------------------------------------
+建议把 game_support_ontology.process() 调整为：
+  1. Core 先保存 raw teacher turn 并生成 turn_id
+  2. TurnContext Builder 加载当前题相关 Slot 和 Anchor
+  3. Semantic Analyzer 调用真实 LLM
+  4. LLM 输出 EvidenceAnalysisProposal
+  5. Ontology Validator 检查：Schema 合法 / Slot 存在且属当前题 / supporting span 回指原话 /
+     anchor_rule_id 存在 / proposed level 合法 / 无无依据的能力心理推断 / state_version 幂等
+  6. Evidence Committer 提交合法更新
+  7. 基于新 Evidence 重新计算 ActionProposal
+  8. Orchestrator 选择并锁定 ProfessionalActionPlan
+  9. PRDM 生成 DialoguePlan
+  10. LLM 生成教师可见回应
+
+伪代码：
+  async function processTurn(input) {
+    const savedTurn = await core.saveRawTurn(input);
+    let proposal, semanticMode;
+    try {
+      proposal = await semanticAnalyzer.analyze(buildSemanticContext(savedTurn));
+      semanticMode = "LLM";
+    } catch (error) {
+      proposal = await bigramFallback.propose(savedTurn);
+      semanticMode = "RULE_FALLBACK";
+    }
+    const validation = evidenceValidator.validate(proposal, { currentState, itemPackage, expectedStateVersion });
+    const evidenceResult = evidenceCommitter.commit(validation.acceptedUpdates);
+    const moduleResult = actionPlanner.propose({ evidenceState: evidenceResult.after, evidenceDelta: evidenceResult.delta });
+    return { moduleResult, semanticMode, proposal, validation, evidenceResult };
+  }
+  // 关键：LLM 和 fallback 都输出同一个 Proposal Schema，都经过同一个 Validator 和 Committer。
+
+----------------------------------------------------
+八、默认配置也必须改（否则生产仍默认纯规则）
+----------------------------------------------------
+新增 TCIM_SEMANTIC_MODE = required | fallback_allowed | shadow | disabled
+  - required：主实验模式。LLM 不可用则明确报错或进入标记降级，不能假装正常 AI 会话。
+  - fallback_allowed：允许规则继续，但必须记录 RULE_FALLBACK。
+  - shadow：LLM 只旁路分析，用于上线前比较，不宣称 AI 已介入。
+  - disabled：明确的规则基线/消融条件。
+Staging / 启动时做 Provider readiness 检查。配置 required 却没有 Provider → 应启动失败或
+阻止进入 AI 实验，而不是静默使用 offlineProvider。
+
+----------------------------------------------------
+九、必须用测试证明 AI「取得了职权」（不能以「代码存在模型调用」验收）
+----------------------------------------------------
+  1. Proposal 影响测试：注入合法 LLM Proposal，Evidence State 必须发生对应变化。
+  2. 非法 Proposal 拒绝测试：不存在的 Slot / 无法回指的 span / 非法等级 / 越权状态写入必须被拒。
+  3. Q8 语义测试：「换坡度、换管子、试了几次、才给提示」应识别 Q8-S3/S4/S5，不依赖固定关键词。
+  4. 释义鲁棒性测试：相同专业含义换多种自然表达，Evidence 判断应基本一致。
+  5. LLM ON/OFF 消融：在多 Slot / 隐含机制 / 冲突 / 模糊案例中，LLM ON 相对 bigram 基线有可测增益。
+  6. 行动影响测试：LLM 产生的 Evidence 变化必须进一步影响 ActionProposal 或下一专业行动。
+  7. 降级显式测试：Provider 超时后继续运行，但 Replay 必须明确标记 RULE_FALLBACK，不得混入 AI 主效果。
+  8. 打分红线测试：无论 LLM 怎样输出，都不能改变 scoring.js 赋分和 R/P/G 确定性筛题结果。
+
+----------------------------------------------------
+十、两层视角的说明（五表 vs 责任表的平衡）
+----------------------------------------------------
+责任表 A01-A11 是「责任边界」+「状态提交契约」，不是「每轮依次完成 11 个固定步骤」。
+若实现成：识别标签→匹配 Anchor→算优先级→选 Move→套话术——即便每步都调大模型，对话仍僵硬。
+一句话：固定「红线、标准和责任」，开放「理解、选择和表达」。
+
+第一阶段应压缩为「两次主模型调用 + 条件式工具调用」：
+  教师回答
+    ↓ 主模型调用1：整体理解教师回答（证据片段/多Slot映射/Anchor建议/冲突与不确定性/下一行动候选）
+    ↓ 确定性系统验证并锁定状态/行动
+    ↓ 主模型调用2：结合教师原话和 PRDM 边界生成自然回应
+  仅特殊情况再调用 RAG / Interaction Read 增强 / 语义复核 / 摘要压缩。
+
+Ontology 不能变成答案脚本——Anchor 是专业判据，不是关键词表。应给 AI 三个「开放出口」：
+  alternative_interpretations[] / unmapped_evidence[] / out_of_ontology_signal
+  它们不直接改 Production 规则，但可让 AI 先澄清、作为新 Action Proposal、进 Replay 与专业审核、辅助未来修订 Ontology。
+
+PRDM 也不应提前决定完整回应——只输出：简短承接 / 共同探究 / 挑战等级1 / 低文字剂量 /
+只问一个问题 / 不要重复总结（策略边界），而非先「我理解…」再「您提到…」再套某个模板（话术脚本）。
+
+最合适的系统形态（「中间窄、两头宽」）：
+  宽：AI 开放理解教师自然语言
+     ↓ 窄：Ontology 验证 Evidence / Orchestrator 锁定专业行动 / PRDM 限定互动边界
+  宽：AI 自然、个性化地实现对话
+中间的「窄」保证专业性、安全性与可研究性；两端的「宽」保证理解能力与谈话灵活性。
+
+----------------------------------------------------
+最终判断（为何「看似 AI 介入却落空」）
+----------------------------------------------------
+当前不是「AI 能力不足」，而是「AI 没有进入具有决策影响力的主路径」。
+已完成的：AI 接口 / Proposal Schema / Provider 注册 / G04-G05 校验 / Shadow 诊断与部分 Replay。
+未完成的：AI 在 Evidence 更新前分析 / Proposal 进统一提交路径 / AI 影响下一专业行动 /
+默认环境真启用 Provider / Replay 证明 AI 对状态与行动的影响。
+
+因此下一步**不应**继续扩充 PRDM 话术、同义词表或固定规则。应设一个独立 Gate：
+在 Q8 多 Slot 与隐含机制案例中，真实 LLM Proposal 经 Ontology 验证后能更新 Evidence，
+并进一步改变下一 ProfessionalAction；关闭 LLM 后结果明显退化；同时打分与筛题保持完全不变。
+只有这个 Gate 通过，才能说 AI 真正进入了 TCIM 第一阶段的专业判断闭环。
