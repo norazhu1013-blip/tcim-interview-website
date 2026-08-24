@@ -21,6 +21,10 @@ import * as decisionGate from '../../../../tcim/modules/gate/decision_gate.js'
 import * as challengeQueue from '../../../../tcim/modules/context/challenge_queue.js'
 import * as evidenceUpdater from '../../../../tcim/modules/ontology/evidence_updater.js'
 const { validateProposal: v2ValidateProposal, commitProposal: v2CommitProposal } = evidenceUpdater.namespace || evidenceUpdater.default || evidenceUpdater
+import * as prdmV2ns from '../../../../tcim/modules/prdm/prdm_v2.js'
+const prdmV2 = prdmV2ns.default || prdmV2ns['module.exports'] || prdmV2ns
+import * as knowledgeNeedNs from '../../../../tcim/modules/rag/knowledge_need.js'
+const knowledgeNeed = knowledgeNeedNs.default || knowledgeNeedNs['module.exports'] || knowledgeNeedNs
 
 // 与 tcim/modules/ontology/evidence_updater.js 保持一致的中文 bigram 匹配
 const SYNONYMS = {
@@ -366,127 +370,6 @@ function generateQuestion(itemId, ev, turnNo, history, preferredSlot) {
   return { question: generic, done: false, target_slot: slotId, probe_strategy: '通用追问' }
 }
 
-/** PRDM 措辞适配：按 DialoguePlan 调整教师可见问句（不改变专业目标/证据判断）。 */
-function prdmWording(question, prdm) {
-  let q = String(question || '').trim()
-  if (!q) return q
-  const move = prdm.dialogue_move
-  const progressStatus = prdm.local_progress && prdm.local_progress.status
-  // REPAIR：先承接修正，再问
-  if (move === 'REPAIR') {
-    q = '我重新理解一下您的意思：' + q
-  }
-  // SLOW / 低确信：加一个具体化前缀，缩小问题
-  if (progressStatus === 'SLOW' && !q.startsWith('我重新理解') && !q.startsWith('能不能举个例子')) {
-    q = '能不能举个例子，' + q
-  }
-  // GENTLE_CHALLENGE：温和对比
-  if (move === 'GENTLE_CHALLENGE') {
-    q = '如果换个角度看，' + q
-  }
-  // LOW dose / frustration：尽量短（去掉前缀只留核心问句）
-  if (prdm.response_dose === 'LOW') {
-    const m = q.match(/[^，。；]*[？?]/)
-    if (m) q = m[0]
-  }
-  return q
-}
-
-/* ---------------- RAG V0.1（04-1 架构，按需知识，默认 R0 不调用） ---------------- */
-
-// RAG 默认关闭。开启需 VITE_TCIM_RAG=1，且仅当 Orchestrator knowledge_need=true 时触发。
-const RAG_ENABLED = String(typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_TCIM_RAG || '').trim() === '1'
-
-function buildRagCapsules() {
-  const capsules = {}
-  for (const qid of Object.keys(TCIM_DATA.items)) {
-    const item = TCIM_DATA.items[qid]
-    const notes = []
-    for (const slot of (item.ontology && item.ontology.slots) || []) notes.push(`${slot.slot_id} ${slot.name}：${slot.definition}`)
-    for (const a of (item.anchors && item.anchors.anchors) || []) notes.push(`${a.slot_id} 高质量证据：${a.level_3}`)
-    capsules[qid] = notes
-  }
-  return capsules
-}
-
-const RAG_CAPSULES = buildRagCapsules()
-
-/** 关键词检索（R2 降级），来源可追溯。 */
-function ragRetrieve(query, questionId) {
-  const notes = RAG_CAPSULES[questionId] || []
-  if (!notes.length) return { refs: [], route: 'R0' }
-  const terms = String(query || '').split(/[\s,，、]+/).filter((t) => t.length >= 2)
-  if (!terms.length) return { refs: notes.slice(0, 2).map((t, i) => ({ source: `${questionId}-capsule-${i}`, text: t })), route: 'R1' }
-  const hits = notes.map((text, i) => ({ text, i, score: terms.reduce((s, t) => s + (text.includes(t) ? 1 : 0), 0) }))
-    .filter((x) => x.score > 0).sort((a, b) => b.score - a.score)
-  const refs = hits.slice(0, 3).map((x) => ({ source: `${questionId}-capsule-${x.i}`, text: x.text }))
-  return { refs, route: refs.length ? 'R2' : 'R0' }
-}
-
-/**
- * 按需 RAG 决策（Orchestrator Stage A 之后的 knowledge_need 判断）。
- * V0.1：仅当明确开启且当前 evidence 缺口大时触发；默认 R0 不调用。
- */
-function ragDecision(session, evidence) {
-  if (!RAG_ENABLED) return { knowledge_need: false, route: 'R0' }
-  // 简单判断：核心槽多数 level 0 且已谈了几轮仍无进展 → 需要知识支持
-  const item = TCIM_DATA.items[session.itemId]
-  const core = ((item.ontology && item.ontology.slots) || []).filter((s) => s.core)
-  const zeroLevel = core.filter((s) => evidence[s.slot_id] && evidence[s.slot_id].level === 0).length
-  const knowledgeNeed = zeroLevel >= 3 && session.turnNo >= 3
-  if (!knowledgeNeed) return { knowledge_need: false, route: 'R0' }
-  const { refs, route } = ragRetrieve(item.ontology.diagnostic_focus || '判断', session.itemId)
-  return { knowledge_need: true, route, refs }
-}
-
-/* ---------------- PRDM V0.1（03-1 架构，确定性对话策略） ---------------- */
-
-function prdmInteractionRead(teacherTurn, recentTurns) {
-  const s = String(teacherTurn || '').trim()
-  const depth = (s.match(/[。，；、！？]/g) || []).length
-  const hasDetail = /(?:因为|所以|先|然后|如果|当|看情况|根据|条件|具体|比如|例如)/.test(s)
-  return {
-    repair_signal: /(?:我不是这个意思|你理解错了|你误会了|不是这样|我说的是|你没听懂|我纠正一下|重新说)/.test(s),
-    frustration: /(?:烦|别问了|不要再问|不想继续|不回答了|结束吧|到这里吧)/.test(s),
-    low_certainty: /(?:不太确定|可能|也许|说不准|我也说不清|我不太清楚|没想好)/.test(s),
-    response_depth: hasDetail && depth >= 2 ? 2 : (hasDetail ? 1 : 0)
-  }
-}
-
-function prdmLocalProgress(updates, signals) {
-  if (updates && updates.some((u) => /anchor_level_2|anchor_level_3/.test(u.reason))) return { status: 'ADVANCING' }
-  if (updates && updates.length) return { status: 'ADVANCING' }
-  if (signals.frustration) return { status: 'STUCK' }
-  if (signals.repair_signal) return { status: 'ADVANCING' }
-  if (signals.response_depth === 0) return { status: 'SLOW' }
-  return { status: 'ADVANCING' }
-}
-
-function prdmStanceMove(progress, signals) {
-  if (signals.repair_signal) return { stance: 'LISTEN', move: 'REPAIR', challenge: 0 }
-  if (signals.frustration) return { stance: 'LISTEN', move: 'BRIEF_UPTAKE_PROBE', challenge: 0 }
-  if (progress.status === 'STUCK') return { stance: 'CO_INQUIRE', move: 'NOTICE_AND_PROBE', challenge: 0 }
-  if (progress.status === 'SLOW') return { stance: 'CO_INQUIRE', move: 'BRIEF_UPTAKE_PROBE', challenge: 0 }
-  if (signals.low_certainty) return { stance: 'CO_INQUIRE', move: 'DIRECT_PROBE', challenge: 0 }
-  return { stance: 'CO_INQUIRE', move: 'DIRECT_PROBE', challenge: 1 }
-}
-
-/** PRDM 决策（确定性，不写 Evidence）。 */
-function prdmPlan(teacherTurn, recentTurns, evidenceUpdates) {
-  const signals = prdmInteractionRead(teacherTurn, recentTurns)
-  const progress = prdmLocalProgress(evidenceUpdates, signals)
-  const sm = prdmStanceMove(progress, signals)
-  return {
-    dialogue_move: sm.move,
-    stance: sm.stance,
-    local_progress: progress,
-    challenge_level: sm.challenge,
-    question_load: signals.frustration || signals.response_depth === 0 ? 'LIGHT' : 'STANDARD',
-    response_dose: signals.frustration ? 'LOW' : 'STANDARD',
-    max_questions: 1,
-    max_chars: signals.frustration ? 40 : 80
-  }
-}
 
 /* ---------------- Constraint Checker（01-2 第10节） ---------------- */
 
@@ -733,32 +616,39 @@ export async function processTeacherTurn(session, teacherTurn) {
 
   const ranked = rankSlots(session.itemId, evidence)
   const actionPlan = { target_slot: ranked[0]?.slot.slot_id || null, probe_strategy: '' }
-  // RAG 按需决策（默认 R0；仅 VITE_TCIM_RAG=1 且缺口大时触发）
-  const rag = ragDecision(session, evidence)
+  // V0.2 RAG：Planner 侧提出 KnowledgeNeedProposal（默认克制 R0；缺 key/未开启 → R0）
+  const rag = knowledgeNeed.decideKnowledgeNeed({ evidence, item, turnNo: session.turnNo })
   replayEvent(session, {
     event: 'OrchestratorEvent',
     decision: 'PROBE',
     target_slot: actionPlan.target_slot,
     ranked_slots: ranked.slice(0, 5).map((r) => ({ slot: r.slot.slot_id, score: Number(r.score.toFixed(3)) })),
-    knowledge_need: rag.knowledge_need,
-    rag_route: rag.route,
-    rag_refs: rag.refs ? rag.refs.length : 0,
+    knowledge_need: rag.need,
+    knowledge_need_gap: rag.gap,
+    rag_route: rag.need ? rag.route_ceiling : 'R0',
     reason: 'top_evidence_gap'
   })
-  // PRDM：读 observable 信号 → 输出 DialoguePlan（不写 Evidence、不改专业目标）
+  // V0.2 PRDM：A06 observe（Planner 前，纯互动信号，不输出行动/诊断/推荐）
   const recentTurns = session.history.filter((h) => h.role === 'teacher').map((h) => h.text)
-  const prdm = prdmPlan(trimmed, recentTurns, updates)
-  replayEvent(session, {
-    event: 'PRDMEvent',
-    dialogue_plan: {
-      move: prdm.dialogue_move,
-      stance: prdm.stance,
-      progress: prdm.local_progress.status,
-      challenge_level: prdm.challenge_level,
-      question_load: prdm.question_load,
-      response_dose: prdm.response_dose
-    }
-  })
+  const obs = prdmV2.observe({ teacherTurn: trimmed, recentTurns, observedActionFingerprint: agentDecision ? (agentDecision.selected_action_id || '') : '', turnId })
+  replayEvent(session, { event: 'PRDMObserveEvent', interaction_read: obs, forbidden_present: prdmV2.FORBIDDEN_OBS.some((f) => obs[f] !== undefined && obs[f] !== null) })
+  // V0.2 PRDM：A07 plan（Committed action 之后，绑定 fingerprint；不生成文本、不改专业目标）
+  const protectedAction = agentDecision ? { target_slot: agentDecision.primary_target_slot, professional_objective: '', probe_strategy: '' } : null
+  const prdm = prdmV2.plan({ protectedAction, actionFingerprint: agentDecision ? agentDecision.selected_action_id : '', teacherTurn: trimmed, recentTurns, evidenceUpdates: updates })
+  if (prdm) {
+    replayEvent(session, {
+      event: 'PRDMPlanEvent',
+      dialogue_plan: {
+        move: prdm.dialogue_move,
+        stance: prdm.stance,
+        progress: prdm.local_progress === undefined ? (prdm.local_progress ? prdm.local_progress.status : 'n/a') : (prdm.local_progress && prdm.local_progress.status),
+        challenge_level: prdm.challenge_level,
+        question_load: prdm.question_load,
+        response_dose: prdm.response_dose,
+        fingerprint: prdm.protected_action_fingerprint
+      }
+    })
+  }
   const gen = generateQuestion(session.itemId, evidence, session.turnNo, session.history)
   // 模板与通用问全部用尽 → 正常收束（避免无限循环）
   if (gen.done) {
@@ -777,13 +667,11 @@ export async function processTeacherTurn(session, teacherTurn) {
   }
   // PRDM 措辞适配：按 DialoguePlan 调整问句（不改专业目标/证据判断）。
   // 只在「未问过的模板」上做措辞；重复用通用问时不叠加前缀，避免逐字重复。
-  const prdmAdapted = prdmWording(gen.question, prdm)
-  // Generator → Constraint Checker：不过则用安全通用问重写（不改专业行动）。
-  // 去重用「最终可见文本」；若命中也按 Constraint 拦截处理，但不陷入无限循环：
-  // 此处 fallback 用「基于当前槽的通用追问」，保证每次都有新问句或正常收束。
+  // A08 Generator 是唯一教师可见文本点；PRDM(prdm) 只提供互动参数，不做措辞改写。
+  const genText = gen.question || ''
   const priorQuestions = session.history.filter((h) => h.role === 'ai').map((h) => h.text)
-  const checked = checkConstraints(prdmAdapted, actionPlan, priorQuestions)
-  let finalQuestion = prdmAdapted
+  const checked = checkConstraints(genText, actionPlan, priorQuestions)
+  let finalQuestion = genText
   let constraintResult = checked.ok ? 'pass' : 'rewritten'
   if (!checked.ok) {
     // 安全兜底：单问、非诱导、不泄露；用「当前槽未用过的通用追问」，避免固定句循环
@@ -810,7 +698,7 @@ export async function processTeacherTurn(session, teacherTurn) {
     question: finalQuestion,
     constraint_result: constraintResult,
     constraint_issues: checked.ok ? [] : checked.issues,
-    prdm_move: prdm.dialogue_move,
+    prdm_move: (prdm && prdm.dialogue_move) || 'n/a',
     evidence_before_count: Object.keys(evidenceBefore).length
   })
   return {
