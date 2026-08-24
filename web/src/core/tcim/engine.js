@@ -20,11 +20,11 @@ import * as agentPlanner from '../../../../tcim/modules/planner/agent_planner.js
 import * as decisionGate from '../../../../tcim/modules/gate/decision_gate.js'
 import * as challengeQueue from '../../../../tcim/modules/context/challenge_queue.js'
 import * as evidenceUpdater from '../../../../tcim/modules/ontology/evidence_updater.js'
-const { validateProposal: v2ValidateProposal, commitProposal: v2CommitProposal } = evidenceUpdater.namespace || evidenceUpdater.default || evidenceUpdater
+const { validateProposal: v2ValidateProposal, commitProposal: v2CommitProposal } = evidenceUpdater.default || evidenceUpdater
 import * as prdmV2ns from '../../../../tcim/modules/prdm/prdm_v2.js'
-const prdmV2 = prdmV2ns.default || prdmV2ns['module.exports'] || prdmV2ns
+const prdmV2 = prdmV2ns.default || prdmV2ns
 import * as knowledgeNeedNs from '../../../../tcim/modules/rag/knowledge_need.js'
-const knowledgeNeed = knowledgeNeedNs.default || knowledgeNeedNs['module.exports'] || knowledgeNeedNs
+const knowledgeNeed = knowledgeNeedNs.default || knowledgeNeedNs
 
 // 与 tcim/modules/ontology/evidence_updater.js 保持一致的中文 bigram 匹配
 const SYNONYMS = {
