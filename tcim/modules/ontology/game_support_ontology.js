@@ -14,6 +14,10 @@
 const { createEvidenceState, updateSlot, statusFromLevel } = require('./evidence_state.js');
 const { assessSlot, buildKeywords, overlapCount, updateEvidence, validateProposal, commitProposal, bigramFallback } = require('./evidence_updater.js');
 const { analyze } = require('../evidence_semantic/evidence_semantic.js');
+const { createBeliefState, validateBeliefMutation, applyBeliefMutation } = require('../context/belief_state.js');
+const { buildTeacherModelSnapshot, buildContextInterpretationProposal } = require('../context/teacher_model.js');
+const { planDecision } = require('../planner/agent_planner.js');
+const { validateDecision } = require('../gate/decision_gate.js');
 
 const MODULE_VERSION = '2026-08-21-ontology-v0.2-sanity';
 
@@ -278,9 +282,46 @@ async function process(input, ctx) {
     }
   }
 
-  // ---- A01 语义信号（供 diagnostics，不决定 level，除非在语义主路径已由 Committer 提交）----
-  if (semantic && semantic.ok && semantic.proposal) {
-    // 已在上方语义主路径处理；这里无需重复写 state
+  // ---- V0.2 双状态链：A02B Belief 更新 + Teacher Model 快照 + A03/A04 Planner→Gate ----
+  // 仅在语义主路径（非 disabled）执行；disabled 走纯规则，Belief 保持空。
+  let beliefState = (ctx && ctx.sharedState && ctx.sharedState.contextual_belief_state) || { beliefs: {}, version: 0 };
+  const beliefEvents = [];
+  let teacherModelSnapshot = null;
+  let agentDecision = null;
+  let gateResult = null;
+
+  if (semanticMode !== 'disabled' && semantic && semantic.ok && semantic.proposal) {
+    // A02B：从语义信号推断可撤销 Belief（不含能力/人格判定）。只做 ADD 候选，交由 Belief Manager 校验提交。
+    const factRefs = [input.turn_id, qid];
+    const uncertainties = (semantic.proposal.uncertainty || []).slice(0, 2);
+    for (const u of uncertainties) {
+      const mut = { op: 'ADD', claim: u, confidence: 0.6, uncertainty: 0.6, source_refs: factRefs, alternatives: [] };
+      const v = validateBeliefMutation(mut, beliefState);
+      if (v.ok) {
+        const { state: next, event } = applyBeliefMutation(beliefState, mut, input.turn_id);
+        beliefState = next;
+        beliefEvents.push(event);
+      }
+    }
+    // Teacher Model 快照（派生、只读）：引用当前事实 + 有效 Belief
+    teacherModelSnapshot = buildTeacherModelSnapshot({
+      factRefs,
+      beliefState,
+      evidenceStateRef: qid,
+      turnId: input.turn_id
+    });
+    // A03 Planner：用 Evidence 缺口 + Teacher Model 生成候选并选 action
+    agentDecision = planDecision({
+      item,
+      evidence: newEvidence,
+      teacherModel: teacherModelSnapshot,
+      beliefState
+    });
+    // A04 Risk Gate：验证 + 裁决（不重做选择）
+    gateResult = validateDecision(agentDecision, {
+      expectedStateVersion: beliefState.version,
+      committedStateVersion: beliefState.version
+    });
   }
 
   // 应用 stop/prune gate
@@ -329,6 +370,14 @@ async function process(input, ctx) {
     }
   }
 
+  // V0.2 双状态：把 Belief / Teacher Model / Planner / Gate 结果作为观察与 diagnostics 上报
+  //（Belief 实际写入由独立 Belief Manager 模块负责；本模块只读并供 Planner，不写 contextual_belief_state）
+  const beliefObservations = beliefEvents.map((ev) => ({ claim: ev.claim || '', op: ev.op, confidence: ev.after && ev.after.confidence, reason: 'belief_' + ev.op }));
+  const v2Diagnostics = [];
+  if (teacherModelSnapshot) v2Diagnostics.push({ reason: 'teacher_model_snapshot', active_belief_refs: teacherModelSnapshot.active_belief_refs, competing_belief_refs: teacherModelSnapshot.competing_belief_refs });
+  if (agentDecision) v2Diagnostics.push({ reason: 'agent_decision', selected_action_id: agentDecision.selected_action_id, primary_target_slot: agentDecision.primary_target_slot, claimed_table_alignment: agentDecision.claimed_table_alignment, claimed_risk_level: agentDecision.claimed_risk_level, rejected_action_ids: agentDecision.rejected_action_ids });
+  if (gateResult) v2Diagnostics.push({ reason: 'gate_result', decision: gateResult.decision, adjudicated_risk_level: gateResult.adjudicated_risk_level, adjudicated_table_alignment: gateResult.adjudicated_table_alignment, evaluator_required: gateResult.evaluator_required });
+
   return {
     module_id: 'ontology_game_support',
     module_version: MODULE_VERSION,
@@ -338,8 +387,8 @@ async function process(input, ctx) {
     constraints: gateSignals.map((s) => ({ type: s.type, scope: s.scope })),
     confidence: 0.8,
     evidence_refs: updates.map((u) => u.quote),
-    decision_summary: `ontology: ${updates.length} slot updates, ${proposals.length} proposals, ${gateSignals.length} gates, mode=${semanticMode}`,
-    diagnostics: [...updates, ...semanticSignals]
+    decision_summary: `ontology: ${updates.length} slot updates, ${proposals.length} proposals, ${gateSignals.length} gates, mode=${semanticMode}, belief=${beliefEvents.length}, planner=${agentDecision ? agentDecision.selected_action_id : 'n/a'}, gate=${gateResult ? gateResult.decision : 'n/a'}`,
+    diagnostics: [...updates, ...semanticSignals, ...beliefObservations, ...v2Diagnostics]
   };
 }
 
