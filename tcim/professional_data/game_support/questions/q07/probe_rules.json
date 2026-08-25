@@ -14,7 +14,7 @@
       ],
       "forbidden_question": "“女孩子是不是本来就不爱运动？”",
       "non_inducing_boundary": "避免群体化判断。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q7-S2",
@@ -29,7 +29,7 @@
       ],
       "forbidden_question": "“用鞋子设计走跑跳就行吧？”",
       "non_inducing_boundary": "先由教师识别游戏资源。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q7-S3",
@@ -44,7 +44,7 @@
       ],
       "forbidden_question": "“请安排走、跑、跳三个项目。”",
       "non_inducing_boundary": "保持游戏生成性。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q7-S4",
@@ -59,7 +59,7 @@
       ],
       "forbidden_question": "“现在跟老师来做运动。”",
       "non_inducing_boundary": "检验共同游戏与渐退。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q7-S5",
@@ -74,7 +74,22 @@
       ],
       "forbidden_question": "“运动时间就必须运动，对吗？”",
       "non_inducing_boundary": "查目标与自主的整合。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "slot_id": "Q7-S6",
+      "allowed_actions": [
+        "具体化，环境反思"
+      ],
+      "preferred_action": "功能检验",
+      "typical_question": "“如果调整材料或空间，您会改什么，并期待它具体增加哪一种运动参与？”",
+      "followup_question": "“投放后孩子仍主要坐着玩，您会怎样判断和调整？”",
+      "forbidden_actions": [
+        "材料堆叠"
+      ],
+      "forbidden_question": "“多放一些艾莎道具，孩子自然就会运动吧？”",
+      "non_inducing_boundary": "材料和空间调整必须同时有原因、运动功能与观察反馈依据。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

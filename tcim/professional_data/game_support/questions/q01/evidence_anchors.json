@@ -9,7 +9,7 @@
       "level_3": "还能区分‘尊重游戏生成’与‘任何行为都可继续’，主动把游戏意义与场地/风险判断同时纳入。",
       "false_evidence": "只说‘尊重幼儿’。",
       "conflict_evidence": "口头肯定新发现后立即用篮球活动替代。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q1-S2",
@@ -19,7 +19,7 @@
       "level_3": "能区分可协商的不适宜与必须即时处理的风险，并说明证据如何改变介入强度。",
       "false_evidence": "泛称‘注意安全’。",
       "conflict_evidence": "无风险证据却一律立即制止，或明显风险下仍无限等待。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q1-S3",
@@ -29,7 +29,7 @@
       "level_3": "能把阈值、游戏投入和替代支持连成动态路径：观察—轻介入—必要升级—恢复自主。",
       "false_evidence": "‘随机应变’。",
       "conflict_evidence": "把A或C机械当唯一正确答案。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q1-S4",
@@ -39,7 +39,7 @@
       "level_3": "能让幼儿参与判断‘哪里更适合、需要带什么、怎样继续’，使规则理解和游戏延续同时发生。",
       "false_evidence": "只是把命令换成温和语气。",
       "conflict_evidence": "转场后原游戏完全消失。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q1-S5",
@@ -49,7 +49,17 @@
       "level_3": "能进一步支持幼儿共同讨论适宜场地和规则，把外部限制转化为可理解、可参与的共同规范。",
       "false_evidence": "完全放任也叫尊重自主。",
       "conflict_evidence": "规则理由与实际风险无关。",
-      "calibration_note": ""
+      "calibration_note": "40"
+    },
+    {
+      "slot_id": "Q1-S6",
+      "level_0": "介入或转场后不再观察，只看幼儿是否服从。",
+      "level_1": "会看游戏是否继续，但未关注幼儿理解、新风险或是否需要调整。",
+      "level_2": "能观察转场后游戏是否延续、幼儿是否理解理由及是否出现新风险，并据此调整支持。",
+      "level_3": "能依据连续反馈在放宽、提醒、升级与退出之间校准，使安全、规则理解和游戏连续性形成闭环。",
+      "false_evidence": "只问‘听懂了吗’。",
+      "conflict_evidence": "新场地仍有风险或游戏已经中断，却不再调整。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

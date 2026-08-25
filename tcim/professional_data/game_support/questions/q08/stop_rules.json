@@ -10,7 +10,7 @@
       "shift_condition": "转Q8-S3。",
       "stop_condition": "不能单独停止。",
       "forbidden_stop": "不知道卡点不得高判。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q8-S3~S4 支架/探究",
@@ -21,7 +21,7 @@
       "shift_condition": "转Q8-S5。",
       "stop_condition": "核心充分可准备停止。",
       "forbidden_stop": "只有‘不告诉答案’口号不得停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q8-S5 材料",
@@ -29,21 +29,32 @@
       "no_gain_threshold": "1轮无新增剪枝。",
       "prune_condition": "充分后剪枝。",
       "reopen_condition": "后续又以新奇刺激替代问题解决时重开。",
-      "shift_condition": "整题总结。",
+      "shift_condition": "转Q8-S6（兴趣下降/可达成感不足时）或整题总结。",
       "stop_condition": "与核心共同满足时停止。",
       "forbidden_stop": "材料数量被当主要策略时不得判高质量。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "scope": "Q8-S6 挑战调节",
+      "sufficient_condition": "能说明如何缩小问题、共同探索或制造可见进展来恢复可达成感，同时保留核心难题。",
+      "no_gain_threshold": "1轮仍只说鼓励或奖励、无挑战调节机制则剪枝。",
+      "prune_condition": "达到2级，或幼儿兴趣稳定且当前无需调节时剪枝。",
+      "reopen_condition": "兴趣再次下降、支持过强使难题消失，或连续尝试仍无可见进展时重开。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+      "forbidden_stop": "不得用奖励、新奇材料或直接答案替代困难机制与探究支架。",
+      "calibration_note": "待专家检核"
     },
     {
       "scope": "整题",
-      "sufficient_condition": "Q8-S1~S5至少4个2级，形成‘识别机制—判断ZPD—分级支架—儿童验证—环境调整’链条。",
+      "sufficient_condition": "Q8-S1~S5至少4个2级，形成‘识别机制—判断ZPD—分级支架—儿童验证—环境调整’链条；S6为可选扩展，不作为整题最低停止条件。",
       "no_gain_threshold": "连续2轮核心无提升。",
       "prune_condition": "充分分支剪枝。",
       "reopen_condition": "新冲突重开。",
       "shift_condition": "无。",
       "stop_condition": "满足充分或时间上限低增益停止。",
       "forbidden_stop": "仍无法解释A为何低分时不宜过早停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     }
   ]
 }

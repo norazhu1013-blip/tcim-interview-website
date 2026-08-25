@@ -18,8 +18,14 @@ TCIM Task 2 —— 5 张专业表 × 10 题数据化。
             ├── stop_rules.json
             └── metadata.json
 
-数据为「AI 前置打样 V0.1」，是当前可工程化的专业规则源；不得由 AI 运行时改写。
-Source of Truth = DOC/数据表 5个.zip。重跑本脚本即从原始文件重新生成。
+数据为「AI 前置打样 + S6 补齐(V0.2)」，是当前可工程化的专业规则源；不得由 AI 运行时改写。
+Source of Truth = DOC/tcim_5tables_v02_s6/（表1/3 旧 + 表2/4/5 S6 补齐 V0.2 混装）。
+重跑本脚本即从原始文件重新生成。extract_sheets 兼容两种 xlsx 编码：
+  - 旧版：x: 命名空间 + 内联字面量；
+  - 新版(S6 补齐)：默认命名空间 + sharedStrings(t='s')。
+生成命令：
+  python tools/build_tcim_data.py DOC/tcim_5tables_v02_s6 tcim/professional_data/game_support
+  node tools/build_tcim_web_data.mjs   # 重建 web/src/generated/tcim-data.js
 
 用法：python tools/build_tcim_data.py <解压后目录> <输出目录>
       python tools/build_tcim_data.py --verify-only <输出目录>   # 只做跨表校验
@@ -45,30 +51,62 @@ TABLE_HEADERS = {
 }
 
 
+def _load_shared_strings(z):
+    """读取 sharedStrings.xml（若有）。值 = t='s' 的 <v> 序号 → 该表。"""
+    if 'xl/sharedStrings.xml' not in z.namelist():
+        return None
+    xml = z.read('xl/sharedStrings.xml').decode('utf-8', 'ignore')
+    out = []
+    for si in re.findall(r'<si>.*?</si>', xml, re.S):
+        texts = re.findall(r'<(?:\w+:)?t[^>]*>([^<]*)</(?:\w+:)?t>', si)
+        out.append(''.join(texts))
+    return out
+
+
 def extract_sheets(xlsx_path):
-    """返回 list[list[dict]]：每张 sheet 的每行 = {col_letter: value}。"""
-    sheets = []
+    """返回 list[list[dict]]：每张 sheet 的每行 = {col_letter: value}。
+
+    兼容两种 xlsx 编码：
+      - 旧版：x: 命名空间 + 内联字面量（<x:row>/<x:v>/<x:t>）。
+      - 新版(S6 补齐 V0.2)：默认命名空间 + sharedStrings（t='s'，<v> 为序号）。
+    都能解析出「列字母 → 文本值」。
+    """
     try:
         z = zipfile.ZipFile(xlsx_path)
     except Exception as e:
         raise SystemExit(f'无法打开 {xlsx_path}: {e}')
 
+    shared = _load_shared_strings(z)
+    # 命名空间无关：类名可带 x: 前缀或无前缀
+    ns = r'(?:\w+:)?'
     names = sorted([n for n in z.namelist() if re.match(r'xl/worksheets/sheet\d+\.xml', n)],
                    key=lambda n: int(re.search(r'sheet(\d+)', n).group(1)))
+    sheets = []
     for sh in names:
         xml = z.read(sh).decode('utf-8', 'ignore')
         rows = []
-        for row in re.findall(r'<x:row[^>]*>.*?</x:row>', xml, re.S):
+        for row in re.findall(r'<' + ns + r'row[^>]*>.*?</' + ns + r'row>', xml, re.S):
             cells = {}
-            for cell in re.findall(r'<x:c[^>]*r="([A-Z]+)\d+"[^>]*>(.*?)</x:c>', row, re.S):
-                ref, inner = cell
+            # 逐 cell：捕获 opening tag（含 r= / t= 属性）+ inner（<v>/<t>）
+            for cell in re.finditer(r'<' + ns + r'c\b([^>]*)>(.*?)</' + ns + r'c>', row, re.S):
+                attrs, inner = cell.group(1), cell.group(2)
+                mref = re.search(r'r="([A-Z]+)\d+"', attrs)
+                if not mref:
+                    continue
+                ref = mref.group(1)
                 val = ''
-                m = re.search(r'<x:v>([^<]*)</x:v>', inner)
-                if m:
-                    val = m.group(1)
+                # t='s'：值为 sharedStrings 序号（属性在 opening tag 里，不是 inner）
+                if 't="s"' in attrs or "t='s'" in attrs:
+                    mv = re.search(r'<' + ns + r'v>([^<]*)</' + ns + r'v>', inner)
+                    idx = int(mv.group(1)) if mv else -1
+                    val = shared[idx] if shared and 0 <= idx < len(shared) else ''
                 else:
-                    texts = re.findall(r'<x:t[^>]*>([^<]*)</x:t>', inner)
-                    val = ''.join(texts)
+                    mv = re.search(r'<' + ns + r'v>([^<]*)</' + ns + r'v>', inner)
+                    if mv:
+                        val = mv.group(1)
+                    else:
+                        texts = re.findall(r'<' + ns + r't[^>]*>([^<]*)</' + ns + r't>', inner)
+                        val = ''.join(texts)
                 cells[ref] = val.strip()
             rows.append(cells)
         sheets.append(rows)

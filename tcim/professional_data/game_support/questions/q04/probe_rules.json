@@ -14,7 +14,7 @@
       ],
       "forbidden_question": "“他是不是不合作？”",
       "non_inducing_boundary": "让两类价值同时出现。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q4-S2",
@@ -29,7 +29,7 @@
       ],
       "forbidden_question": "“问他能不能当桥面就行吧？”",
       "non_inducing_boundary": "避免让题面答案代替教师生成。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q4-S3",
@@ -44,7 +44,7 @@
       ],
       "forbidden_question": "“先把任务完成再玩，可以吗？”",
       "non_inducing_boundary": "检查选择权和同伴协商。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q4-S4",
@@ -59,7 +59,7 @@
       ],
       "forbidden_question": "“等分享最尊重吧？”",
       "non_inducing_boundary": "即时支持与反思互补。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q4-S5",
@@ -74,7 +74,22 @@
       ],
       "forbidden_question": "“计划定了就应该完成吧？”",
       "non_inducing_boundary": "检验共同建构逻辑。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "slot_id": "Q4-S6",
+      "allowed_actions": [
+        "反思，时机连接"
+      ],
+      "preferred_action": "计划反思",
+      "typical_question": "“如果在后续分享中回看这件事，您会怎样帮助孩子们理解计划是怎样变化的？”",
+      "followup_question": "“当下已经需要轻介入时，分享还能承担什么、不能替代什么？”",
+      "forbidden_actions": [
+        "延后替代"
+      ],
+      "forbidden_question": "“等分享时再纠正他没按计划做就可以了吧？”",
+      "non_inducing_boundary": "分享用于共同回看与修订，不替代必要的即时支持，也不恢复成人预设的原案。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

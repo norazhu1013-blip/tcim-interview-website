@@ -10,7 +10,7 @@
       "shift_condition": "转Q3-S4。",
       "stop_condition": "不能单独停止。",
       "forbidden_stop": "没有原因证据时不得停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q3-S4~S5 时机/支架",
@@ -18,32 +18,32 @@
       "no_gain_threshold": "连续2轮只有策略名无条件，记录不足。",
       "prune_condition": "充分后剪枝。",
       "reopen_condition": "新原因使策略失配时重开。",
-      "shift_condition": "转Q3-S6边界。",
+      "shift_condition": "转Q3-S6（出现任务/规则判断时）或整题总结。",
       "stop_condition": "核心充分时可准备停止。",
       "forbidden_stop": "把陪伴或观察绝对化时不得停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q3-S6 管理边界",
-      "sufficient_condition": "能说明任务/规则的有限适用条件，同时不把停留时长当唯一目标。",
-      "no_gain_threshold": "1轮无新增剪枝。",
-      "prune_condition": "充分后剪枝。",
-      "reopen_condition": "后续又以任务/规则为首要时重开。",
+      "sufficient_condition": "能说明任务或规则的有限适用条件，同时不把停留时长作为唯一目标。",
+      "no_gain_threshold": "1轮无新增证据即可剪枝。",
+      "prune_condition": "达到2级，或确认管理分支不适用时剪枝。",
+      "reopen_condition": "后续又以任务或规则为首要处理、忽略原因与游戏质量时重开。",
       "shift_condition": "整题总结。",
-      "stop_condition": "非必须。",
-      "forbidden_stop": "A/B价值完全未分化且核心诊断仍不清时不宜停止。",
-      "calibration_note": ""
+      "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+      "forbidden_stop": "A/B价值完全未分化且核心诊断仍不清时，不宜停止。",
+      "calibration_note": "待专家检核"
     },
     {
       "scope": "整题",
-      "sufficient_condition": "Q3-S1~S5至少4个2级，形成‘持续观察—原因判断—条件化介入—支架渐退’链条。",
+      "sufficient_condition": "Q3-S1~S5至少4个2级，形成‘持续观察—原因判断—条件化介入—支架渐退’链条；S6为可选扩展，不作为整题最低停止条件。",
       "no_gain_threshold": "连续2轮核心无提升。",
       "prune_condition": "充分分支剪枝。",
       "reopen_condition": "新冲突重开。",
       "shift_condition": "无。",
       "stop_condition": "满足充分或时间上限且边际增益低时停止。",
       "forbidden_stop": "仍无法解释C/D高分逻辑时不得过早停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     }
   ]
 }

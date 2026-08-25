@@ -9,7 +9,7 @@
       "level_3": "能把机制转为幼儿可观察线索，并设计让幼儿自己发现的办法。",
       "false_evidence": "教师自己知道答案但不会转支架。",
       "conflict_evidence": "归因材料不好。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q8-S2",
@@ -19,7 +19,7 @@
       "level_3": "能区分操作不会、未观察关系、需要比较实验等状态，并匹配支架。",
       "false_evidence": "只鼓励坚持。",
       "conflict_evidence": "兴趣下降仍无限自由试。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q8-S3",
@@ -29,7 +29,7 @@
       "level_3": "能描述清晰支架阶梯和升级条件，幼儿发现后迅速退回观察者。",
       "false_evidence": "提问自动等于低支架。",
       "conflict_evidence": "问题里已包含答案。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q8-S4",
@@ -39,7 +39,7 @@
       "level_3": "能支持比较不同坡度/位置并形成可迁移经验，操作权持续在幼儿。",
       "false_evidence": "讨论热闹但不验证。",
       "conflict_evidence": "讨论后教师直接完成。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q8-S5",
@@ -49,7 +49,17 @@
       "level_3": "能依据材料使用结果再次调整环境，避免材料刺激掩盖核心问题。",
       "false_evidence": "越多越好。",
       "conflict_evidence": "新材料让幼儿离开原问题。",
-      "calibration_note": ""
+      "calibration_note": "40"
+    },
+    {
+      "slot_id": "Q8-S6",
+      "level_0": "兴趣下降就奖励坚持、换新玩具或直接给出答案。",
+      "level_1": "会鼓励或缩小任务，但没有保留核心难题，也未形成可见进展。",
+      "level_2": "能通过缩小问题、共同探索或呈现局部可见进展恢复可达成感，同时保留高度/坡度这一核心难题。",
+      "level_3": "能依据幼儿认知与情绪反馈动态调节挑战和支架，恢复投入后逐步归还探究主导权。",
+      "false_evidence": "只说‘再试一次’。",
+      "conflict_evidence": "奖励或新奇材料替代问题解决，或过度简化使难题消失。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

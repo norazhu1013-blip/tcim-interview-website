@@ -9,7 +9,7 @@
       "level_3": "能对不同幼儿分别判断，允许同一小组中原因不同、进入方式不同。",
       "false_evidence": "形式询问后仍统一要求参加。",
       "conflict_evidence": "性别刻板印象。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q7-S2",
@@ -19,7 +19,7 @@
       "level_3": "能和幼儿共同生成运动情节，而非成人预制贴标签。",
       "false_evidence": "给运动项目换艾莎名称。",
       "conflict_evidence": "兴趣只做诱饵。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q7-S3",
@@ -29,7 +29,7 @@
       "level_3": "根据投入、负荷和能力动态扩展动作挑战，兼顾安全。",
       "false_evidence": "只有口头想象。",
       "conflict_evidence": "为了运动量破坏游戏。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q7-S4",
@@ -39,7 +39,7 @@
       "level_3": "逐渐把主导权交还幼儿，教师退出后游戏仍能持续。",
       "false_evidence": "扮角色但全程发号施令。",
       "conflict_evidence": "公开比较谁更听话。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q7-S5",
@@ -49,7 +49,17 @@
       "level_3": "能考虑身体状态和个体差异，允许合理例外并持续提供可进入机会。",
       "false_evidence": "自由选择回避课程责任。",
       "conflict_evidence": "时间纪律高于儿童状态。",
-      "calibration_note": ""
+      "calibration_note": "40"
+    },
+    {
+      "slot_id": "Q7-S6",
+      "level_0": "认为材料越多越能让幼儿运动，或不分原因随意投放。",
+      "level_1": "会补充角色道具或器械，但与不参与原因、运动目标的关系较弱。",
+      "level_2": "能根据原因和游戏情节调整路线、空间、角色道具或轻器械，并观察运动投入是否增加。",
+      "level_3": "能比较调整前后的参与、负荷、安全与自主性，迭代环境同时避免材料喧宾夺主。",
+      "false_evidence": "投放‘艾莎’道具就算有效。",
+      "conflict_evidence": "材料增多但幼儿仍静态游戏，或风险增加。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

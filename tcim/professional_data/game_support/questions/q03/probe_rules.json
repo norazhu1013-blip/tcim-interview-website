@@ -14,7 +14,7 @@
       ],
       "forbidden_question": "“是不是应该先观察？”",
       "non_inducing_boundary": "探查教师如何定义现象。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q3-S2",
@@ -29,7 +29,7 @@
       ],
       "forbidden_question": "“您会看同伴、材料、情绪吧？”",
       "non_inducing_boundary": "先自主生成观察维度。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q3-S3",
@@ -44,7 +44,7 @@
       ],
       "forbidden_question": "“她是不是注意力差？”",
       "non_inducing_boundary": "强调可检验性。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q3-S4",
@@ -59,7 +59,7 @@
       ],
       "forbidden_question": "“一定先观察再介入，对吗？”",
       "non_inducing_boundary": "允许C/D条件性互换。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q3-S5",
@@ -74,7 +74,22 @@
       ],
       "forbidden_question": "“陪玩还是加材料？”",
       "non_inducing_boundary": "要求原因—策略对应。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "slot_id": "Q3-S6",
+      "allowed_actions": [
+        "对比，边界"
+      ],
+      "preferred_action": "管理边界",
+      "typical_question": "“任务或区域规则在什么原因下可能有帮助，又在什么情况下会掩盖真正问题？”",
+      "followup_question": "“除了待得更久，您还会用什么判断支持是否有效？”",
+      "forbidden_actions": [
+        "时长唯一"
+      ],
+      "forbidden_question": "“只要他能在一个区待久一些，就说明方法有效吧？”",
+      "non_inducing_boundary": "允许任务和规则有局部价值，不把A/B绝对判错，也不把停留时长当唯一目标。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

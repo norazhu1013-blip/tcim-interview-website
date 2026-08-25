@@ -9,7 +9,7 @@
       "level_3": "进一步指出短停留可能仍包含有意义的跨区探索，评价应看游戏连续性、投入和经验，而非分钟数。",
       "false_evidence": "只说尊重。",
       "conflict_evidence": "边说观察边立即安排任务。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q3-S2",
@@ -19,7 +19,7 @@
       "level_3": "能跨时段比较并用新证据修正判断。",
       "false_evidence": "记录很多却不解释。",
       "conflict_evidence": "只用停留时长做结论。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q3-S3",
@@ -29,7 +29,7 @@
       "level_3": "能把原因假设与后续支持策略一一连接。",
       "false_evidence": "罗列原因不验证。",
       "conflict_evidence": "无证据贴标签。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q3-S4",
@@ -39,7 +39,7 @@
       "level_3": "能在参与中保持观察者意识，根据儿童反馈即时减弱/增强支架。",
       "false_evidence": "D永远优于C或相反。",
       "conflict_evidence": "介入后接管。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q3-S5",
@@ -49,7 +49,17 @@
       "level_3": "能用游戏质量变化评估支持，而非只看停留时间。",
       "false_evidence": "策略清单。",
       "conflict_evidence": "所有儿童同一支架。",
-      "calibration_note": ""
+      "calibration_note": "40"
+    },
+    {
+      "slot_id": "Q3-S6",
+      "level_0": "把完成任务、遵守区域规则或延长停留作为唯一目标。",
+      "level_1": "知道任务或规则可能有用，但仍主要用停留时间判断是否改善。",
+      "level_2": "能说明任务或规则只在特定原因下局部适用，且以游戏投入、连续性和质量而非仅以时长评价。",
+      "level_3": "能区分需要结构支持与有意义的跨区探索，并依据新证据调整或撤除管理支架。",
+      "false_evidence": "布置任务后待得更久就算有效。",
+      "conflict_evidence": "原因不明即统一使用任务或规则。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

@@ -9,7 +9,7 @@
       "level_3": "能进一步区分哪些需立刻处理、哪些可由幼儿协商改进，并用观察证据排序优先级。",
       "false_evidence": "只说安全第一。",
       "conflict_evidence": "只处理碰撞不处理长期等待。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q10-S2",
@@ -19,7 +19,7 @@
       "level_3": "能根据风险强度选择最小必要成人支架，并迅速把治理权逐步交回幼儿。",
       "false_evidence": "暂停=控制。",
       "conflict_evidence": "有风险仍为了自主完全等待。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q10-S3",
@@ -29,7 +29,7 @@
       "level_3": "能支持试行—观察—修订，使规则成为幼儿共同维护的游戏文化。",
       "false_evidence": "形式民主、实质成人决定。",
       "conflict_evidence": "规则只为安静，不解决公平/安全。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q10-S4",
@@ -39,7 +39,7 @@
       "level_3": "能根据幼儿规则能力逐步减少成人组织，使幼儿自行调整人数、轮换和区域。",
       "false_evidence": "高效组织被等同高水平。",
       "conflict_evidence": "每次都由教师重新分组。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q10-S5",
@@ -49,7 +49,17 @@
       "level_3": "能依据新材料后的游戏数据再次修订空间和规则，使安全、公平、参与率同时提升。",
       "false_evidence": "器材越多越好。",
       "conflict_evidence": "新增材料导致更混乱仍不调整。",
-      "calibration_note": ""
+      "calibration_note": "40"
+    },
+    {
+      "slot_id": "Q10-S6",
+      "level_0": "用照片或视频回放替代现场的碰撞风险处理。",
+      "level_1": "知道要先处理安全、后回放，但回放主要用于批评或重申成人规则。",
+      "level_2": "能先做最小必要安全处理，再用影像帮助幼儿回看秩序与公平、修订共同规则。",
+      "level_3": "能把即时处置、影像反思、规则试行和再观察形成闭环，逐步减少成人组织。",
+      "false_evidence": "录了视频就叫反思。",
+      "conflict_evidence": "明显风险下等待回放，或回放变成点名批评。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

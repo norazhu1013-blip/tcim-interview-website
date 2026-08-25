@@ -9,7 +9,7 @@
       "level_3": "能进一步分析不同幼儿对难度标签的理解、成功/失败经验和自我评价，动态调整材料系统。",
       "false_evidence": "难度越高越好。",
       "conflict_evidence": "为了避免失败直接剥夺自主选择。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q6-S2",
@@ -19,7 +19,7 @@
       "level_3": "能分别解释低挑战与过高挑战两类幼儿，并把判断与不同支持相连。",
       "false_evidence": "只给性格标签。",
       "conflict_evidence": "不同原因都用同一干预。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q6-S3",
@@ -29,7 +29,7 @@
       "level_3": "能根据实际选择数据不断调整呈现方式，既支持挑战又不把星级变成外部排名。",
       "false_evidence": "‘三星最棒’。",
       "conflict_evidence": "材料提示演变为成人命令。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q6-S4",
@@ -39,7 +39,7 @@
       "level_3": "能逐步让幼儿自己判断‘这个对我太容易/太难/刚好’，形成自我调节。",
       "false_evidence": "把‘小目标’变成教师布置。",
       "conflict_evidence": "失败后立即降到最低难度。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q6-S5",
@@ -49,7 +49,17 @@
       "level_3": "能接受幼儿偶尔选择熟悉任务，同时根据长期模式判断何时需要介入，避免急于求成。",
       "false_evidence": "自主=从不介入。",
       "conflict_evidence": "挑战=必须升星。",
-      "calibration_note": ""
+      "calibration_note": "40"
+    },
+    {
+      "slot_id": "Q6-S6",
+      "level_0": "调整一次材料后不再观察，或只看任务完成数量。",
+      "level_1": "会看幼儿是否选择更高星级，但未关注失败、策略和材料适配。",
+      "level_2": "能观察选择难度、尝试过程、失败后调整与自评变化，并据此改进任务层次、提示和支架。",
+      "level_3": "能用跨时段证据校准材料系统与个别支持，使幼儿逐步形成‘太易、太难、刚好’的自主判断。",
+      "false_evidence": "升星就是进步。",
+      "conflict_evidence": "提示造成竞争或挫败、选择仍固化，却不再调整。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

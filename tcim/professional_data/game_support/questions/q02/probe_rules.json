@@ -14,7 +14,7 @@
       ],
       "forbidden_question": "“他明显只是依赖老师，对吧？”",
       "non_inducing_boundary": "让教师自己解释行为—语言矛盾。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q2-S2",
@@ -29,7 +29,7 @@
       ],
       "forbidden_question": "“最后搭成功了吗？”",
       "non_inducing_boundary": "关注求助模式而非作品对错。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q2-S3",
@@ -44,7 +44,7 @@
       ],
       "forbidden_question": "“他是不是依赖性强？”",
       "non_inducing_boundary": "用可观察证据区分不同功能。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q2-S4",
@@ -59,7 +59,7 @@
       ],
       "forbidden_question": "“是不是应该让他设小目标？”",
       "non_inducing_boundary": "看教师能否自主生成并解释。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q2-S5",
@@ -74,7 +74,22 @@
       ],
       "forbidden_question": "“多表扬就能增强独立性，对吗？”",
       "non_inducing_boundary": "重点是反馈内容与渐退条件。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "slot_id": "Q2-S6",
+      "allowed_actions": [
+        "边界判断，最小示范"
+      ],
+      "preferred_action": "反例/阈值",
+      "typical_question": "“在什么证据出现后，您才会考虑示范；如果示范，最少示范哪一部分？”",
+      "followup_question": "“示范后怎样确认孩子能自己继续，而不是照着您做？”",
+      "forbidden_actions": [
+        "示范默认"
+      ],
+      "forbidden_question": "“他反复求助，就先示范一遍最有效吧？”",
+      "non_inducing_boundary": "先确认技能缺口和低强度支架无效，保留不示范与局部示范两种可能。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

@@ -9,7 +9,7 @@
       "level_3": "能说明正式规则是否完全正确不是唯一关键，关键是双方能否共同认可并维持规则。",
       "false_evidence": "会背规则。",
       "conflict_evidence": "成人讲清后仍不能协商却认为解决。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q9-S2",
@@ -19,7 +19,7 @@
       "level_3": "能把时间、情绪、学习价值和幼儿自主解决能力结合成动态阈值。",
       "false_evidence": "放任=体验。",
       "conflict_evidence": "冲突升级仍等待。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q9-S3",
@@ -29,7 +29,7 @@
       "level_3": "能让幼儿自己比较不同规则下的体验，并用自己的话形成规则理由。",
       "false_evidence": "背条款。",
       "conflict_evidence": "只要求服从。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q9-S4",
@@ -39,7 +39,7 @@
       "level_3": "能比较多个可行规则、试行后再修订，并让教师逐步退出。",
       "false_evidence": "只能在成人给的两个方案中选。",
       "conflict_evidence": "拿走骰子作为惩罚。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q9-S5",
@@ -49,7 +49,17 @@
       "level_3": "能判断何时无需拿走、何时临时结构最有效，并允许之后重新配置材料。",
       "false_evidence": "物理控制代替协商。",
       "conflict_evidence": "拿走后成人宣布谁先。",
-      "calibration_note": ""
+      "calibration_note": "40"
+    },
+    {
+      "slot_id": "Q9-S6",
+      "level_0": "无论共同游戏是否瓦解，都只等小结再处理；或完全否定小结价值。",
+      "level_1": "知道小结可以反思，但说不清何时必须提供即时支持。",
+      "level_2": "能说明共同游戏瓦解、冲突升级或学习机会将丧失时需即时最小支持，小结用于后续回顾。",
+      "level_3": "能把即时协商支架、教师退出与小结中的规则反思串成连续支持，并据结果调整后续环境或规则。",
+      "false_evidence": "延后就是尊重。",
+      "conflict_evidence": "幼儿已无法共同游戏，仍把小结作为唯一措施。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

@@ -10,7 +10,7 @@
       "shift_condition": "转Q5-S4。",
       "stop_condition": "不能单独停止。",
       "forbidden_stop": "只会B式二选一但无开放出口时不宜判高质量。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q5-S4~S5 价值边界",
@@ -18,32 +18,32 @@
       "no_gain_threshold": "连续2轮仍坚持‘最后必须纠正’，记录冲突。",
       "prune_condition": "充分后剪枝。",
       "reopen_condition": "后续出现审判式语言重开。",
-      "shift_condition": "转Q5-S6或总结。",
+      "shift_condition": "转Q5-S6（需要游戏延伸时）或整题总结。",
       "stop_condition": "核心充分可准备停止。",
       "forbidden_stop": "无法区分游戏兴趣与现实价值误解时不得停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q5-S6 游戏延伸",
-      "sufficient_condition": "能举出至少1种把安全经验转回游戏的方式。",
-      "no_gain_threshold": "1轮无新增剪枝。",
-      "prune_condition": "可选充分后剪枝。",
-      "reopen_condition": "无。",
+      "sufficient_condition": "能举出至少1种把安全经验带回游戏、同时保留幼儿情节选择权的方式。",
+      "no_gain_threshold": "1轮无新增证据即可剪枝。",
+      "prune_condition": "达到2级，或确认当前不需要游戏延伸时剪枝。",
+      "reopen_condition": "后续出现新的现实误解，或游戏被知识讲授取代时重开。",
       "shift_condition": "整题总结。",
-      "stop_condition": "非必须。",
-      "forbidden_stop": "不得用其替代前面游戏框架诊断。",
-      "calibration_note": ""
+      "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+      "forbidden_stop": "不得用游戏延伸替代前面的游戏框架诊断与证据澄清。",
+      "calibration_note": "待专家检核"
     },
     {
       "scope": "整题",
-      "sufficient_condition": "Q5-S1~S5至少4个2级，形成‘理解游戏—聚焦/开放澄清—按证据决定价值支持—保持表达关系’链条。",
+      "sufficient_condition": "Q5-S1~S5至少4个2级，形成‘理解游戏—聚焦/开放澄清—按证据决定价值支持—保持表达关系’链条；S6为可选扩展，不作为整题最低停止条件。",
       "no_gain_threshold": "连续2轮核心无提升。",
       "prune_condition": "充分分支剪枝。",
       "reopen_condition": "新冲突重开。",
       "shift_condition": "无。",
       "stop_condition": "满足充分或时间上限低增益停止。",
       "forbidden_stop": "仍把C式价值审判视为必要步骤时不得提前停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     }
   ]
 }

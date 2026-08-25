@@ -10,7 +10,7 @@
       "shift_condition": "转Q10-S3。",
       "stop_condition": "不能单独停止。",
       "forbidden_stop": "即时安全阈值不清不得停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q10-S3~S4 规则共建/教师角色",
@@ -21,29 +21,40 @@
       "shift_condition": "转Q10-S5。",
       "stop_condition": "核心充分可准备停止。",
       "forbidden_stop": "没有规则共建机制不得判高质量。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
-      "scope": "Q10-S5~S6 环境/后续反思",
-      "sufficient_condition": "能说明材料/空间的有限功能，并把视频回放用于后续修订而非替代即时处理。",
-      "no_gain_threshold": "1轮无新增剪枝。",
-      "prune_condition": "充分后剪枝。",
-      "reopen_condition": "后续材料万能或完全延后时重开。",
+      "scope": "Q10-S5 材料/空间功能",
+      "sufficient_condition": "能说明材料和空间调整各自能解决什么，并承认其不能替代轮换、公平与共同规则。",
+      "no_gain_threshold": "1轮仍把材料数量当作万能策略则剪枝。",
+      "prune_condition": "达到2级后剪枝。",
+      "reopen_condition": "后续材料增加但拥挤、等待或角色不公平仍未改善时重开。",
+      "shift_condition": "转Q10-S6（需要后续影像反思时）或整题总结。",
+      "stop_condition": "与核心Slot共同满足时，可准备停止。",
+      "forbidden_stop": "不得用材料或分区替代幼儿共同治理。",
+      "calibration_note": "待专家检核"
+    },
+    {
+      "scope": "Q10-S6 影像反思",
+      "sufficient_condition": "能说明先完成即时最小安全处理，再用照片或视频支持幼儿回看秩序、公平并修订共同规则。",
+      "no_gain_threshold": "1轮仍只说‘看视频’、无反思机制则剪枝。",
+      "prune_condition": "达到2级，或当前没有影像资源/反思需要时剪枝。",
+      "reopen_condition": "出现新碰撞风险、回放变成批评，或修订后的规则无法维持时重开。",
       "shift_condition": "整题总结。",
-      "stop_condition": "与核心共同满足时停止。",
-      "forbidden_stop": "不能用环境或视频代替共同治理。",
-      "calibration_note": ""
+      "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+      "forbidden_stop": "不得用影像回放延迟即时风险处理，也不得进行公开羞辱。",
+      "calibration_note": "待专家检核"
     },
     {
       "scope": "整题",
-      "sufficient_condition": "Q10-S1~S5至少4个2级，形成‘识别风险与公平—即时最小介入—幼儿共建规则—成人渐退—环境/规则再调整’链条。",
+      "sufficient_condition": "Q10-S1~S5至少4个2级，形成‘识别风险与公平—即时最小介入—幼儿共建规则—成人渐退—环境/规则再调整’链条；S6为可选扩展，不作为整题最低停止条件。",
       "no_gain_threshold": "连续2轮核心无提升。",
       "prune_condition": "充分分支剪枝。",
       "reopen_condition": "新冲突重开。",
       "shift_condition": "无。",
       "stop_condition": "满足充分或时间上限低增益停止。",
       "forbidden_stop": "仍把B式共建理解为不需即时安全处理时不得提前停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     }
   ]
 }

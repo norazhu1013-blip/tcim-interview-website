@@ -10,7 +10,7 @@
       "shift_condition": "转Q1-S3时机。",
       "stop_condition": "不能单独停止。",
       "forbidden_stop": "只有价值口号没有风险判断时不得停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q1-S3~S4 时机/转场",
@@ -21,7 +21,7 @@
       "shift_condition": "转Q1-S5规则协调。",
       "stop_condition": "核心充分时可准备停止。",
       "forbidden_stop": "仍只能‘不管’或‘叫停’二选一时不得停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q1-S5 规则与自主",
@@ -29,21 +29,32 @@
       "no_gain_threshold": "1轮无新增即可剪枝。",
       "prune_condition": "充分后剪枝。",
       "reopen_condition": "后续又以器材原用途作为唯一理由时重开。",
-      "shift_condition": "转整题总结。",
+      "shift_condition": "转Q1-S6（有介入/转场触发时）或整题总结。",
       "stop_condition": "与核心Slot共同满足时停止。",
       "forbidden_stop": "把尊重自主等同完全放任时不得判高质量。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "scope": "Q1-S6 观察/再调整",
+      "sufficient_condition": "能说明介入或转场后继续观察游戏连续性、理由理解与新风险，并根据反馈再调整。",
+      "no_gain_threshold": "1轮仍只说是否服从、无新增证据则剪枝。",
+      "prune_condition": "达到2级，或本轮无介入/转场且该分支不适用时剪枝。",
+      "reopen_condition": "后续出现游戏中断、新风险或幼儿不理解理由时重开。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+      "forbidden_stop": "不得把‘服从/换场完成’当作回应闭环。",
+      "calibration_note": "待专家检核"
     },
     {
       "scope": "整题",
-      "sufficient_condition": "Q1-S1~S5至少4个达到2级，且能形成‘理解游戏—评估风险—选择时机—低控制回应—观察反馈’链条。",
+      "sufficient_condition": "Q1-S1~S5至少4个达到2级，且能形成‘理解游戏—评估风险—选择时机—低控制回应—观察反馈’链条；S6为可选扩展，不作为整题最低停止条件。",
       "no_gain_threshold": "连续2轮核心证据无提升。",
       "prune_condition": "充分分支全部剪枝。",
       "reopen_condition": "出现新的核心冲突证据才重开。",
       "shift_condition": "无。",
       "stop_condition": "满足充分条件或时间上限且边际增益低时停止。",
       "forbidden_stop": "仍无法解释A/C为何可因风险条件互换时不宜过早停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     }
   ]
 }

@@ -743,7 +743,7 @@ export const TCIM_DATA = {
             "level_3": "还能区分‘尊重游戏生成’与‘任何行为都可继续’，主动把游戏意义与场地/风险判断同时纳入。",
             "false_evidence": "只说‘尊重幼儿’。",
             "conflict_evidence": "口头肯定新发现后立即用篮球活动替代。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q1-S2",
@@ -753,7 +753,7 @@ export const TCIM_DATA = {
             "level_3": "能区分可协商的不适宜与必须即时处理的风险，并说明证据如何改变介入强度。",
             "false_evidence": "泛称‘注意安全’。",
             "conflict_evidence": "无风险证据却一律立即制止，或明显风险下仍无限等待。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q1-S3",
@@ -763,7 +763,7 @@ export const TCIM_DATA = {
             "level_3": "能把阈值、游戏投入和替代支持连成动态路径：观察—轻介入—必要升级—恢复自主。",
             "false_evidence": "‘随机应变’。",
             "conflict_evidence": "把A或C机械当唯一正确答案。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q1-S4",
@@ -773,7 +773,7 @@ export const TCIM_DATA = {
             "level_3": "能让幼儿参与判断‘哪里更适合、需要带什么、怎样继续’，使规则理解和游戏延续同时发生。",
             "false_evidence": "只是把命令换成温和语气。",
             "conflict_evidence": "转场后原游戏完全消失。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q1-S5",
@@ -783,7 +783,17 @@ export const TCIM_DATA = {
             "level_3": "能进一步支持幼儿共同讨论适宜场地和规则，把外部限制转化为可理解、可参与的共同规范。",
             "false_evidence": "完全放任也叫尊重自主。",
             "conflict_evidence": "规则理由与实际风险无关。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q1-S6",
+            "level_0": "介入或转场后不再观察，只看幼儿是否服从。",
+            "level_1": "会看游戏是否继续，但未关注幼儿理解、新风险或是否需要调整。",
+            "level_2": "能观察转场后游戏是否延续、幼儿是否理解理由及是否出现新风险，并据此调整支持。",
+            "level_3": "能依据连续反馈在放宽、提醒、升级与退出之间校准，使安全、规则理解和游戏连续性形成闭环。",
+            "false_evidence": "只问‘听懂了吗’。",
+            "conflict_evidence": "新场地仍有风险或游戏已经中断，却不再调整。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -888,7 +898,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“篮球架不是玩水的，所以要不要马上叫停？”",
             "non_inducing_boundary": "先获取教师对自主游戏生成的解释。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q1-S2",
@@ -903,7 +913,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“是不是有水就不安全？”",
             "non_inducing_boundary": "用具体风险改变情境，避免固定答案。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q1-S3",
@@ -918,7 +928,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“先不干预是不是更尊重幼儿？”",
             "non_inducing_boundary": "目标是获得介入阈值。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q1-S4",
@@ -933,7 +943,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“您会不会扮成粉刷工把他们带走？”",
             "non_inducing_boundary": "先让教师自主生成转场支架。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q1-S5",
@@ -948,7 +958,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“器材用途就是规则，对吧？”",
             "non_inducing_boundary": "区分公共边界与成人预设。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q1-S6",
+            "allowed_actions": [
+              "反思，反馈校准"
+            ],
+            "preferred_action": "过程回顾",
+            "typical_question": "“换到新地方以后，您会继续观察哪些变化，怎样决定要不要再调整？”",
+            "followup_question": "“如果游戏中断了，或新场地仍有风险，您分别会怎么做？”",
+            "forbidden_actions": [
+              "服从检查"
+            ],
+            "forbidden_question": "“孩子听话换地方了，就说明处理成功了吧？”",
+            "non_inducing_boundary": "追问游戏连续性、理由理解与新风险，不预设介入已经成功。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -964,7 +989,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q1-S3时机。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "只有价值口号没有风险判断时不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q1-S3~S4 时机/转场",
@@ -975,7 +1000,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q1-S5规则协调。",
             "stop_condition": "核心充分时可准备停止。",
             "forbidden_stop": "仍只能‘不管’或‘叫停’二选一时不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q1-S5 规则与自主",
@@ -983,21 +1008,32 @@ export const TCIM_DATA = {
             "no_gain_threshold": "1轮无新增即可剪枝。",
             "prune_condition": "充分后剪枝。",
             "reopen_condition": "后续又以器材原用途作为唯一理由时重开。",
-            "shift_condition": "转整题总结。",
+            "shift_condition": "转Q1-S6（有介入/转场触发时）或整题总结。",
             "stop_condition": "与核心Slot共同满足时停止。",
             "forbidden_stop": "把尊重自主等同完全放任时不得判高质量。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "scope": "Q1-S6 观察/再调整",
+            "sufficient_condition": "能说明介入或转场后继续观察游戏连续性、理由理解与新风险，并根据反馈再调整。",
+            "no_gain_threshold": "1轮仍只说是否服从、无新增证据则剪枝。",
+            "prune_condition": "达到2级，或本轮无介入/转场且该分支不适用时剪枝。",
+            "reopen_condition": "后续出现游戏中断、新风险或幼儿不理解理由时重开。",
+            "shift_condition": "整题总结。",
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "不得把‘服从/换场完成’当作回应闭环。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q1-S1~S5至少4个达到2级，且能形成‘理解游戏—评估风险—选择时机—低控制回应—观察反馈’链条。",
+            "sufficient_condition": "Q1-S1~S5至少4个达到2级，且能形成‘理解游戏—评估风险—选择时机—低控制回应—观察反馈’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心证据无提升。",
             "prune_condition": "充分分支全部剪枝。",
             "reopen_condition": "出现新的核心冲突证据才重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分条件或时间上限且边际增益低时停止。",
             "forbidden_stop": "仍无法解释A/C为何可因风险条件互换时不宜过早停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },
@@ -1198,7 +1234,7 @@ export const TCIM_DATA = {
             "level_3": "能把语言、行为、求助频率和独立完成片段整合，形成可验证假设而非简单归因。",
             "false_evidence": "说‘他其实会’就结束。",
             "conflict_evidence": "知道他会仍立即示范。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q2-S2",
@@ -1208,7 +1244,7 @@ export const TCIM_DATA = {
             "level_3": "能跨多次求助比较模式，并据新证据修正对求助功能的判断。",
             "false_evidence": "‘我会观察’无观察维度。",
             "conflict_evidence": "观察后不改变支架。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q2-S3",
@@ -1218,7 +1254,7 @@ export const TCIM_DATA = {
             "level_3": "能把不同功能与不同支架相连，如技能缺口→局部示范，计划困难→小目标，确认需求→过程反馈。",
             "false_evidence": "给幼儿贴依赖型标签。",
             "conflict_evidence": "所有假设最后都用同一策略。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q2-S4",
@@ -1228,7 +1264,7 @@ export const TCIM_DATA = {
             "level_3": "能逐渐把目标设定、步骤检查转成幼儿自己的自我提问和计划习惯。",
             "false_evidence": "目标由教师完全规定。",
             "conflict_evidence": "幼儿没有选择和反思机会。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q2-S5",
@@ -1238,7 +1274,17 @@ export const TCIM_DATA = {
             "level_3": "能观察求助频率是否下降、幼儿是否主动规划，并据此进一步渐退或调整支架。",
             "false_evidence": "频繁表扬被当作独立性支持。",
             "conflict_evidence": "成人反馈越多求助越频繁仍不调整。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q2-S6",
+            "level_0": "只要幼儿求助就立即完整示范，或坚持任何情况下都不能示范。",
+            "level_1": "知道示范应少，但说不清何时需要、示范什么或怎样退出。",
+            "level_2": "仅在确认具体技能缺口且低强度支架无效时进行局部示范，并把操作权交还幼儿。",
+            "level_3": "能依据观察确定最小必要内容、时长与退出信号，示范后检验迁移并进一步渐退。",
+            "false_evidence": "把‘示范一遍’称为最小支架。",
+            "conflict_evidence": "未诊断技能缺口即示范，或示范后只让幼儿照抄。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -1345,7 +1391,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“他明显只是依赖老师，对吧？”",
             "non_inducing_boundary": "让教师自己解释行为—语言矛盾。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q2-S2",
@@ -1360,7 +1406,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“最后搭成功了吗？”",
             "non_inducing_boundary": "关注求助模式而非作品对错。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q2-S3",
@@ -1375,7 +1421,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“他是不是依赖性强？”",
             "non_inducing_boundary": "用可观察证据区分不同功能。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q2-S4",
@@ -1390,7 +1436,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“是不是应该让他设小目标？”",
             "non_inducing_boundary": "看教师能否自主生成并解释。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q2-S5",
@@ -1405,7 +1451,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“多表扬就能增强独立性，对吗？”",
             "non_inducing_boundary": "重点是反馈内容与渐退条件。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q2-S6",
+            "allowed_actions": [
+              "边界判断，最小示范"
+            ],
+            "preferred_action": "反例/阈值",
+            "typical_question": "“在什么证据出现后，您才会考虑示范；如果示范，最少示范哪一部分？”",
+            "followup_question": "“示范后怎样确认孩子能自己继续，而不是照着您做？”",
+            "forbidden_actions": [
+              "示范默认"
+            ],
+            "forbidden_question": "“他反复求助，就先示范一遍最有效吧？”",
+            "non_inducing_boundary": "先确认技能缺口和低强度支架无效，保留不示范与局部示范两种可能。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -1421,7 +1482,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q2-S4支架。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "只给标签不做证据判断时不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q2-S4~S5 支架/渐退",
@@ -1429,32 +1490,32 @@ export const TCIM_DATA = {
             "no_gain_threshold": "连续2轮只给泛化鼓励，无支架细节则记录不足。",
             "prune_condition": "充分后剪枝。",
             "reopen_condition": "求助频率未下降的反例出现时重开。",
-            "shift_condition": "转Q2-S6示范边界。",
+            "shift_condition": "转Q2-S6（出现技能缺口/示范判断时）或整题总结。",
             "stop_condition": "核心充分时可准备停止。",
             "forbidden_stop": "没有退出机制不得判高质量。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q2-S6 示范边界",
-            "sufficient_condition": "能说出至少1个真正需要局部示范的条件，并说明示范后归还操作权。",
-            "no_gain_threshold": "1轮无新增即可剪枝。",
-            "prune_condition": "充分后剪枝。",
-            "reopen_condition": "教师又把求助自动转示范时重开。",
+            "sufficient_condition": "能说出至少1个真正需要局部示范的条件，并说明最小示范内容及示范后如何归还操作权。",
+            "no_gain_threshold": "1轮无新增证据即可剪枝。",
+            "prune_condition": "达到2级，或确认没有示范需要时剪枝。",
+            "reopen_condition": "低强度支架失败，或教师又把求助自动转成示范时重开。",
             "shift_condition": "整题总结。",
-            "stop_condition": "不作为必须停止条件。",
-            "forbidden_stop": "把‘绝不示范’当原则同样不能判最高。",
-            "calibration_note": ""
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "把‘绝不示范’或‘先示范再说’当作原则，都不得判高质量。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q2-S1~S5至少4个达到2级，形成‘观察求助—判断功能—匹配支架—反馈渐退’链条。",
+            "sufficient_condition": "Q2-S1~S5至少4个达到2级，形成‘观察求助—判断功能—匹配支架—反馈渐退’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心证据无提升。",
             "prune_condition": "充分分支剪枝。",
             "reopen_condition": "新冲突证据重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分条件或时间上限且边际增益低时停止。",
             "forbidden_stop": "仍不清楚为何B应靠后时不宜过早停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },
@@ -1655,7 +1716,7 @@ export const TCIM_DATA = {
             "level_3": "进一步指出短停留可能仍包含有意义的跨区探索，评价应看游戏连续性、投入和经验，而非分钟数。",
             "false_evidence": "只说尊重。",
             "conflict_evidence": "边说观察边立即安排任务。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q3-S2",
@@ -1665,7 +1726,7 @@ export const TCIM_DATA = {
             "level_3": "能跨时段比较并用新证据修正判断。",
             "false_evidence": "记录很多却不解释。",
             "conflict_evidence": "只用停留时长做结论。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q3-S3",
@@ -1675,7 +1736,7 @@ export const TCIM_DATA = {
             "level_3": "能把原因假设与后续支持策略一一连接。",
             "false_evidence": "罗列原因不验证。",
             "conflict_evidence": "无证据贴标签。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q3-S4",
@@ -1685,7 +1746,7 @@ export const TCIM_DATA = {
             "level_3": "能在参与中保持观察者意识，根据儿童反馈即时减弱/增强支架。",
             "false_evidence": "D永远优于C或相反。",
             "conflict_evidence": "介入后接管。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q3-S5",
@@ -1695,7 +1756,17 @@ export const TCIM_DATA = {
             "level_3": "能用游戏质量变化评估支持，而非只看停留时间。",
             "false_evidence": "策略清单。",
             "conflict_evidence": "所有儿童同一支架。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q3-S6",
+            "level_0": "把完成任务、遵守区域规则或延长停留作为唯一目标。",
+            "level_1": "知道任务或规则可能有用，但仍主要用停留时间判断是否改善。",
+            "level_2": "能说明任务或规则只在特定原因下局部适用，且以游戏投入、连续性和质量而非仅以时长评价。",
+            "level_3": "能区分需要结构支持与有意义的跨区探索，并依据新证据调整或撤除管理支架。",
+            "false_evidence": "布置任务后待得更久就算有效。",
+            "conflict_evidence": "原因不明即统一使用任务或规则。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -1801,7 +1872,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“是不是应该先观察？”",
             "non_inducing_boundary": "探查教师如何定义现象。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q3-S2",
@@ -1816,7 +1887,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“您会看同伴、材料、情绪吧？”",
             "non_inducing_boundary": "先自主生成观察维度。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q3-S3",
@@ -1831,7 +1902,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“她是不是注意力差？”",
             "non_inducing_boundary": "强调可检验性。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q3-S4",
@@ -1846,7 +1917,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“一定先观察再介入，对吗？”",
             "non_inducing_boundary": "允许C/D条件性互换。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q3-S5",
@@ -1861,7 +1932,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“陪玩还是加材料？”",
             "non_inducing_boundary": "要求原因—策略对应。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q3-S6",
+            "allowed_actions": [
+              "对比，边界"
+            ],
+            "preferred_action": "管理边界",
+            "typical_question": "“任务或区域规则在什么原因下可能有帮助，又在什么情况下会掩盖真正问题？”",
+            "followup_question": "“除了待得更久，您还会用什么判断支持是否有效？”",
+            "forbidden_actions": [
+              "时长唯一"
+            ],
+            "forbidden_question": "“只要他能在一个区待久一些，就说明方法有效吧？”",
+            "non_inducing_boundary": "允许任务和规则有局部价值，不把A/B绝对判错，也不把停留时长当唯一目标。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -1877,7 +1963,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q3-S4。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "没有原因证据时不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q3-S4~S5 时机/支架",
@@ -1885,32 +1971,32 @@ export const TCIM_DATA = {
             "no_gain_threshold": "连续2轮只有策略名无条件，记录不足。",
             "prune_condition": "充分后剪枝。",
             "reopen_condition": "新原因使策略失配时重开。",
-            "shift_condition": "转Q3-S6边界。",
+            "shift_condition": "转Q3-S6（出现任务/规则判断时）或整题总结。",
             "stop_condition": "核心充分时可准备停止。",
             "forbidden_stop": "把陪伴或观察绝对化时不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q3-S6 管理边界",
-            "sufficient_condition": "能说明任务/规则的有限适用条件，同时不把停留时长当唯一目标。",
-            "no_gain_threshold": "1轮无新增剪枝。",
-            "prune_condition": "充分后剪枝。",
-            "reopen_condition": "后续又以任务/规则为首要时重开。",
+            "sufficient_condition": "能说明任务或规则的有限适用条件，同时不把停留时长作为唯一目标。",
+            "no_gain_threshold": "1轮无新增证据即可剪枝。",
+            "prune_condition": "达到2级，或确认管理分支不适用时剪枝。",
+            "reopen_condition": "后续又以任务或规则为首要处理、忽略原因与游戏质量时重开。",
             "shift_condition": "整题总结。",
-            "stop_condition": "非必须。",
-            "forbidden_stop": "A/B价值完全未分化且核心诊断仍不清时不宜停止。",
-            "calibration_note": ""
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "A/B价值完全未分化且核心诊断仍不清时，不宜停止。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q3-S1~S5至少4个2级，形成‘持续观察—原因判断—条件化介入—支架渐退’链条。",
+            "sufficient_condition": "Q3-S1~S5至少4个2级，形成‘持续观察—原因判断—条件化介入—支架渐退’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心无提升。",
             "prune_condition": "充分分支剪枝。",
             "reopen_condition": "新冲突重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分或时间上限且边际增益低时停止。",
             "forbidden_stop": "仍无法解释C/D高分逻辑时不得过早停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },
@@ -2111,7 +2197,7 @@ export const TCIM_DATA = {
             "level_3": "能判断偏离是生成性创新、可桥接探索还是持续脱离共同活动，并据此调整介入。",
             "false_evidence": "‘都要兼顾’无判断。",
             "conflict_evidence": "计划一旦制定不能变。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q4-S2",
@@ -2121,7 +2207,7 @@ export const TCIM_DATA = {
             "level_3": "能生成多种桥接可能并根据伙伴回应共同修订作品和计划。",
             "false_evidence": "直接说‘当桥面’。",
             "conflict_evidence": "桥接只是命令包装。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q4-S3",
@@ -2131,7 +2217,7 @@ export const TCIM_DATA = {
             "level_3": "能根据互动需要在参与—退出间调节，并让同伴成为主要协商者。",
             "false_evidence": "温和语气的指令。",
             "conflict_evidence": "教师成为项目负责人。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q4-S4",
@@ -2141,7 +2227,7 @@ export const TCIM_DATA = {
             "level_3": "能用最小介入保持游戏流，同时把当下和后续分享组成连续支持。",
             "false_evidence": "等待本身被当尊重。",
             "conflict_evidence": "共同活动已受影响仍完全不介入。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q4-S5",
@@ -2151,7 +2237,17 @@ export const TCIM_DATA = {
             "level_3": "能支持小组协商个体创意与共同目标，使新想法真正成为共同决策。",
             "false_evidence": "只问睿睿，不问伙伴。",
             "conflict_evidence": "以合作名义压制个体生成。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q4-S6",
+            "level_0": "把分享当成唯一支持，或只用分享纠正幼儿没有按原计划做。",
+            "level_1": "会在分享中回顾，但主要由教师评价偏离或给出正确整合方式。",
+            "level_2": "能引导幼儿回看计划怎样变化、新材料怎样进入共同作品，并纳入同伴视角。",
+            "level_3": "能把当下轻支持与后续共同反思串联，促成小组基于证据修订计划，而非恢复成人认可的原案。",
+            "false_evidence": "活动后提醒下次按计划。",
+            "conflict_evidence": "用分享替代共同活动已受影响时的即时支持。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -2255,7 +2351,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“他是不是不合作？”",
             "non_inducing_boundary": "让两类价值同时出现。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q4-S2",
@@ -2270,7 +2366,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“问他能不能当桥面就行吧？”",
             "non_inducing_boundary": "避免让题面答案代替教师生成。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q4-S3",
@@ -2285,7 +2381,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“先把任务完成再玩，可以吗？”",
             "non_inducing_boundary": "检查选择权和同伴协商。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q4-S4",
@@ -2300,7 +2396,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“等分享最尊重吧？”",
             "non_inducing_boundary": "即时支持与反思互补。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q4-S5",
@@ -2315,7 +2411,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“计划定了就应该完成吧？”",
             "non_inducing_boundary": "检验共同建构逻辑。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q4-S6",
+            "allowed_actions": [
+              "反思，时机连接"
+            ],
+            "preferred_action": "计划反思",
+            "typical_question": "“如果在后续分享中回看这件事，您会怎样帮助孩子们理解计划是怎样变化的？”",
+            "followup_question": "“当下已经需要轻介入时，分享还能承担什么、不能替代什么？”",
+            "forbidden_actions": [
+              "延后替代"
+            ],
+            "forbidden_question": "“等分享时再纠正他没按计划做就可以了吧？”",
+            "non_inducing_boundary": "分享用于共同回看与修订，不替代必要的即时支持，也不恢复成人预设的原案。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -2331,7 +2442,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q4-S2。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "‘兼顾’无具体机制不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q4-S2~S3 桥接/角色",
@@ -2342,7 +2453,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q4-S4。",
             "stop_condition": "核心充分可准备停止。",
             "forbidden_stop": "桥面由教师指定、儿童无选择时不得判高质量。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q4-S4~S5 时机/计划",
@@ -2350,21 +2461,32 @@ export const TCIM_DATA = {
             "no_gain_threshold": "1—2轮无新增剪枝。",
             "prune_condition": "充分后剪枝。",
             "reopen_condition": "后续出现‘必须先完成’或‘完全不管’重开。",
-            "shift_condition": "整题总结。",
+            "shift_condition": "转Q4-S6（需要后续分享反思时）或整题总结。",
             "stop_condition": "与核心共同满足时停止。",
             "forbidden_stop": "忽视同伴影响时不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "scope": "Q4-S6 分享反思",
+            "sufficient_condition": "能说明分享用于回看计划变化、新材料进入共同作品与同伴协商，并且不替代必要的即时支持。",
+            "no_gain_threshold": "1轮仍只说‘分享时纠正’、无新增证据则剪枝。",
+            "prune_condition": "达到2级，或当前情境没有后续分享需要时剪枝。",
+            "reopen_condition": "后续又用分享纠偏、恢复原计划或把全部支持延后时重开。",
+            "shift_condition": "整题总结。",
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "不得用后续分享替代共同活动已受影响时的即时支持。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q4-S1~S5至少4个2级，形成‘双重理解—兴趣桥接—低控制协商—即时/后续协调’链条。",
+            "sufficient_condition": "Q4-S1~S5至少4个2级，形成‘双重理解—兴趣桥接—低控制协商—即时/后续协调’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心无提升。",
             "prune_condition": "充分分支剪枝。",
             "reopen_condition": "新冲突重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分或时间上限低增益停止。",
             "forbidden_stop": "仍无法解释B高分的专业机制时不宜过早停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },
@@ -2566,7 +2688,7 @@ export const TCIM_DATA = {
             "level_3": "能说明危险情节可产生游戏张力，并用后续表达判断是否存在现实概念误解。",
             "false_evidence": "游戏就是游戏、完全不用管安全。",
             "conflict_evidence": "承认是假装又立刻道德纠偏。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q5-S2",
@@ -2576,7 +2698,7 @@ export const TCIM_DATA = {
             "level_3": "能根据儿童前一轮叙事决定是否需要对比，优先使用儿童自己的词语做复述确认。",
             "false_evidence": "连续是不是式提问。",
             "conflict_evidence": "儿童否认后仍坚持教师解释。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q5-S3",
@@ -2586,7 +2708,7 @@ export const TCIM_DATA = {
             "level_3": "能从叙事中识别角色、救援成功、刺激、同伴合作等来源，并据此决定下一步。",
             "false_evidence": "开放问后不听回答。",
             "conflict_evidence": "理论术语替代儿童证据。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q5-S4",
@@ -2596,7 +2718,7 @@ export const TCIM_DATA = {
             "level_3": "能区分喜欢危险情节与不了解现实危险，只对后者提供最小必要事实支持。",
             "false_evidence": "完全回避安全。",
             "conflict_evidence": "任何消防游戏都变安全课。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q5-S5",
@@ -2606,7 +2728,17 @@ export const TCIM_DATA = {
             "level_3": "安全支持后仍能保持儿童分享意愿，并把新理解带回游戏发展。",
             "false_evidence": "柔和语气的道德审判。",
             "conflict_evidence": "要求承认‘我错了’。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q5-S6",
+            "level_0": "把消防游戏改造成成人讲授的安全知识课。",
+            "level_1": "能增加安全情节，但主要由教师预设，儿童兴趣与叙事没有进入。",
+            "level_2": "在理解幼儿兴趣后，把报警、疏散、救援或照顾伤员等安全经验嵌入游戏，并由幼儿选择如何发展。",
+            "level_3": "能依据幼儿新的游戏表现持续生成和调整情节，使安全理解、角色合作与游戏发展相互促进。",
+            "false_evidence": "多讲消防知识就是延伸。",
+            "conflict_evidence": "幼儿不再主导，游戏被问答、演练或说教取代。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -2711,7 +2843,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“这句话是不是不正确？”",
             "non_inducing_boundary": "先获取游戏框架理解。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q5-S2",
@@ -2726,7 +2858,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“你是因为救人才开心，对吗？”",
             "non_inducing_boundary": "尊重实证B，但防止诱导。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q5-S3",
@@ -2741,7 +2873,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“你一定是消防员救人成功才开心吧？”",
             "non_inducing_boundary": "从儿童叙事取证。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q5-S4",
@@ -2756,7 +2888,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“分享时必须抓住教育契机，对吗？”",
             "non_inducing_boundary": "价值支持由证据决定。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q5-S5",
@@ -2771,7 +2903,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“娃娃家着火值得开心吗？”",
             "non_inducing_boundary": "保护表达关系。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q5-S6",
+            "allowed_actions": [
+              "策略生成，迁移"
+            ],
+            "preferred_action": "游戏延伸",
+            "typical_question": "“在理解孩子为什么开心以后，您会怎样把安全经验自然带回消防游戏？”",
+            "followup_question": "“哪些新情节由幼儿决定，您会观察什么再调整？”",
+            "forbidden_actions": [
+              "知识课化"
+            ],
+            "forbidden_question": "“接下来系统讲一遍消防知识最稳妥吧？”",
+            "non_inducing_boundary": "以儿童叙事为起点，安全经验服务于游戏发展而不是替代游戏。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -2787,7 +2934,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q5-S4。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "只会B式二选一但无开放出口时不宜判高质量。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q5-S4~S5 价值边界",
@@ -2795,32 +2942,32 @@ export const TCIM_DATA = {
             "no_gain_threshold": "连续2轮仍坚持‘最后必须纠正’，记录冲突。",
             "prune_condition": "充分后剪枝。",
             "reopen_condition": "后续出现审判式语言重开。",
-            "shift_condition": "转Q5-S6或总结。",
+            "shift_condition": "转Q5-S6（需要游戏延伸时）或整题总结。",
             "stop_condition": "核心充分可准备停止。",
             "forbidden_stop": "无法区分游戏兴趣与现实价值误解时不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q5-S6 游戏延伸",
-            "sufficient_condition": "能举出至少1种把安全经验转回游戏的方式。",
-            "no_gain_threshold": "1轮无新增剪枝。",
-            "prune_condition": "可选充分后剪枝。",
-            "reopen_condition": "无。",
+            "sufficient_condition": "能举出至少1种把安全经验带回游戏、同时保留幼儿情节选择权的方式。",
+            "no_gain_threshold": "1轮无新增证据即可剪枝。",
+            "prune_condition": "达到2级，或确认当前不需要游戏延伸时剪枝。",
+            "reopen_condition": "后续出现新的现实误解，或游戏被知识讲授取代时重开。",
             "shift_condition": "整题总结。",
-            "stop_condition": "非必须。",
-            "forbidden_stop": "不得用其替代前面游戏框架诊断。",
-            "calibration_note": ""
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "不得用游戏延伸替代前面的游戏框架诊断与证据澄清。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q5-S1~S5至少4个2级，形成‘理解游戏—聚焦/开放澄清—按证据决定价值支持—保持表达关系’链条。",
+            "sufficient_condition": "Q5-S1~S5至少4个2级，形成‘理解游戏—聚焦/开放澄清—按证据决定价值支持—保持表达关系’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心无提升。",
             "prune_condition": "充分分支剪枝。",
             "reopen_condition": "新冲突重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分或时间上限低增益停止。",
             "forbidden_stop": "仍把C式价值审判视为必要步骤时不得提前停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },
@@ -3023,7 +3170,7 @@ export const TCIM_DATA = {
             "level_3": "能进一步分析不同幼儿对难度标签的理解、成功/失败经验和自我评价，动态调整材料系统。",
             "false_evidence": "难度越高越好。",
             "conflict_evidence": "为了避免失败直接剥夺自主选择。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q6-S2",
@@ -3033,7 +3180,7 @@ export const TCIM_DATA = {
             "level_3": "能分别解释低挑战与过高挑战两类幼儿，并把判断与不同支持相连。",
             "false_evidence": "只给性格标签。",
             "conflict_evidence": "不同原因都用同一干预。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q6-S3",
@@ -3043,7 +3190,7 @@ export const TCIM_DATA = {
             "level_3": "能根据实际选择数据不断调整呈现方式，既支持挑战又不把星级变成外部排名。",
             "false_evidence": "‘三星最棒’。",
             "conflict_evidence": "材料提示演变为成人命令。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q6-S4",
@@ -3053,7 +3200,7 @@ export const TCIM_DATA = {
             "level_3": "能逐步让幼儿自己判断‘这个对我太容易/太难/刚好’，形成自我调节。",
             "false_evidence": "把‘小目标’变成教师布置。",
             "conflict_evidence": "失败后立即降到最低难度。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q6-S5",
@@ -3063,7 +3210,17 @@ export const TCIM_DATA = {
             "level_3": "能接受幼儿偶尔选择熟悉任务，同时根据长期模式判断何时需要介入，避免急于求成。",
             "false_evidence": "自主=从不介入。",
             "conflict_evidence": "挑战=必须升星。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q6-S6",
+            "level_0": "调整一次材料后不再观察，或只看任务完成数量。",
+            "level_1": "会看幼儿是否选择更高星级，但未关注失败、策略和材料适配。",
+            "level_2": "能观察选择难度、尝试过程、失败后调整与自评变化，并据此改进任务层次、提示和支架。",
+            "level_3": "能用跨时段证据校准材料系统与个别支持，使幼儿逐步形成‘太易、太难、刚好’的自主判断。",
+            "false_evidence": "升星就是进步。",
+            "conflict_evidence": "提示造成竞争或挫败、选择仍固化，却不再调整。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -3168,7 +3325,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“教师当然不能分配任务卡，对吗？”",
             "non_inducing_boundary": "先查材料观。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q6-S2",
@@ -3183,7 +3340,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“他是不是能力弱、没信心？”",
             "non_inducing_boundary": "要求可观察证据。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q6-S3",
@@ -3198,7 +3355,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“加‘我想挑战’就可以吧？”",
             "non_inducing_boundary": "看教师能否形成环境机制。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q6-S4",
@@ -3213,7 +3370,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“下一张必须二星。”",
             "non_inducing_boundary": "目标是自我评价。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q6-S5",
@@ -3228,7 +3385,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“只要自主选择就不要介入，对吗？”",
             "non_inducing_boundary": "检验长期发展视角。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q6-S6",
+            "allowed_actions": [
+              "反思，动态校准"
+            ],
+            "preferred_action": "结果回看",
+            "typical_question": "“调整任务卡后，您会继续看哪些选择和尝试，来判断下一步是否还要改？”",
+            "followup_question": "“如果幼儿升了星却频繁挫败，或仍只选一星，您会怎么调整？”",
+            "forbidden_actions": [
+              "一次定案"
+            ],
+            "forbidden_question": "“任务卡改过一次，就可以按这个层次一直用吧？”",
+            "non_inducing_boundary": "用连续行为证据校准材料与支架，不把升星本身当作目标。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -3244,7 +3416,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q6-S3。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "没有行为解释时不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q6-S3~S4 环境/个别支架",
@@ -3255,7 +3427,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q6-S5。",
             "stop_condition": "核心充分可准备停止。",
             "forbidden_stop": "只有口号没有具体环境/对话支架时不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q6-S5 自主/挑战平衡",
@@ -3263,21 +3435,32 @@ export const TCIM_DATA = {
             "no_gain_threshold": "1轮无新增剪枝。",
             "prune_condition": "充分后剪枝。",
             "reopen_condition": "后续把自主等同放任时重开。",
-            "shift_condition": "整题总结。",
+            "shift_condition": "转Q6-S6（出现后续选择结果时）或整题总结。",
             "stop_condition": "与核心共同满足时停止。",
             "forbidden_stop": "仍赞成按能力直接发卡作为常规做法时不得判高质量。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "scope": "Q6-S6 持续校准",
+            "sufficient_condition": "能说明如何把选择、尝试、失败与自评结果反馈到任务卡层次、提示和个别支架。",
+            "no_gain_threshold": "1轮仍只说‘看是否升星’、无新增证据则剪枝。",
+            "prune_condition": "达到2级，或当前暂无后续行为数据时剪枝。",
+            "reopen_condition": "后续选择仍固化，或出现明显挫败、竞争化与材料失配时重开。",
+            "shift_condition": "整题总结。",
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "不得只以升星或完成率判定校准成功。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q6-S1~S5至少4个2级，形成‘分析材料—识别选择模式—环境提示/个别对话—支持自我调节’链条。",
+            "sufficient_condition": "Q6-S1~S5至少4个2级，形成‘分析材料—识别选择模式—环境提示/个别对话—支持自我调节’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心无提升。",
             "prune_condition": "充分分支剪枝。",
             "reopen_condition": "新冲突重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分或时间上限低增益停止。",
             "forbidden_stop": "无法解释A为何实证低时不宜过早停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },
@@ -3478,7 +3661,7 @@ export const TCIM_DATA = {
             "level_3": "能对不同幼儿分别判断，允许同一小组中原因不同、进入方式不同。",
             "false_evidence": "形式询问后仍统一要求参加。",
             "conflict_evidence": "性别刻板印象。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q7-S2",
@@ -3488,7 +3671,7 @@ export const TCIM_DATA = {
             "level_3": "能和幼儿共同生成运动情节，而非成人预制贴标签。",
             "false_evidence": "给运动项目换艾莎名称。",
             "conflict_evidence": "兴趣只做诱饵。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q7-S3",
@@ -3498,7 +3681,7 @@ export const TCIM_DATA = {
             "level_3": "根据投入、负荷和能力动态扩展动作挑战，兼顾安全。",
             "false_evidence": "只有口头想象。",
             "conflict_evidence": "为了运动量破坏游戏。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q7-S4",
@@ -3508,7 +3691,7 @@ export const TCIM_DATA = {
             "level_3": "逐渐把主导权交还幼儿，教师退出后游戏仍能持续。",
             "false_evidence": "扮角色但全程发号施令。",
             "conflict_evidence": "公开比较谁更听话。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q7-S5",
@@ -3518,7 +3701,17 @@ export const TCIM_DATA = {
             "level_3": "能考虑身体状态和个体差异，允许合理例外并持续提供可进入机会。",
             "false_evidence": "自由选择回避课程责任。",
             "conflict_evidence": "时间纪律高于儿童状态。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q7-S6",
+            "level_0": "认为材料越多越能让幼儿运动，或不分原因随意投放。",
+            "level_1": "会补充角色道具或器械，但与不参与原因、运动目标的关系较弱。",
+            "level_2": "能根据原因和游戏情节调整路线、空间、角色道具或轻器械，并观察运动投入是否增加。",
+            "level_3": "能比较调整前后的参与、负荷、安全与自主性，迭代环境同时避免材料喧宾夺主。",
+            "false_evidence": "投放‘艾莎’道具就算有效。",
+            "conflict_evidence": "材料增多但幼儿仍静态游戏，或风险增加。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -3622,7 +3815,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“女孩子是不是本来就不爱运动？”",
             "non_inducing_boundary": "避免群体化判断。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q7-S2",
@@ -3637,7 +3830,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“用鞋子设计走跑跳就行吧？”",
             "non_inducing_boundary": "先由教师识别游戏资源。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q7-S3",
@@ -3652,7 +3845,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“请安排走、跑、跳三个项目。”",
             "non_inducing_boundary": "保持游戏生成性。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q7-S4",
@@ -3667,7 +3860,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“现在跟老师来做运动。”",
             "non_inducing_boundary": "检验共同游戏与渐退。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q7-S5",
@@ -3682,7 +3875,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“运动时间就必须运动，对吗？”",
             "non_inducing_boundary": "查目标与自主的整合。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q7-S6",
+            "allowed_actions": [
+              "具体化，环境反思"
+            ],
+            "preferred_action": "功能检验",
+            "typical_question": "“如果调整材料或空间，您会改什么，并期待它具体增加哪一种运动参与？”",
+            "followup_question": "“投放后孩子仍主要坐着玩，您会怎样判断和调整？”",
+            "forbidden_actions": [
+              "材料堆叠"
+            ],
+            "forbidden_question": "“多放一些艾莎道具，孩子自然就会运动吧？”",
+            "non_inducing_boundary": "材料和空间调整必须同时有原因、运动功能与观察反馈依据。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -3698,7 +3906,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q7-S2。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "仅凭兴趣假定原因已知不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q7-S2~S4 兴趣融合/参与",
@@ -3709,7 +3917,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q7-S5。",
             "stop_condition": "核心充分可准备停止。",
             "forbidden_stop": "只是把项目换名字不得判高质量。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q7-S5 目标/自主平衡",
@@ -3717,21 +3925,32 @@ export const TCIM_DATA = {
             "no_gain_threshold": "1轮无新增剪枝。",
             "prune_condition": "充分后剪枝。",
             "reopen_condition": "后续用时间纪律强制时重开。",
-            "shift_condition": "整题总结。",
+            "shift_condition": "转Q7-S6（需要环境调整时）或整题总结。",
             "stop_condition": "与核心共同满足时停止。",
             "forbidden_stop": "把尊重自主等同完全不支持也不得高判。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "scope": "Q7-S6 环境调整",
+            "sufficient_condition": "能基于原因和运动目标调整材料或空间，并说明如何检验是否真正增加运动投入。",
+            "no_gain_threshold": "1轮仍只说‘增加材料’、无功能依据则剪枝。",
+            "prune_condition": "达到2级，或确认当前无需环境调整时剪枝。",
+            "reopen_condition": "幼儿仍主要静态游戏，或运动负荷、安全与个体需要失配时重开。",
+            "shift_condition": "整题总结。",
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "材料数量、角色名称或短暂新奇反应都不能单独证明有效。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q7-S1~S5至少4个2级，形成‘理解原因—提取兴趣—生成运动—伙伴进入—动态调整’链条。",
+            "sufficient_condition": "Q7-S1~S5至少4个2级，形成‘理解原因—提取兴趣—生成运动—伙伴进入—动态调整’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心无提升。",
             "prune_condition": "充分分支剪枝。",
             "reopen_condition": "新冲突重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分或时间上限低增益停止。",
             "forbidden_stop": "仍无法解释C高分核心机制时不宜过早停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },
@@ -3933,7 +4152,7 @@ export const TCIM_DATA = {
             "level_3": "能把机制转为幼儿可观察线索，并设计让幼儿自己发现的办法。",
             "false_evidence": "教师自己知道答案但不会转支架。",
             "conflict_evidence": "归因材料不好。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q8-S2",
@@ -3943,7 +4162,7 @@ export const TCIM_DATA = {
             "level_3": "能区分操作不会、未观察关系、需要比较实验等状态，并匹配支架。",
             "false_evidence": "只鼓励坚持。",
             "conflict_evidence": "兴趣下降仍无限自由试。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q8-S3",
@@ -3953,7 +4172,7 @@ export const TCIM_DATA = {
             "level_3": "能描述清晰支架阶梯和升级条件，幼儿发现后迅速退回观察者。",
             "false_evidence": "提问自动等于低支架。",
             "conflict_evidence": "问题里已包含答案。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q8-S4",
@@ -3963,7 +4182,7 @@ export const TCIM_DATA = {
             "level_3": "能支持比较不同坡度/位置并形成可迁移经验，操作权持续在幼儿。",
             "false_evidence": "讨论热闹但不验证。",
             "conflict_evidence": "讨论后教师直接完成。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q8-S5",
@@ -3973,7 +4192,17 @@ export const TCIM_DATA = {
             "level_3": "能依据材料使用结果再次调整环境，避免材料刺激掩盖核心问题。",
             "false_evidence": "越多越好。",
             "conflict_evidence": "新材料让幼儿离开原问题。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q8-S6",
+            "level_0": "兴趣下降就奖励坚持、换新玩具或直接给出答案。",
+            "level_1": "会鼓励或缩小任务，但没有保留核心难题，也未形成可见进展。",
+            "level_2": "能通过缩小问题、共同探索或呈现局部可见进展恢复可达成感，同时保留高度/坡度这一核心难题。",
+            "level_3": "能依据幼儿认知与情绪反馈动态调节挑战和支架，恢复投入后逐步归还探究主导权。",
+            "false_evidence": "只说‘再试一次’。",
+            "conflict_evidence": "奖励或新奇材料替代问题解决，或过度简化使难题消失。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -4076,7 +4305,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“是不是因为竹片高于出水口？”",
             "non_inducing_boundary": "看教师能否自主提取题干机制。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q8-S2",
@@ -4091,7 +4320,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“他们是不是不会思考？”",
             "non_inducing_boundary": "围绕当前证据判断支架。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q8-S3",
@@ -4106,7 +4335,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“专业教师是不是不能示范？”",
             "non_inducing_boundary": "检验阶梯与边界。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q8-S4",
@@ -4121,7 +4350,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“怎样最快把水引过去？”",
             "non_inducing_boundary": "过程优先。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q8-S5",
@@ -4136,7 +4365,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“多放材料就能激发兴趣吧？”",
             "non_inducing_boundary": "材料必须有机制依据。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q8-S6",
+            "allowed_actions": [
+              "策略生成，状态调节"
+            ],
+            "preferred_action": "挑战调节",
+            "typical_question": "“孩子兴趣下降时，您会怎样把难题缩小到可继续探索，同时不把关键答案拿走？”",
+            "followup_question": "“什么变化说明可以减少帮助，什么情况需要再调节挑战？”",
+            "forbidden_actions": [
+              "奖励替代"
+            ],
+            "forbidden_question": "“给一点奖励让他们坚持，兴趣就会回来吧？”",
+            "non_inducing_boundary": "调节可达成感但保留核心难题，并依据认知与情绪反馈渐退。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -4152,7 +4396,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q8-S3。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "不知道卡点不得高判。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q8-S3~S4 支架/探究",
@@ -4163,7 +4407,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q8-S5。",
             "stop_condition": "核心充分可准备停止。",
             "forbidden_stop": "只有‘不告诉答案’口号不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q8-S5 材料",
@@ -4171,21 +4415,32 @@ export const TCIM_DATA = {
             "no_gain_threshold": "1轮无新增剪枝。",
             "prune_condition": "充分后剪枝。",
             "reopen_condition": "后续又以新奇刺激替代问题解决时重开。",
-            "shift_condition": "整题总结。",
+            "shift_condition": "转Q8-S6（兴趣下降/可达成感不足时）或整题总结。",
             "stop_condition": "与核心共同满足时停止。",
             "forbidden_stop": "材料数量被当主要策略时不得判高质量。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "scope": "Q8-S6 挑战调节",
+            "sufficient_condition": "能说明如何缩小问题、共同探索或制造可见进展来恢复可达成感，同时保留核心难题。",
+            "no_gain_threshold": "1轮仍只说鼓励或奖励、无挑战调节机制则剪枝。",
+            "prune_condition": "达到2级，或幼儿兴趣稳定且当前无需调节时剪枝。",
+            "reopen_condition": "兴趣再次下降、支持过强使难题消失，或连续尝试仍无可见进展时重开。",
+            "shift_condition": "整题总结。",
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "不得用奖励、新奇材料或直接答案替代困难机制与探究支架。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q8-S1~S5至少4个2级，形成‘识别机制—判断ZPD—分级支架—儿童验证—环境调整’链条。",
+            "sufficient_condition": "Q8-S1~S5至少4个2级，形成‘识别机制—判断ZPD—分级支架—儿童验证—环境调整’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心无提升。",
             "prune_condition": "充分分支剪枝。",
             "reopen_condition": "新冲突重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分或时间上限低增益停止。",
             "forbidden_stop": "仍无法解释A为何低分时不宜过早停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },
@@ -4385,7 +4640,7 @@ export const TCIM_DATA = {
             "level_3": "能说明正式规则是否完全正确不是唯一关键，关键是双方能否共同认可并维持规则。",
             "false_evidence": "会背规则。",
             "conflict_evidence": "成人讲清后仍不能协商却认为解决。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q9-S2",
@@ -4395,7 +4650,7 @@ export const TCIM_DATA = {
             "level_3": "能把时间、情绪、学习价值和幼儿自主解决能力结合成动态阈值。",
             "false_evidence": "放任=体验。",
             "conflict_evidence": "冲突升级仍等待。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q9-S3",
@@ -4405,7 +4660,7 @@ export const TCIM_DATA = {
             "level_3": "能让幼儿自己比较不同规则下的体验，并用自己的话形成规则理由。",
             "false_evidence": "背条款。",
             "conflict_evidence": "只要求服从。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q9-S4",
@@ -4415,7 +4670,7 @@ export const TCIM_DATA = {
             "level_3": "能比较多个可行规则、试行后再修订，并让教师逐步退出。",
             "false_evidence": "只能在成人给的两个方案中选。",
             "conflict_evidence": "拿走骰子作为惩罚。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q9-S5",
@@ -4425,7 +4680,17 @@ export const TCIM_DATA = {
             "level_3": "能判断何时无需拿走、何时临时结构最有效，并允许之后重新配置材料。",
             "false_evidence": "物理控制代替协商。",
             "conflict_evidence": "拿走后成人宣布谁先。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q9-S6",
+            "level_0": "无论共同游戏是否瓦解，都只等小结再处理；或完全否定小结价值。",
+            "level_1": "知道小结可以反思，但说不清何时必须提供即时支持。",
+            "level_2": "能说明共同游戏瓦解、冲突升级或学习机会将丧失时需即时最小支持，小结用于后续回顾。",
+            "level_3": "能把即时协商支架、教师退出与小结中的规则反思串成连续支持，并据结果调整后续环境或规则。",
+            "false_evidence": "延后就是尊重。",
+            "conflict_evidence": "幼儿已无法共同游戏，仍把小结作为唯一措施。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -4531,7 +4796,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“他们显然规则意识差吧？”",
             "non_inducing_boundary": "开放判断问题性质。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q9-S2",
@@ -4546,7 +4811,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“让他们自己玩到结束。”",
             "non_inducing_boundary": "专业等待必须有阈值。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q9-S3",
@@ -4561,7 +4826,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“飞行棋正确规则是什么？”",
             "non_inducing_boundary": "从经验中理解规则功能。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q9-S4",
@@ -4576,7 +4841,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“应该轮流掷骰子，就这样玩。”",
             "non_inducing_boundary": "提供结构不代替决定。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q9-S5",
@@ -4591,7 +4856,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“谁抢骰子就没收谁的。”",
             "non_inducing_boundary": "环境调整服务于协商。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q9-S6",
+            "allowed_actions": [
+              "时机比较，反思"
+            ],
+            "preferred_action": "连续支持",
+            "typical_question": "“共同游戏已经进行不下去时，您会怎样处理当下；小结又能补充什么？”",
+            "followup_question": "“什么情况可以等到小结，什么情况不能等？”",
+            "forbidden_actions": [
+              "绝对延后"
+            ],
+            "forbidden_question": "“留到区域小结再谈，总是比当场介入更尊重幼儿吧？”",
+            "non_inducing_boundary": "小结有反思价值，但不能替代必要的即时最小支持。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -4607,7 +4887,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q9-S3。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "无限等待/立即接管任一极端未澄清不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q9-S3~S5 反思/协商/环境",
@@ -4615,32 +4895,32 @@ export const TCIM_DATA = {
             "no_gain_threshold": "连续2轮只说‘让他们商量’无过程支架，记录不足。",
             "prune_condition": "充分后剪枝。",
             "reopen_condition": "新冲突使规则无法维持时重开。",
-            "shift_condition": "转Q9-S6或总结。",
+            "shift_condition": "转Q9-S6（出现即时/小结时机判断时）或整题总结。",
             "stop_condition": "核心充分可准备停止。",
             "forbidden_stop": "拿骰子作为惩罚不得高判。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q9-S6 小结边界",
-            "sufficient_condition": "能说明小结适合反思但不能替代必要即时支持。",
-            "no_gain_threshold": "1轮无新增剪枝。",
-            "prune_condition": "充分后剪枝。",
-            "reopen_condition": "后续完全推迟支持时重开。",
+            "sufficient_condition": "能说明小结适合回顾经验，但共同游戏瓦解或冲突升级时不能替代必要的即时最小支持。",
+            "no_gain_threshold": "1轮无新增证据即可剪枝。",
+            "prune_condition": "达到2级，或当前没有小结路径需要判断时剪枝。",
+            "reopen_condition": "后续又把全部支持推迟到小结，或即时介入重新接管游戏时重开。",
             "shift_condition": "整题总结。",
-            "stop_condition": "非必须。",
-            "forbidden_stop": "若核心介入时机仍不清不可用小结替代。",
-            "calibration_note": ""
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "核心介入时机仍不清时，不得用小结替代。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q9-S1~S5至少4个2级，形成‘识别共同规则失效—有界体验—反思规则功能—协商重建—教师退出’链条。",
+            "sufficient_condition": "Q9-S1~S5至少4个2级，形成‘识别共同规则失效—有界体验—反思规则功能—协商重建—教师退出’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心无提升。",
             "prune_condition": "充分分支剪枝。",
             "reopen_condition": "新冲突重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分或时间上限低增益停止。",
             "forbidden_stop": "仍把规则教育等同成人讲解时不得提前停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },
@@ -4842,7 +5122,7 @@ export const TCIM_DATA = {
             "level_3": "能进一步区分哪些需立刻处理、哪些可由幼儿协商改进，并用观察证据排序优先级。",
             "false_evidence": "只说安全第一。",
             "conflict_evidence": "只处理碰撞不处理长期等待。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q10-S2",
@@ -4852,7 +5132,7 @@ export const TCIM_DATA = {
             "level_3": "能根据风险强度选择最小必要成人支架，并迅速把治理权逐步交回幼儿。",
             "false_evidence": "暂停=控制。",
             "conflict_evidence": "有风险仍为了自主完全等待。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q10-S3",
@@ -4862,7 +5142,7 @@ export const TCIM_DATA = {
             "level_3": "能支持试行—观察—修订，使规则成为幼儿共同维护的游戏文化。",
             "false_evidence": "形式民主、实质成人决定。",
             "conflict_evidence": "规则只为安静，不解决公平/安全。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q10-S4",
@@ -4872,7 +5152,7 @@ export const TCIM_DATA = {
             "level_3": "能根据幼儿规则能力逐步减少成人组织，使幼儿自行调整人数、轮换和区域。",
             "false_evidence": "高效组织被等同高水平。",
             "conflict_evidence": "每次都由教师重新分组。",
-            "calibration_note": ""
+            "calibration_note": "40"
           },
           {
             "slot_id": "Q10-S5",
@@ -4882,7 +5162,17 @@ export const TCIM_DATA = {
             "level_3": "能依据新材料后的游戏数据再次修订空间和规则，使安全、公平、参与率同时提升。",
             "false_evidence": "器材越多越好。",
             "conflict_evidence": "新增材料导致更混乱仍不调整。",
-            "calibration_note": ""
+            "calibration_note": "40"
+          },
+          {
+            "slot_id": "Q10-S6",
+            "level_0": "用照片或视频回放替代现场的碰撞风险处理。",
+            "level_1": "知道要先处理安全、后回放，但回放主要用于批评或重申成人规则。",
+            "level_2": "能先做最小必要安全处理，再用影像帮助幼儿回看秩序与公平、修订共同规则。",
+            "level_3": "能把即时处置、影像反思、规则试行和再观察形成闭环，逐步减少成人组织。",
+            "false_evidence": "录了视频就叫反思。",
+            "conflict_evidence": "明显风险下等待回放，或回放变成点名批评。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -4988,7 +5278,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“是不是先让大家安静下来？”",
             "non_inducing_boundary": "识别安全、秩序、公平。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q10-S2",
@@ -5003,7 +5293,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“等分享时再看视频更尊重吧？”",
             "non_inducing_boundary": "安全是即时底线，自主是后续目标。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q10-S3",
@@ -5018,7 +5308,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“老师规定每组五个人。”",
             "non_inducing_boundary": "让幼儿参与形成、试行和修订。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q10-S4",
@@ -5033,7 +5323,7 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“以后都由老师分组最省事。”",
             "non_inducing_boundary": "成人组织只能是临时支架。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "slot_id": "Q10-S5",
@@ -5048,7 +5338,22 @@ export const TCIM_DATA = {
             ],
             "forbidden_question": "“器材够多就不会乱了吧？”",
             "non_inducing_boundary": "查结构性规则问题。",
-            "calibration_note": ""
+            "calibration_note": "44"
+          },
+          {
+            "slot_id": "Q10-S6",
+            "allowed_actions": [
+              "时机比较，反思"
+            ],
+            "preferred_action": "影像反思",
+            "typical_question": "“现场先降低碰撞风险后，您会怎样用照片或视频帮助幼儿继续修订规则？”",
+            "followup_question": "“怎样避免回放变成教师批评或公布答案？”",
+            "forbidden_actions": [
+              "回放替代"
+            ],
+            "forbidden_question": "“先把视频拍下来，等分享时再处理安全问题更完整吧？”",
+            "non_inducing_boundary": "影像用于后续共同反思，不能延迟即时安全底线，也不能点名评判。",
+            "calibration_note": "待专家检核"
           }
         ]
       },
@@ -5064,7 +5369,7 @@ export const TCIM_DATA = {
             "shift_condition": "转Q10-S3。",
             "stop_condition": "不能单独停止。",
             "forbidden_stop": "即时安全阈值不清不得停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
             "scope": "Q10-S3~S4 规则共建/教师角色",
@@ -5075,29 +5380,40 @@ export const TCIM_DATA = {
             "shift_condition": "转Q10-S5。",
             "stop_condition": "核心充分可准备停止。",
             "forbidden_stop": "没有规则共建机制不得判高质量。",
-            "calibration_note": ""
+            "calibration_note": "44"
           },
           {
-            "scope": "Q10-S5~S6 环境/后续反思",
-            "sufficient_condition": "能说明材料/空间的有限功能，并把视频回放用于后续修订而非替代即时处理。",
-            "no_gain_threshold": "1轮无新增剪枝。",
-            "prune_condition": "充分后剪枝。",
-            "reopen_condition": "后续材料万能或完全延后时重开。",
+            "scope": "Q10-S5 材料/空间功能",
+            "sufficient_condition": "能说明材料和空间调整各自能解决什么，并承认其不能替代轮换、公平与共同规则。",
+            "no_gain_threshold": "1轮仍把材料数量当作万能策略则剪枝。",
+            "prune_condition": "达到2级后剪枝。",
+            "reopen_condition": "后续材料增加但拥挤、等待或角色不公平仍未改善时重开。",
+            "shift_condition": "转Q10-S6（需要后续影像反思时）或整题总结。",
+            "stop_condition": "与核心Slot共同满足时，可准备停止。",
+            "forbidden_stop": "不得用材料或分区替代幼儿共同治理。",
+            "calibration_note": "待专家检核"
+          },
+          {
+            "scope": "Q10-S6 影像反思",
+            "sufficient_condition": "能说明先完成即时最小安全处理，再用照片或视频支持幼儿回看秩序、公平并修订共同规则。",
+            "no_gain_threshold": "1轮仍只说‘看视频’、无反思机制则剪枝。",
+            "prune_condition": "达到2级，或当前没有影像资源/反思需要时剪枝。",
+            "reopen_condition": "出现新碰撞风险、回放变成批评，或修订后的规则无法维持时重开。",
             "shift_condition": "整题总结。",
-            "stop_condition": "与核心共同满足时停止。",
-            "forbidden_stop": "不能用环境或视频代替共同治理。",
-            "calibration_note": ""
+            "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+            "forbidden_stop": "不得用影像回放延迟即时风险处理，也不得进行公开羞辱。",
+            "calibration_note": "待专家检核"
           },
           {
             "scope": "整题",
-            "sufficient_condition": "Q10-S1~S5至少4个2级，形成‘识别风险与公平—即时最小介入—幼儿共建规则—成人渐退—环境/规则再调整’链条。",
+            "sufficient_condition": "Q10-S1~S5至少4个2级，形成‘识别风险与公平—即时最小介入—幼儿共建规则—成人渐退—环境/规则再调整’链条；S6为可选扩展，不作为整题最低停止条件。",
             "no_gain_threshold": "连续2轮核心无提升。",
             "prune_condition": "充分分支剪枝。",
             "reopen_condition": "新冲突重开。",
             "shift_condition": "无。",
             "stop_condition": "满足充分或时间上限低增益停止。",
             "forbidden_stop": "仍把B式共建理解为不需即时安全处理时不得提前停止。",
-            "calibration_note": ""
+            "calibration_note": "44"
           }
         ]
       },

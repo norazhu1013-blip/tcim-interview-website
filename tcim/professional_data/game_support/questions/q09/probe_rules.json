@@ -14,7 +14,7 @@
       ],
       "forbidden_question": "“他们显然规则意识差吧？”",
       "non_inducing_boundary": "开放判断问题性质。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q9-S2",
@@ -29,7 +29,7 @@
       ],
       "forbidden_question": "“让他们自己玩到结束。”",
       "non_inducing_boundary": "专业等待必须有阈值。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q9-S3",
@@ -44,7 +44,7 @@
       ],
       "forbidden_question": "“飞行棋正确规则是什么？”",
       "non_inducing_boundary": "从经验中理解规则功能。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q9-S4",
@@ -59,7 +59,7 @@
       ],
       "forbidden_question": "“应该轮流掷骰子，就这样玩。”",
       "non_inducing_boundary": "提供结构不代替决定。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q9-S5",
@@ -74,7 +74,22 @@
       ],
       "forbidden_question": "“谁抢骰子就没收谁的。”",
       "non_inducing_boundary": "环境调整服务于协商。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "slot_id": "Q9-S6",
+      "allowed_actions": [
+        "时机比较，反思"
+      ],
+      "preferred_action": "连续支持",
+      "typical_question": "“共同游戏已经进行不下去时，您会怎样处理当下；小结又能补充什么？”",
+      "followup_question": "“什么情况可以等到小结，什么情况不能等？”",
+      "forbidden_actions": [
+        "绝对延后"
+      ],
+      "forbidden_question": "“留到区域小结再谈，总是比当场介入更尊重幼儿吧？”",
+      "non_inducing_boundary": "小结有反思价值，但不能替代必要的即时最小支持。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

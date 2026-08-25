@@ -14,7 +14,7 @@
       ],
       "forbidden_question": "“是不是先让大家安静下来？”",
       "non_inducing_boundary": "识别安全、秩序、公平。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q10-S2",
@@ -29,7 +29,7 @@
       ],
       "forbidden_question": "“等分享时再看视频更尊重吧？”",
       "non_inducing_boundary": "安全是即时底线，自主是后续目标。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q10-S3",
@@ -44,7 +44,7 @@
       ],
       "forbidden_question": "“老师规定每组五个人。”",
       "non_inducing_boundary": "让幼儿参与形成、试行和修订。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q10-S4",
@@ -59,7 +59,7 @@
       ],
       "forbidden_question": "“以后都由老师分组最省事。”",
       "non_inducing_boundary": "成人组织只能是临时支架。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q10-S5",
@@ -74,7 +74,22 @@
       ],
       "forbidden_question": "“器材够多就不会乱了吧？”",
       "non_inducing_boundary": "查结构性规则问题。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "slot_id": "Q10-S6",
+      "allowed_actions": [
+        "时机比较，反思"
+      ],
+      "preferred_action": "影像反思",
+      "typical_question": "“现场先降低碰撞风险后，您会怎样用照片或视频帮助幼儿继续修订规则？”",
+      "followup_question": "“怎样避免回放变成教师批评或公布答案？”",
+      "forbidden_actions": [
+        "回放替代"
+      ],
+      "forbidden_question": "“先把视频拍下来，等分享时再处理安全问题更完整吧？”",
+      "non_inducing_boundary": "影像用于后续共同反思，不能延迟即时安全底线，也不能点名评判。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

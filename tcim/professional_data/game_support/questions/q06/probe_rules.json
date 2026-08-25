@@ -14,7 +14,7 @@
       ],
       "forbidden_question": "“教师当然不能分配任务卡，对吗？”",
       "non_inducing_boundary": "先查材料观。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q6-S2",
@@ -29,7 +29,7 @@
       ],
       "forbidden_question": "“他是不是能力弱、没信心？”",
       "non_inducing_boundary": "要求可观察证据。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q6-S3",
@@ -44,7 +44,7 @@
       ],
       "forbidden_question": "“加‘我想挑战’就可以吧？”",
       "non_inducing_boundary": "看教师能否形成环境机制。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q6-S4",
@@ -59,7 +59,7 @@
       ],
       "forbidden_question": "“下一张必须二星。”",
       "non_inducing_boundary": "目标是自我评价。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q6-S5",
@@ -74,7 +74,22 @@
       ],
       "forbidden_question": "“只要自主选择就不要介入，对吗？”",
       "non_inducing_boundary": "检验长期发展视角。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "slot_id": "Q6-S6",
+      "allowed_actions": [
+        "反思，动态校准"
+      ],
+      "preferred_action": "结果回看",
+      "typical_question": "“调整任务卡后，您会继续看哪些选择和尝试，来判断下一步是否还要改？”",
+      "followup_question": "“如果幼儿升了星却频繁挫败，或仍只选一星，您会怎么调整？”",
+      "forbidden_actions": [
+        "一次定案"
+      ],
+      "forbidden_question": "“任务卡改过一次，就可以按这个层次一直用吧？”",
+      "non_inducing_boundary": "用连续行为证据校准材料与支架，不把升星本身当作目标。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

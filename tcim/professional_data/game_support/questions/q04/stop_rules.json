@@ -10,7 +10,7 @@
       "shift_condition": "转Q4-S2。",
       "stop_condition": "不能单独停止。",
       "forbidden_stop": "‘兼顾’无具体机制不得停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q4-S2~S3 桥接/角色",
@@ -21,7 +21,7 @@
       "shift_condition": "转Q4-S4。",
       "stop_condition": "核心充分可准备停止。",
       "forbidden_stop": "桥面由教师指定、儿童无选择时不得判高质量。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "scope": "Q4-S4~S5 时机/计划",
@@ -29,21 +29,32 @@
       "no_gain_threshold": "1—2轮无新增剪枝。",
       "prune_condition": "充分后剪枝。",
       "reopen_condition": "后续出现‘必须先完成’或‘完全不管’重开。",
-      "shift_condition": "整题总结。",
+      "shift_condition": "转Q4-S6（需要后续分享反思时）或整题总结。",
       "stop_condition": "与核心共同满足时停止。",
       "forbidden_stop": "忽视同伴影响时不得停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "scope": "Q4-S6 分享反思",
+      "sufficient_condition": "能说明分享用于回看计划变化、新材料进入共同作品与同伴协商，并且不替代必要的即时支持。",
+      "no_gain_threshold": "1轮仍只说‘分享时纠正’、无新增证据则剪枝。",
+      "prune_condition": "达到2级，或当前情境没有后续分享需要时剪枝。",
+      "reopen_condition": "后续又用分享纠偏、恢复原计划或把全部支持延后时重开。",
+      "shift_condition": "整题总结。",
+      "stop_condition": "非必须；S6充分或确认当前情境不适用时结束该可选分支。",
+      "forbidden_stop": "不得用后续分享替代共同活动已受影响时的即时支持。",
+      "calibration_note": "待专家检核"
     },
     {
       "scope": "整题",
-      "sufficient_condition": "Q4-S1~S5至少4个2级，形成‘双重理解—兴趣桥接—低控制协商—即时/后续协调’链条。",
+      "sufficient_condition": "Q4-S1~S5至少4个2级，形成‘双重理解—兴趣桥接—低控制协商—即时/后续协调’链条；S6为可选扩展，不作为整题最低停止条件。",
       "no_gain_threshold": "连续2轮核心无提升。",
       "prune_condition": "充分分支剪枝。",
       "reopen_condition": "新冲突重开。",
       "shift_condition": "无。",
       "stop_condition": "满足充分或时间上限低增益停止。",
       "forbidden_stop": "仍无法解释B高分的专业机制时不宜过早停止。",
-      "calibration_note": ""
+      "calibration_note": "44"
     }
   ]
 }

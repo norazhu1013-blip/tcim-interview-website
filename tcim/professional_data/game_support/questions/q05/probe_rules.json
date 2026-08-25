@@ -14,7 +14,7 @@
       ],
       "forbidden_question": "“这句话是不是不正确？”",
       "non_inducing_boundary": "先获取游戏框架理解。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q5-S2",
@@ -29,7 +29,7 @@
       ],
       "forbidden_question": "“你是因为救人才开心，对吗？”",
       "non_inducing_boundary": "尊重实证B，但防止诱导。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q5-S3",
@@ -44,7 +44,7 @@
       ],
       "forbidden_question": "“你一定是消防员救人成功才开心吧？”",
       "non_inducing_boundary": "从儿童叙事取证。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q5-S4",
@@ -59,7 +59,7 @@
       ],
       "forbidden_question": "“分享时必须抓住教育契机，对吗？”",
       "non_inducing_boundary": "价值支持由证据决定。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q5-S5",
@@ -74,7 +74,22 @@
       ],
       "forbidden_question": "“娃娃家着火值得开心吗？”",
       "non_inducing_boundary": "保护表达关系。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "slot_id": "Q5-S6",
+      "allowed_actions": [
+        "策略生成，迁移"
+      ],
+      "preferred_action": "游戏延伸",
+      "typical_question": "“在理解孩子为什么开心以后，您会怎样把安全经验自然带回消防游戏？”",
+      "followup_question": "“哪些新情节由幼儿决定，您会观察什么再调整？”",
+      "forbidden_actions": [
+        "知识课化"
+      ],
+      "forbidden_question": "“接下来系统讲一遍消防知识最稳妥吧？”",
+      "non_inducing_boundary": "以儿童叙事为起点，安全经验服务于游戏发展而不是替代游戏。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

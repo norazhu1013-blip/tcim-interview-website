@@ -9,7 +9,7 @@
       "level_3": "能判断偏离是生成性创新、可桥接探索还是持续脱离共同活动，并据此调整介入。",
       "false_evidence": "‘都要兼顾’无判断。",
       "conflict_evidence": "计划一旦制定不能变。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q4-S2",
@@ -19,7 +19,7 @@
       "level_3": "能生成多种桥接可能并根据伙伴回应共同修订作品和计划。",
       "false_evidence": "直接说‘当桥面’。",
       "conflict_evidence": "桥接只是命令包装。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q4-S3",
@@ -29,7 +29,7 @@
       "level_3": "能根据互动需要在参与—退出间调节，并让同伴成为主要协商者。",
       "false_evidence": "温和语气的指令。",
       "conflict_evidence": "教师成为项目负责人。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q4-S4",
@@ -39,7 +39,7 @@
       "level_3": "能用最小介入保持游戏流，同时把当下和后续分享组成连续支持。",
       "false_evidence": "等待本身被当尊重。",
       "conflict_evidence": "共同活动已受影响仍完全不介入。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q4-S5",
@@ -49,7 +49,17 @@
       "level_3": "能支持小组协商个体创意与共同目标，使新想法真正成为共同决策。",
       "false_evidence": "只问睿睿，不问伙伴。",
       "conflict_evidence": "以合作名义压制个体生成。",
-      "calibration_note": ""
+      "calibration_note": "40"
+    },
+    {
+      "slot_id": "Q4-S6",
+      "level_0": "把分享当成唯一支持，或只用分享纠正幼儿没有按原计划做。",
+      "level_1": "会在分享中回顾，但主要由教师评价偏离或给出正确整合方式。",
+      "level_2": "能引导幼儿回看计划怎样变化、新材料怎样进入共同作品，并纳入同伴视角。",
+      "level_3": "能把当下轻支持与后续共同反思串联，促成小组基于证据修订计划，而非恢复成人认可的原案。",
+      "false_evidence": "活动后提醒下次按计划。",
+      "conflict_evidence": "用分享替代共同活动已受影响时的即时支持。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

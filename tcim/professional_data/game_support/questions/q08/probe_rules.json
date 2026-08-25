@@ -14,7 +14,7 @@
       ],
       "forbidden_question": "“是不是因为竹片高于出水口？”",
       "non_inducing_boundary": "看教师能否自主提取题干机制。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q8-S2",
@@ -29,7 +29,7 @@
       ],
       "forbidden_question": "“他们是不是不会思考？”",
       "non_inducing_boundary": "围绕当前证据判断支架。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q8-S3",
@@ -44,7 +44,7 @@
       ],
       "forbidden_question": "“专业教师是不是不能示范？”",
       "non_inducing_boundary": "检验阶梯与边界。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q8-S4",
@@ -59,7 +59,7 @@
       ],
       "forbidden_question": "“怎样最快把水引过去？”",
       "non_inducing_boundary": "过程优先。",
-      "calibration_note": ""
+      "calibration_note": "44"
     },
     {
       "slot_id": "Q8-S5",
@@ -74,7 +74,22 @@
       ],
       "forbidden_question": "“多放材料就能激发兴趣吧？”",
       "non_inducing_boundary": "材料必须有机制依据。",
-      "calibration_note": ""
+      "calibration_note": "44"
+    },
+    {
+      "slot_id": "Q8-S6",
+      "allowed_actions": [
+        "策略生成，状态调节"
+      ],
+      "preferred_action": "挑战调节",
+      "typical_question": "“孩子兴趣下降时，您会怎样把难题缩小到可继续探索，同时不把关键答案拿走？”",
+      "followup_question": "“什么变化说明可以减少帮助，什么情况需要再调节挑战？”",
+      "forbidden_actions": [
+        "奖励替代"
+      ],
+      "forbidden_question": "“给一点奖励让他们坚持，兴趣就会回来吧？”",
+      "non_inducing_boundary": "调节可达成感但保留核心难题，并依据认知与情绪反馈渐退。",
+      "calibration_note": "待专家检核"
     }
   ]
 }

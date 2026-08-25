@@ -9,7 +9,7 @@
       "level_3": "能说明危险情节可产生游戏张力，并用后续表达判断是否存在现实概念误解。",
       "false_evidence": "游戏就是游戏、完全不用管安全。",
       "conflict_evidence": "承认是假装又立刻道德纠偏。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q5-S2",
@@ -19,7 +19,7 @@
       "level_3": "能根据儿童前一轮叙事决定是否需要对比，优先使用儿童自己的词语做复述确认。",
       "false_evidence": "连续是不是式提问。",
       "conflict_evidence": "儿童否认后仍坚持教师解释。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q5-S3",
@@ -29,7 +29,7 @@
       "level_3": "能从叙事中识别角色、救援成功、刺激、同伴合作等来源，并据此决定下一步。",
       "false_evidence": "开放问后不听回答。",
       "conflict_evidence": "理论术语替代儿童证据。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q5-S4",
@@ -39,7 +39,7 @@
       "level_3": "能区分喜欢危险情节与不了解现实危险，只对后者提供最小必要事实支持。",
       "false_evidence": "完全回避安全。",
       "conflict_evidence": "任何消防游戏都变安全课。",
-      "calibration_note": ""
+      "calibration_note": "40"
     },
     {
       "slot_id": "Q5-S5",
@@ -49,7 +49,17 @@
       "level_3": "安全支持后仍能保持儿童分享意愿，并把新理解带回游戏发展。",
       "false_evidence": "柔和语气的道德审判。",
       "conflict_evidence": "要求承认‘我错了’。",
-      "calibration_note": ""
+      "calibration_note": "40"
+    },
+    {
+      "slot_id": "Q5-S6",
+      "level_0": "把消防游戏改造成成人讲授的安全知识课。",
+      "level_1": "能增加安全情节，但主要由教师预设，儿童兴趣与叙事没有进入。",
+      "level_2": "在理解幼儿兴趣后，把报警、疏散、救援或照顾伤员等安全经验嵌入游戏，并由幼儿选择如何发展。",
+      "level_3": "能依据幼儿新的游戏表现持续生成和调整情节，使安全理解、角色合作与游戏发展相互促进。",
+      "false_evidence": "多讲消防知识就是延伸。",
+      "conflict_evidence": "幼儿不再主导，游戏被问答、演练或说教取代。",
+      "calibration_note": "待专家检核"
     }
   ]
 }
