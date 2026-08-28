@@ -1,5 +1,5 @@
 // report.js 测试：确定性能力画像报告
-import { buildReport, TERTIARY_INDICATORS, SECONDARY_INDICATORS } from './report.js'
+import { buildReport, compareReports, buildReportText, TERTIARY_INDICATORS, SECONDARY_INDICATORS } from './report.js'
 
 function mockSession() {
   const perItem = { Q1: 4, Q2: 3, Q3: 2, Q4: 4, Q5: 4, Q6: 3, Q7: 3, Q8: 2, Q9: 3, Q10: 3 }
@@ -61,6 +61,24 @@ check('三级指标水平分层正确(高指标较充分)', () => {
   const c2 = r.tertiary.find((t) => t.code === 'C2')
   if (!a1 || !c2) throw new Error('缺少 A1/C2')
   if (a1.score <= c2.score) throw new Error('A1 不应低于 C2(主/次得分占比不同)')
+})
+
+// 跨次成长对比 + 导出
+const rA = r
+const rB = buildReport({ ...mockSession(), scores: { ...mockSession().scores, perItem: { ...mockSession().scores.perItem, Q1: 2, Q5: 2 } } })
+const cmp = compareReports(rA, rB)
+check('跨次对比：能算出三指标差异且给出提升/变化摘要', () => {
+  if (cmp.rows.length !== 7) throw new Error('cmp.rows 长度=' + cmp.rows.length)
+  if (cmp.rows.every((x) => x.diff === null)) throw new Error('无 diff')
+  if (!/提升/.test(cmp.summary)) throw new Error('summary: ' + cmp.summary)
+})
+
+const text = buildReportText(rA, {})
+check('导出文本：含概览/二级/三级/建议且不泄露评分规则', () => {
+  if (!text.includes('# 能力画像报告')) throw new Error('缺标题')
+  if (!text.includes('## 三个二级指标')) throw new Error('缺二级')
+  if (!text.includes('## 七个三级指标')) throw new Error('缺三级')
+  if (!text.includes('不暴露标准排序')) throw new Error('缺不泄露声明')
 })
 
 if (failures) { console.error(`\n${failures} 项失败`); process.exit(1) }

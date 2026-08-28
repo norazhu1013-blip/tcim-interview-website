@@ -209,3 +209,56 @@ function buildSuggestions(s, tertiary) {
   if (!out.length) out.push({ indicator: '', label: '整体', score: 0, direction: '当前各项证据较充分，建议继续丰富典型情境的实践与反思记录，保持经验积累。' })
   return out
 }
+
+/**
+ * 跨次成长对比：比较两份报告的三级指标差异（确定性的、非评判的「提升/关注点」呈现）。
+ * @param {object} a 当前报告
+ * @param {object} b 上一次报告
+ * @returns {{ rows: Array<{code,label,a,b,diff}>, summary: string }}
+ */
+export function compareReports(a, b) {
+  const rows = (a && a.tertiary || []).map((cur) => {
+    const prev = ((b && b.tertiary) || []).find((t) => t.code === cur.code)
+    const p = prev ? prev.score : null
+    return { code: cur.code, label: cur.label, a: cur.score, b: p, diff: p == null ? null : Math.round((cur.score - p) * 10) / 10 }
+  })
+  const changed = rows.filter((r) => r.diff !== null && r.diff !== 0)
+  const up = changed.filter((r) => r.diff > 0).length
+  const down = changed.filter((r) => r.diff < 0).length
+  let summary = '可与上次进行对比，观察能力画像的变化。'
+  if (!rows.some((r) => r.diff !== null)) summary = '暂无上一次报告可供对比。'
+  else summary = `与上次相比，${up} 项提升、${down} 项有变化，其余保持稳定。`
+  return { rows, summary }
+}
+
+/**
+ * 把报告转成可导出/复制的纯文本（Markdown），用于「导出报告」。
+ * @param {object} report buildReport 结果
+ * @param {object} meta { mean, ssid } 追加信息
+ * @returns {string}
+ */
+export function buildReportText(report, meta) {
+  const o = report && report.overview || {}
+  const lines = []
+  lines.push('# 能力画像报告')
+  lines.push('')
+  lines.push(`- 作答题目：${o.items || 0}　·　均分：${o.mean || 0}（0-4）　·　整体定位：${o.level || '—'}`)
+  lines.push('')
+  lines.push('## 三个二级指标')
+  for (const s of (report.secondary || [])) lines.push(`- ${s.code} ${s.label}：${s.score.toFixed(1)}`)
+  lines.push('')
+  lines.push('## 七个三级指标')
+  for (const t of (report.tertiary || [])) lines.push(`- ${t.code} ${t.label}：${t.score.toFixed(1)}（${t.level}）`)
+  if (report.process && report.process.text) { lines.push(''); lines.push('## 过程说明'); lines.push(report.process.text) }
+  if (report.evidence && report.evidence.length) {
+    lines.push(''); lines.push('## 访谈证据回填')
+    for (const e of report.evidence) lines.push(`- ${e.itemId}${e.indicator ? '（' + e.indicator + '）' : ''}：${e.quote || '（待补充）'}`)
+  }
+  if (report.suggestions && report.suggestions.length) {
+    lines.push(''); lines.push('## 学习建议')
+    for (const s of report.suggestions) lines.push(`- ${s.direction}`)
+  }
+  lines.push(''); lines.push('> 报告呈现分数/维度/证据，不暴露标准排序、专家答案、评分规则。')
+  lines.push(`> 生成时间：${new Date().toLocaleString('zh-CN')}`)
+  return lines.join('\n')
+}

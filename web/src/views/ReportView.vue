@@ -2,12 +2,34 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getSession, listSessions } from '../services/storage.js'
-import { buildReport } from '../core/report.js'
+import { buildReport, compareReports, buildReportText } from '../core/report.js'
 
 const route = useRoute()
 const router = useRouter()
 const sessionId = route.params.sid
-const report = computed(() => buildReport(getSession(sessionId) || {}))
+const session = getSession(sessionId)
+const report = computed(() => buildReport(session || {}))
+
+// 跨次成长对比：取当前会话之前最近一份已完成报告作对比。
+const prevReport = computed(() => {
+  const curCreated = (session && session.createdAt) || 0
+  const prior = listSessions()
+    .filter((s) => s.sessionId !== sessionId && s.scores && s.scores.mean != null && (s.createdAt || 0) < curCreated)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0]
+  return prior ? buildReport(prior) : null
+})
+const comparison = computed(() => (prevReport.value ? compareReports(report.value, prevReport.value) : { rows: [], summary: '暂无上一次报告可供对比。' }))
+
+function exportReport() {
+  const text = buildReportText(report.value, { mean: report.value.overview.mean, ssid: sessionId })
+  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `能力画像报告-${sessionId}.md`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 // P15（历史报告）：当前教师的其它已完成报告,便于顺着记录查看成长轨迹。
 const history = computed(() => {
@@ -48,6 +70,7 @@ function back() { router.back() }
     <header class="report-header">
       <button class="icon-button" @click="back">←</button>
       <div><strong>能力画像报告</strong><small>结果来自本次测评与 AI 访谈，不暴露评分规则</small></div>
+      <button class="button text" @click="exportReport">导出</button>
     </header>
 
     <!-- 概览 -->
@@ -135,6 +158,18 @@ function back() { router.back() }
       </ul>
     </div>
 
+    <div v-if="comparison.rows.some((r) => r.diff !== null)" class="card">
+      <h3>与上次对比</h3>
+      <p class="tip">{{ comparison.summary }}</p>
+      <div v-for="r in comparison.rows" :key="'c' + r.code" class="cmp-row">
+        <span class="cmp-code">{{ r.code }}</span>
+        <span class="cmp-label">{{ r.label }}</span>
+        <span :class="r.diff > 0 ? 'up' : (r.diff < 0 ? 'down' : 'flat')">
+          {{ r.diff > 0 ? '+' : '' }}{{ r.diff.toFixed(1) }}（{{ r.a.toFixed(1) }} vs {{ r.b.toFixed(1) }}）
+        </span>
+      </div>
+    </div>
+
     <div v-if="history.length" class="card">
       <h3>历史报告</h3>
       <p class="tip">以下为其它测评记录的报告，可点击查看，观察成长轨迹。</p>
@@ -201,5 +236,11 @@ function back() { router.back() }
 .his-idx { width: 22px; height: 22px; border-radius: 50%; background: #eef2fb; color: #3f63d6; font-size: 12px; display: flex; align-items: center; justify-content: center; flex: none; }
 .his-row small { color: #98a1b3; flex: 1; }
 .his-arrow { color: #3f63d6; font-size: 13px; }
+.cmp-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0f2f6; }
+.cmp-code { width: 34px; font-weight: 600; color: #3f63d6; font-size: 13px; }
+.cmp-label { flex: 1; color: #4b5563; font-size: 13px; }
+.cmp-row span.up { color: #067647; font-weight: 600; }
+.cmp-row span.down { color: #b42318; font-weight: 600; }
+.cmp-row span.flat { color: #98a1b3; }
 .report-footer { text-align: center; margin-top: 8px; }
 </style>
