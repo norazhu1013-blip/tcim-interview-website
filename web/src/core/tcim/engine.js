@@ -327,6 +327,21 @@ function probeForSlot(itemId, slotId) {
   return list.find((p) => p.slot_id === slotId) || null
 }
 
+// 修复能力：教师纠正/澄清/表达没听懂时,下一轮应接住并重述,而不是照常进下一模板。
+const REPAIR_RE = /(?:不是，?我的意思|我不是这个意思|我说的是|没(?:听|看)(?:懂|明白|清)|你没(?:理解|明白)|理解错(?:了)?|我(?:重新|再说)?(?:说|讲|表达)(?:不清|不对)+|换个(?:说法|角度)|意思(?:不是|是|是说)|我表达(?:错|不清))/i;
+const REPAIR_LEAK = /标准答案|得分|分数|能力等级|评分|专家排序|R\/P\/G|slot|证据|锚点|内部指标/i;
+function isRepairTurn(text) {
+  return REPAIR_RE.test(String(text || '').replace(/\s+/g, ''))
+}
+function sanitizeExcerpt(text) {
+  return String(text || '').replace(/[，。！？“”"''、：；]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14)
+}
+function repairQuestion(teacherTurn) {
+  const excerpt = sanitizeExcerpt(teacherTurn)
+  if (excerpt && !REPAIR_LEAK.test(excerpt)) return `我可能没理解准确，您是想说“${excerpt}”吗？`
+  return '我可能没理解准确，您更想说的是哪一点呢？'
+}
+
 /** 确定性 Generator：为选中的 target_slot 生成教师可见问题（单问、非诱导）。 */
 function generateQuestion(itemId, ev, turnNo, history, preferredSlot, teacherTurn) {
   const ranked = rankSlots(itemId, ev)
@@ -710,6 +725,13 @@ export async function processTeacherTurn(session, teacherTurn) {
     })
   }
   const gen = generateQuestion(session.itemId, evidence, session.turnNo, session.history, agentDecision ? agentDecision.primary_target_slot : null, trimmed)
+  // 修复能力：教师纠正/澄清/没听懂 → 先用修复/重述问句接住,而不是照常进下一模板
+  if (isRepairTurn(trimmed) && !gen.done) {
+    gen.question = repairQuestion(trimmed)
+    gen.probe_strategy = '澄清修复'
+    gen.followup_reason = 'teacher_repair'
+    gen.anchor_span = sanitizeExcerpt(trimmed)
+  }
   // 模板与通用问全部用尽 → 正常收束（避免无限循环）
   if (gen.done) {
     session.done = true

@@ -179,6 +179,33 @@ for (const [itemId, answer] of Object.entries(tcimData.items)) {
     }
   }
 
+  // 修复能力：教师纠正/没听懂 → 下一轮先用修复/重述问句接住，而不是照常进下一模板
+  {
+    const s = initTcisSession('Q1', ['A', 'C', 'B', 'D'], [])
+    await processTeacherTurn(s, '')
+    const out = await processTeacherTurn(s, '不是，我的意思是我会先看他们是不是自己发起的游戏。')
+    const gen = (s.replay || []).reverse().find((e) => e.event === 'GenerationEvent')
+    total += 1
+    if (gen?.followup_reason !== 'teacher_repair' || !/想说是|没理解/.test(out.question || '')) {
+      console.error('✗ 修复能力: reason=' + gen?.followup_reason + ' q=' + out.question)
+      failures += 1
+    } else {
+      console.log(`✓ 修复能力: ${out.question.slice(0, 20)}…`)
+    }
+    // 对照：正常回答不应误判为修复
+    const s2 = initTcisSession('Q1', ['A', 'C', 'B', 'D'], [])
+    await processTeacherTurn(s2, '')
+    const out2 = await processTeacherTurn(s2, '我会先看他们是不是自己发起的游戏。')
+    const gen2 = (s2.replay || []).reverse().find((e) => e.event === 'GenerationEvent')
+    total += 1
+    if (gen2?.followup_reason === 'teacher_repair') {
+      console.error('✗ 修复能力误判: 正常回答被判为修复')
+      failures += 1
+    } else {
+      console.log('✓ 修复能力不误判正常回答')
+    }
+  }
+
 }
 
 run().then(() => {
