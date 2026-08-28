@@ -97,8 +97,9 @@ function interviewProgress(session) {
             <button class="button text danger" @click="remove(session)">删除</button>
           </template>
           <template v-else>
+            <button class="button secondary" @click="router.push(`/report/${session.sessionId}`)">看报告</button>
             <button class="button text" @click="router.push(`/review/${session.sessionId}`)">看答题</button>
-            <button class="button secondary" @click="router.push(`/interviews/${session.sessionId}`)">
+            <button class="button text" @click="router.push(`/interviews/${session.sessionId}`)">
               {{ session.selection?.final?.length && interviewProgress(session) === `${session.selection.final.length}/${session.selection.final.length}` ? '回看访谈' : '去访谈' }}
             </button>
           </template>

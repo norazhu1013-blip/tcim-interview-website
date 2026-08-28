@@ -1,13 +1,26 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getSession } from '../services/storage.js'
+import { getSession, listSessions } from '../services/storage.js'
 import { buildReport } from '../core/report.js'
 
 const route = useRoute()
 const router = useRouter()
 const sessionId = route.params.sid
 const report = computed(() => buildReport(getSession(sessionId) || {}))
+
+// P15（历史报告）：当前教师的其它已完成报告,便于顺着记录查看成长轨迹。
+const history = computed(() => {
+  const cur = sessionId
+  return listSessions()
+    .filter((s) => s.sessionId !== cur && s.scores && s.scores.mean != null && (s.selection?.final?.length || Object.keys(s.interview || {}).length))
+    .slice(0, 6)
+    .map((s) => ({
+      sessionId: s.sessionId,
+      mean: Number(s.scores.mean || 0),
+      items: (s.selection && s.selection.final && s.selection.final.length) || Object.keys(s.interview || {}).length
+    }))
+})
 
 // 7 轴雷达图(纯 SVG,无依赖):score/4 → 半径比例;外圈=理想(100%)
 const radar = computed(() => {
@@ -122,6 +135,23 @@ function back() { router.back() }
       </ul>
     </div>
 
+    <div v-if="history.length" class="card">
+      <h3>历史报告</h3>
+      <p class="tip">以下为其它测评记录的报告，可点击查看，观察成长轨迹。</p>
+      <div
+        v-for="(h, i) in history"
+        :key="'h' + h.sessionId"
+        class="his-row"
+        role="button"
+        @click="router.push(`/report/${h.sessionId}`)"
+      >
+        <span class="his-idx">{{ i + 1 }}</span>
+        <span>均分 {{ h.mean.toFixed(1) }}</span>
+        <small>{{ h.items }} 个访谈情境</small>
+        <span class="his-arrow">查看 ›</span>
+      </div>
+    </div>
+
     <footer class="report-footer">
       <button class="button primary" @click="back">返回</button>
     </footer>
@@ -166,5 +196,10 @@ function back() { router.back() }
 .sugg-list { margin: 0; padding-left: 18px; }
 .sugg-list li { margin: 8px 0; line-height: 1.6; color: #374151; }
 .tip { font-size: 12px; color: #98a1b3; margin: 8px 0 0; }
+.his-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f2f6; cursor: pointer; }
+.his-row:hover { background: #fafbff; }
+.his-idx { width: 22px; height: 22px; border-radius: 50%; background: #eef2fb; color: #3f63d6; font-size: 12px; display: flex; align-items: center; justify-content: center; flex: none; }
+.his-row small { color: #98a1b3; flex: 1; }
+.his-arrow { color: #3f63d6; font-size: 13px; }
 .report-footer { text-align: center; margin-top: 8px; }
 </style>
