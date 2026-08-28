@@ -1,5 +1,9 @@
 import { callGateway } from './web-gateway.js'
 
+export const whoami = () => callGateway('whoami')
+
+export const exportData = (format = 'xlsx') => callGateway('exportData', { format })
+
 export const reportProfile = (profile) => callGateway('reportTeacher', { profile })
 
 export function reportExam(session, profile) {
@@ -11,6 +15,8 @@ export function reportExam(session, profile) {
     scores: session.scores || null,
     total: session.scores?.total ?? null,
     selection: session.selection || null,
+    studyMode: session.studyMode || 'full_assessment',
+    targetItemId: session.targetItemId || null,
     submitStatus: session.submitStatus || null,
     items: Object.entries(answers).map(([itemId, answer]) => ({
       itemId,
@@ -31,6 +37,8 @@ export const interviewNext = (context) => callGateway('interviewChat', context)
 export function reportInterview(session) {
   return callGateway('reportInterview', {
     sessionId: session.sessionId,
+    studyMode: session.studyMode || 'full_assessment',
+    targetItemId: session.targetItemId || null,
     transcripts: session.interview || null,
     feedback: session.interviewFeedback || null
   })

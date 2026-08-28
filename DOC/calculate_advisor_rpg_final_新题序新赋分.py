@@ -3,9 +3,9 @@
 """
 导师版 R/P/G/最终3题 AI访谈候选题筛选程序
 
-配置版本：2026-07-15 新题序＋新赋分
+配置版本：2026-08-17 新题序＋0817新版赋分
 题序依据：10题筛选_小程序题目顺序.docx
-赋分依据：10题赋分_修改顺序后.xlsx
+赋分依据：000 10题赋分 新调整0817.xlsx
 
 依据四份算法说明实现：
 001 结果性偏离 R 分：每位教师选2题
@@ -39,30 +39,30 @@ REQUIRED_RESULTS_COLUMNS = {"participantName", "userOpenid", "answers"}
 REQUIRED_LOG_COLUMNS = {"userOpenid", "questionIndex", "timestamp", "action"}
 
 SCORE_CSV = """选项组合,01赋分,02赋分,03赋分,04赋分,05赋分,06赋分,07赋分,08赋分,09赋分,10赋分
-ABCD,4,2,2,0,2,0,0,1,0,2
-ABDC,3,2,4,2,2,0,1,2,3,2
-ACBD,4,3,1,1,2,0,1,2,0,1
-ACDB,2,4,1,1,1,0,1,2,1,1
-ADBC,1,2,4,1,1,0,1,2,2,2
-ADCB,1,3,3,2,0,1,3,3,1,1
-BACD,2,2,2,1,3,0,0,1,2,2
-BADC,1,1,2,4,3,0,2,1,2,3
-BCAD,3,1,4,2,2,1,1,0,1,2
-BCDA,1,1,4,3,1,3,1,1,0,2
-BDAC,1,1,4,4,4,2,2,2,2,4
-BDCA,0,0,2,4,3,3,0,1,1,3
-CABD,4,2,3,1,1,1,2,1,0,1
-CADB,2,3,1,1,0,1,4,2,1,0
-CBAD,3,2,3,2,0,2,2,1,1,1
-CBDA,1,1,1,1,1,4,2,1,0,2
-CDAB,2,2,0,2,1,2,4,2,2,1
-CDBA,1,2,0,4,1,3,1,2,2,1
-DABC,1,2,3,1,2,3,2,3,1,2
-DACB,0,2,3,1,2,2,3,4,2,2
-DBAC,0,1,3,3,3,3,2,2,1,3
-DBCA,0,1,3,3,1,4,1,2,2,2
-DCAB,0,2,0,2,0,3,1,3,2,1
-DCBA,0,1,2,3,2,4,1,2,4,2
+ABCD,4,2,0,3,2,0,2,1,1,0
+ABDC,3,2,0,3,2,0,2,1,0,2
+ACBD,4,3,1,2,2,0,3,1,0,1
+ACDB,2,4,2,1,1,0,2,0,1,1
+ADBC,1,2,1,2,1,0,0,1,0,1
+ADCB,1,3,0,1,0,1,1,0,1,2
+BACD,2,2,0,4,3,0,2,2,2,1
+BADC,1,1,0,3,3,0,1,2,2,4
+BCAD,3,1,1,3,2,1,2,3,2,2
+BCDA,1,1,1,2,1,3,1,4,3,3
+BDAC,1,1,2,2,4,2,2,2,0,4
+BDCA,0,0,0,2,3,3,1,3,0,4
+CABD,4,2,1,2,1,1,3,1,2,1
+CADB,2,3,3,1,0,1,4,0,2,1
+CBAD,3,2,2,2,0,2,2,3,3,2
+CBDA,1,1,1,1,1,4,1,3,2,1
+CDAB,2,2,4,0,1,2,1,1,3,2
+CDBA,1,2,3,1,1,3,3,2,3,3
+DABC,1,2,1,1,2,3,1,1,0,1
+DACB,0,4,1,1,2,2,2,0,1,1
+DBAC,0,1,2,2,3,3,0,2,1,3
+DBCA,0,1,4,2,1,4,0,2,3,3
+DCAB,0,3,3,0,0,3,2,1,4,2
+DCBA,0,1,4,1,2,4,1,2,4,3
 """
 
 # 按“10题筛选_小程序题目顺序.docx”的当前小程序题序映射。
@@ -615,7 +615,7 @@ def write_csv(path, rows, fieldnames):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore", lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({k: round6(v) for k, v in row.items()})

@@ -13,7 +13,7 @@
 //
 // 环境变量:
 //   WXAI_MODEL/WXAI_PROVIDER/LLM_TIMEOUT_MS/SEC_CHECK 见 README
-//   网页第三方 AI: WEB_INTERVIEW_LLM_PROFILE/DEEPSEEK_API_KEY/OPENAI_COMPATIBLE_* 等见 README
+//   网页 AI: WEB_INTERVIEW_LLM_PROFILE/OPENAI_API_KEY/DEEPSEEK_API_KEY/OPENAI_COMPATIBLE_* 等见 README
 
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
@@ -26,10 +26,58 @@ const MIN_NORMAL_QUESTIONS = 8;
 const MAX_VISIBLE_QUESTION_CHARS = 100;
 const DEFAULT_CLOSING_MESSAGE = '感谢您的分享，本情境的访谈先到这里。';
 
+const INTERVIEW_RESPONSE_SCHEMA = Object.freeze({
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    understanding: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        teacher_quote: { type: 'string' },
+        meaning: { type: 'string' },
+        confidence: { type: 'string', enum: ['HIGH', 'MEDIUM', 'LOW'] }
+      },
+      required: ['teacher_quote', 'meaning', 'confidence']
+    },
+    state: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        active_thread: { type: 'string' },
+        latest_new_point: { type: 'string' },
+        next_move: {
+          type: 'string',
+          enum: ['OPEN', 'CLARIFY', 'DEEPEN', 'CONNECT', 'TENSION', 'BOUNDARY', 'INTEGRATE', 'PIVOT', 'CLOSE']
+        },
+        purpose: { type: 'string' },
+        completion: {
+          type: 'string',
+          enum: ['BEFORE_MINIMUM', 'INCOMPLETE', 'COMPLETE', 'MUST_STOP']
+        }
+      },
+      required: ['active_thread', 'latest_new_point', 'next_move', 'purpose', 'completion']
+    },
+    next_question: { type: 'string' },
+    done: { type: 'boolean' },
+    closing_message: { type: 'string' },
+    covered_evidence: { type: 'array', items: { type: 'string' } }
+  },
+  required: ['understanding', 'state', 'next_question', 'done', 'closing_message', 'covered_evidence']
+});
+
 // LLM 配置白名单。前端只能传 llmProfile 选择这里已有的配置,不能传 endpoint/key。
 // 密钥仍走云函数环境变量,不要写入代码或前端构建变量。
 const LLM_PROFILES = Object.freeze({
   wxai: { type: 'wxai' },
+  'openai-official': {
+    type: 'openai-responses',
+    endpoint: 'https://api.openai.com/v1/responses',
+    apiKeyEnv: 'OPENAI_API_KEY',
+    model: process.env.OPENAI_MODEL || 'gpt-5.6-sol',
+    reasoningEffort: process.env.OPENAI_REASONING_EFFORT || 'high',
+    maxOutputTokens: Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || 4000)
+  },
   deepseek: {
     type: 'openai-compatible',
     endpoint: 'https://api.deepseek.com/chat/completions',
@@ -37,6 +85,15 @@ const LLM_PROFILES = Object.freeze({
     model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
     temperature: Number(process.env.DEEPSEEK_TEMPERATURE || 0.2),
     maxTokens: Number(process.env.DEEPSEEK_MAX_TOKENS || 900)
+  },
+  'kimi-k3': {
+    type: 'openai-compatible',
+    endpoint: 'https://api.moonshot.cn/v1/chat/completions',
+    apiKeyEnv: 'MOONSHOT_API_KEY',
+    model: process.env.KIMI_MODEL || 'kimi-k3',
+    reasoningEffort: process.env.KIMI_REASONING_EFFORT || 'high',
+    maxCompletionTokens: Number(process.env.KIMI_MAX_COMPLETION_TOKENS || 4000),
+    strictJsonSchema: true
   },
   'openai-compatible': {
     type: 'openai-compatible',
@@ -76,6 +133,7 @@ const INTERVIEW_POLICY = [
   '【首问】',
   '首问不使用固定模板。根据本题选择最能打开教师思考且最容易理解的一个进入点：教师最先注意到什么；怎样理解一个含义开放的儿童表现；排序中真正有解释价值的反差；或情境中需要教师判断的真实教育关系。',
   '首问开放、具体、不预设结论。不要把两个都可能成立的方面强迫成二选一，也不要默认使用“为什么这样排序”。',
+  '页面打开时系统预排的选项顺序不属于教师观点。除非动态输入明确标注初始排序来源为teacher_choice，否则不得称“您一开始把某项放在前面/后面”，也不得把系统默认顺序与最终排序描述成教师改变了想法。',
   '',
   '【每轮先理解，再决定】',
   '只依据教师原话提取其新表达的判断、区别、理由、关切或条件。区分教师明确说出的意思、你的推测、知识库的可能解释。只有教师明确说出的意思可以直接成为下一问前提；只有影响后续理解的关键歧义才需要澄清。',
@@ -170,11 +228,16 @@ function buildUserPrompt(ev, taskCard) {
   const af = (taskCard && taskCard.ability_focus) || {};
   const kb = ev.kbSlice || {};
 
-  // 教师初始排序与变化
+  // 只有明确由教师主动确认过的初始排序，才可作为教师观点提供给模型。
+  // 旧网页数据未记录来源；为避免把系统 A/B/C/D 默认展示误称为教师选择，一律按未知处理。
+  const provenance = ev.rankingProvenance || {};
+  const initialIsTeacherChoice = provenance.initialOrderSource === 'teacher_choice';
   let initLine = '（无记录）';
-  if (tap.teacherInitialOrder) {
+  if (initialIsTeacherChoice && tap.teacherInitialOrder) {
     initLine = String(tap.teacherInitialOrder).split('').join(' > ')
       + (tap.orderChangeSummary ? '（' + tap.orderChangeSummary + '）' : (tap.orderChanged ? '（有调整）' : '（未调整）'));
+  } else {
+    initLine = '（无教师初始排序记录；系统展示顺序不代表教师选择）';
   }
 
   // 同时提供主、次焦点：很多题目的教育张力实际存放在 secondary_focus 中。
@@ -214,6 +277,7 @@ function buildUserPrompt(ev, taskCard) {
     opts ? '【四个做法】\n' + opts : '',
     '【教师最终排序：最理想→最不理想】' + ranking,
     '【教师初始排序与变化，如有】' + initLine,
+    '【排序数据边界】只有最终排序可视为教师明确提交的观点；系统默认展示顺序不得归因于教师。',
     '',
     '【知识库给出的专业准备；以下全部属于可能解释，不是事实，也不是教师观点】',
     '主要访谈焦点：' + mainFocus,
@@ -269,10 +333,61 @@ function endpointHost(endpoint) {
 
 async function callLLM(selected, system, user) {
   if (selected.config.type === 'wxai') return callWxAI(system, user, selected.id);
+  if (selected.config.type === 'openai-responses') {
+    return callOpenAIResponses(selected.id, selected.config, system, user);
+  }
   if (selected.config.type === 'openai-compatible') {
     return callOpenAICompatible(selected.id, selected.config, system, user);
   }
   throw new Error('unsupported_llm_profile_type:' + selected.config.type);
+}
+
+async function callOpenAIResponses(profileId, profile, system, user) {
+  const apiKey = process.env[profile.apiKeyEnv];
+  if (!apiKey) throw new Error('llm_profile_missing_api_key:' + profile.apiKeyEnv);
+
+  const payload = {
+    model: profile.model,
+    instructions: system,
+    input: user,
+    reasoning: { effort: profile.reasoningEffort },
+    text: {
+      verbosity: 'low',
+      format: {
+        type: 'json_schema',
+        name: 'teacher_interview_turn',
+        strict: true,
+        schema: INTERVIEW_RESPONSE_SCHEMA
+      }
+    },
+    max_output_tokens: profile.maxOutputTokens,
+    store: false
+  };
+  console.log('[openai_official] call', JSON.stringify({
+    profileId,
+    model: profile.model,
+    endpointHost: endpointHost(profile.endpoint),
+    reasoningEffort: profile.reasoningEffort,
+    timeoutMs: LLM_TIMEOUT_MS
+  }));
+
+  const response = await fetch(profile.endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + apiKey
+    },
+    body: JSON.stringify(payload)
+  });
+  const body = await response.json().catch(async () => ({ text: await response.text().catch(() => '') }));
+  if (!response.ok) {
+    const msg = body && (body.error && (body.error.message || body.error.code) || body.message || body.text);
+    throw new Error('openai_official_http_' + response.status + ':' + String(msg || '').slice(0, 200));
+  }
+  const text = extractOpenAIResponseText(body);
+  if (!text) throw new Error('openai_official_empty_response:' + profileId);
+  console.log('[openai_official] ok', JSON.stringify({ profileId, model: profile.model, chars: text.length }));
+  return text;
 }
 
 // 微信云开发 AI（`cloud.extend.AI.createModel(...)`）主接口是 `streamText`（SSE）。
@@ -366,14 +481,28 @@ async function callOpenAICompatible(profileId, profile, system, user) {
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user }
-    ],
-    temperature: profile.temperature,
-    max_tokens: profile.maxTokens
+    ]
   };
+  if (Number.isFinite(profile.temperature)) payload.temperature = profile.temperature;
+  if (Number.isFinite(profile.maxTokens)) payload.max_tokens = profile.maxTokens;
+  if (profile.reasoningEffort) payload.reasoning_effort = profile.reasoningEffort;
+  if (Number.isFinite(profile.maxCompletionTokens)) payload.max_completion_tokens = profile.maxCompletionTokens;
+  if (profile.strictJsonSchema) {
+    payload.response_format = {
+      type: 'json_schema',
+      json_schema: {
+        name: 'teacher_interview_turn',
+        strict: true,
+        schema: INTERVIEW_RESPONSE_SCHEMA
+      }
+    };
+  }
   console.log('[third_llm] call', JSON.stringify({
     profileId,
     model: profile.model,
     endpointHost: endpointHost(profile.endpoint),
+    reasoningEffort: profile.reasoningEffort || '',
+    strictJsonSchema: !!profile.strictJsonSchema,
     timeoutMs: LLM_TIMEOUT_MS
   }));
 
@@ -467,6 +596,18 @@ function extractText(res) {
   }
   if (res.data && res.data.output) return res.data.output;
   return '';
+}
+
+function extractOpenAIResponseText(res) {
+  if (!res) return '';
+  if (typeof res.output_text === 'string' && res.output_text) return res.output_text;
+  if (!Array.isArray(res.output)) return '';
+  return res.output
+    .filter((item) => item && item.type === 'message' && Array.isArray(item.content))
+    .flatMap((item) => item.content)
+    .filter((content) => content && content.type === 'output_text' && typeof content.text === 'string')
+    .map((content) => content.text)
+    .join('');
 }
 
 // 12s 内 llm 未返回视为失败
@@ -697,6 +838,7 @@ if (process.env.NODE_ENV === 'test') {
     visibleQuestionIssue,
     buildGroundedRecoveryQuestion,
     closingFromLatestTeacher,
+    extractOpenAIResponseText,
     isStrongFrustrationText,
     isExplicitStopText
   };

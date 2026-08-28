@@ -27,6 +27,7 @@ requireText(cloud, 'callOpenAICompatible', '第三方模型调用能力')
 forbidText(cloud, 'MAX_ANSWERABLE_AI_QUESTIONS', '固定最高问题数')
 
 requireText(view, 'generationPaused', '调用失败后的暂停状态')
+requireText(view, 'generationFailures', '生成失败审计记录')
 requireText(view, 'retryQuestion', '重新生成入口')
 requireText(view, 'endAfterError', '教师主动结束入口')
 requireText(view, 'teacherName:', '教师信息传入')

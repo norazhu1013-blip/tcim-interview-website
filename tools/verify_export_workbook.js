@@ -24,7 +24,11 @@ async function main() {
   const expectedAnswers = sessions.reduce((n, s) => n + Object.keys(s.answers || {}).length, 0);
   const expectedSelections = sessions.reduce((n, s) => n + (((s.selection || {}).final || []).length), 0);
   const expectedScenarios = interviews.reduce((n, i) => n + Object.keys(i.transcripts || {}).length, 0);
-  const expectedTranscriptRows = interviews.reduce((n, i) => n + Object.values(i.transcripts || {}).reduce((m, tr) => m + Math.max(((tr || {}).turns || []).length, 1), 0), 0);
+  const expectedTranscriptRows = interviews.reduce((n, i) => n + Object.values(i.transcripts || {}).reduce((m, tr) => {
+    const record = tr || {};
+    const turns = (record.turns && record.turns.length ? record.turns : record.messages) || [];
+    return m + Math.max(turns.length, 1);
+  }, 0), 0);
   const expectedTaskCards = sessions.reduce((n, s) => n + (((s.selection || {}).final || []).filter((f) => f && f.task_card && Object.keys(f.task_card).length).length), 0);
   const checks = {
     '测验访谈汇总': sessions.length,
@@ -38,6 +42,14 @@ async function main() {
   Object.entries(checks).forEach(([name, expected]) => {
     const actual = workbook.getWorksheet(name).rowCount - 1;
     if (actual !== expected) throw new Error(name + ' 行数不符: expected=' + expected + ', actual=' + actual);
+  });
+
+  ['测验访谈汇总', '访谈逐字稿', '访谈编码'].forEach((name) => {
+    const headers = workbook.getWorksheet(name).getRow(1).values.slice(1);
+    const expectedHeaders = name === '测验访谈汇总' ? ['访谈调用模型'] : ['模型配置', '实际模型'];
+    expectedHeaders.forEach((header) => {
+      if (!headers.includes(header)) throw new Error(name + ' 缺少模型字段: ' + header);
+    });
   });
 
   console.log(JSON.stringify({ ok: true, output, bytes: buffer.length, sheets: actualNames, dataRows: checks }, null, 2));

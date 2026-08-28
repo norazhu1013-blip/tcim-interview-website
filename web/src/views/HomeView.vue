@@ -2,7 +2,7 @@
 import { computed, ref, onActivated, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ITEMS, QUESTIONS_VERSION } from '../generated/data.js'
-import { createSession, deleteSession, formatDate, getProfile, listSessions } from '../services/storage.js'
+import { createSession, deleteSession, formatDate, getProfile, isProfileComplete, listSessions } from '../services/storage.js'
 import { requireWebLogin } from '../services/web-auth.js'
 
 const router = useRouter()
@@ -11,7 +11,8 @@ const profile = ref(null)
 
 function refresh() {
   profile.value = getProfile()
-  records.value = listSessions()
+  // 临时单题试访已下线；历史数据仍保留在本地和后端，仅不再作为教师端模块展示。
+  records.value = listSessions().filter((session) => session.studyMode !== 'single_trial')
 }
 onMounted(refresh)
 onActivated(refresh)
@@ -24,7 +25,7 @@ const blockStart = computed(() => records.value.some((session) => {
 }))
 
 async function start() {
-  if (!profile.value?.name || !profile.value?.kindergarten || !profile.value?.teachingYears) {
+  if (!isProfileComplete(profile.value)) {
     router.push('/profile?next=start')
     return
   }
@@ -64,7 +65,6 @@ function interviewProgress(session) {
         <span>20</span><small>分钟</small>
       </div>
     </div>
-
     <div class="section-heading">
       <div>
         <p class="eyebrow">历史记录</p>
@@ -90,7 +90,7 @@ function interviewProgress(session) {
         <p v-if="session.status === 'in_progress'">
           已完成 {{ Object.keys(session.answers || {}).length }}/{{ ITEMS.length }} 题
         </p>
-        <p v-else>{{ ITEMS.length }} 题 · 总分 {{ session.scores?.total ?? '-' }} · {{ session.scores?.level }}</p>
+        <p v-else>{{ ITEMS.length }} 题 · 已提交</p>
         <div class="actions">
           <template v-if="session.status === 'in_progress'">
             <button class="button secondary" @click="router.push(`/exam/${session.sessionId}`)">继续答题</button>
@@ -98,9 +98,8 @@ function interviewProgress(session) {
           </template>
           <template v-else>
             <button class="button text" @click="router.push(`/review/${session.sessionId}`)">看答题</button>
-            <button class="button text" @click="router.push(`/score/${session.sessionId}`)">看评分</button>
             <button class="button secondary" @click="router.push(`/interviews/${session.sessionId}`)">
-              {{ interviewProgress(session) === '3/3' ? '回看访谈' : '去访谈' }}
+              {{ session.selection?.final?.length && interviewProgress(session) === `${session.selection.final.length}/${session.selection.final.length}` ? '回看访谈' : '去访谈' }}
             </button>
           </template>
         </div>

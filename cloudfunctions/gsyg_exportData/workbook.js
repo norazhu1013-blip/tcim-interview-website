@@ -99,6 +99,37 @@ function statusZh(status) {
   return map[status] || text(status);
 }
 
+function transcriptTurns(transcript) {
+  const tr = object(transcript);
+  // 小程序保存 turns；网页保存 messages。统一成同一种读取口径。
+  return list(tr.turns).length ? list(tr.turns) : list(tr.messages);
+}
+
+function modelMeta(transcript, turn) {
+  const tr = object(transcript);
+  const t = object(turn);
+  if (t.generationSource === 'local' || t.llmProfile === 'local') {
+    return { profile: '本地程序', model: '未调用大模型' };
+  }
+  const profile = text(t.llmProfile || tr.llmProfile);
+  const model = text(t.llmModel || tr.llmModel);
+  const hasDialogue = transcriptTurns(tr).some((entry) => entry && (entry.role === 'ai' || entry.role === 'teacher' || entry.role === 'me'));
+  return {
+    profile: profile || (hasDialogue ? '历史数据未记录' : '尚未调用'),
+    model: model || (hasDialogue ? '历史数据未记录' : '尚未调用')
+  };
+}
+
+function interviewModels(interview) {
+  const values = [];
+  Object.values(object(interview && interview.transcripts)).forEach((transcript) => {
+    const meta = modelMeta(transcript);
+    const label = meta.profile === meta.model ? meta.model : meta.profile + ' / ' + meta.model;
+    if (label && !values.includes(label)) values.push(label);
+  });
+  return values.join('；');
+}
+
 function numberedLines(value) {
   return list(value).map((v, i) => (i + 1) + '. ' + text(v)).join('\n');
 }
@@ -227,6 +258,7 @@ function addReadme(workbook, bundle, ctx, counts) {
     ['教师编号口径', 'T001、T002……仅用于本文件内跨工作表关联，不替代姓名。'],
     ['完成状态口径', 'done=已完成，pending=待完成；存在访谈记录不等于三个情境均已完成。'],
     ['时间口径', '所有毫秒时间戳均转换为北京时间；时长统一换算为秒或分钟。'],
+    ['模型字段口径', '“模型配置”是系统中的调用配置名称，“实际模型”是接口返回并保存的模型名。历史访谈若当时未保存模型信息，会明确标为“历史数据未记录”，不会根据时间或平台猜测。'],
     ['工作表', SHEET_NAMES.join('、')],
     ['原始数据提示', '整理版不包含 openid、wxCode、数据库 _id 等运行字段；这些字段仍完整保留在原始 JSON 中。']
   ];
@@ -309,6 +341,7 @@ function buildSummaryRows(ctx) {
       interviewStatus: iv.status,
       interviewDone: iv.done,
       interviewTotal: iv.total,
+      interviewModels: interviewModels(interview),
       feedback: Object.keys(feedback).length ? '已填写' : '未填写'
     };
   });
@@ -389,12 +422,14 @@ function buildTranscriptRows(ctx) {
     const meta = ctx.metaFor(session || interview, session);
     Object.entries(object(interview.transcripts)).sort((a, b) => qNumber(a[0]) - qNumber(b[0])).forEach(([itemId, transcript]) => {
       const tr = object(transcript);
-      const turns = list(tr.turns);
+      const turns = transcriptTurns(tr);
       if (!turns.length) {
-        rows.push({ teacherCode: meta.code, name: meta.name, sessionId: interview.sessionId, itemId, itemTitle: QUESTION_TITLES[itemId] || '', scenarioStatus: statusZh(tr.status), sequence: '', role: '', content: '' });
+        const llm = modelMeta(tr);
+        rows.push({ teacherCode: meta.code, name: meta.name, sessionId: interview.sessionId, itemId, itemTitle: QUESTION_TITLES[itemId] || '', scenarioStatus: statusZh(tr.status), llmProfile: llm.profile, llmModel: llm.model, sequence: '', role: '', content: '' });
       } else {
         turns.forEach((turn, i) => {
-          const role = turn && turn.role === 'ai' ? 'AI' : (turn && turn.role === 'me' ? '教师' : text(turn && turn.role));
+          const role = turn && turn.role === 'ai' ? 'AI' : (turn && (turn.role === 'me' || turn.role === 'teacher') ? '教师' : text(turn && turn.role));
+          const llm = modelMeta(tr, turn);
           rows.push({
             teacherCode: meta.code,
             name: meta.name,
@@ -402,6 +437,8 @@ function buildTranscriptRows(ctx) {
             itemId,
             itemTitle: QUESTION_TITLES[itemId] || '',
             scenarioStatus: statusZh(tr.status),
+            llmProfile: llm.profile,
+            llmModel: llm.model,
             sequence: i + 1,
             role,
             content: text(turn && turn.text)
@@ -420,10 +457,11 @@ function buildCodingRows(ctx) {
     const meta = ctx.metaFor(session || interview, session);
     Object.entries(object(interview.transcripts)).sort((a, b) => qNumber(a[0]) - qNumber(b[0])).forEach(([itemId, transcript]) => {
       const tr = object(transcript);
-      const turns = list(tr.turns);
+      const turns = transcriptTurns(tr);
       const coding = object(tr.coding);
-      const teacherTurns = turns.filter((t) => t && t.role === 'me').length;
+      const teacherTurns = turns.filter((t) => t && (t.role === 'me' || t.role === 'teacher')).length;
       const aiTurns = turns.filter((t) => t && t.role === 'ai').length;
+      const llm = modelMeta(tr);
       rows.push({
         teacherCode: meta.code,
         name: meta.name,
@@ -431,6 +469,8 @@ function buildCodingRows(ctx) {
         itemId,
         itemTitle: QUESTION_TITLES[itemId] || '',
         status: statusZh(tr.status),
+        llmProfile: llm.profile,
+        llmModel: llm.model,
         startedAt: formatTs(tr.startedAt),
         submittedAt: formatTs(tr.submittedAt),
         durationMinutes: tr.startedAt && tr.submittedAt ? round((Number(tr.submittedAt) - Number(tr.startedAt)) / 60000, 2) : '',
@@ -554,7 +594,8 @@ async function buildWorkbookBuffer(bundle) {
     { header: '测验总时长（分钟）', key: 'totalMinutes', width: 18 }, { header: '筛选算法', key: 'selectionAlgo', width: 20 },
     { header: '入选访谈题目', key: 'selectedItems', width: 20 }, { header: '任务卡数', key: 'taskCardCount', width: 12 },
     { header: '访谈状态', key: 'interviewStatus', width: 12 }, { header: '已完成情境数', key: 'interviewDone', width: 14 },
-    { header: '访谈情境总数', key: 'interviewTotal', width: 14 }, { header: '访谈反馈', key: 'feedback', width: 12 }
+    { header: '访谈情境总数', key: 'interviewTotal', width: 14 }, { header: '访谈调用模型', key: 'interviewModels', width: 34 },
+    { header: '访谈反馈', key: 'feedback', width: 12 }
   ], summaryRows);
   addDataSheet(workbook, '作答明细', [
     { header: '教师编号', key: 'teacherCode', width: 12 }, { header: '姓名', key: 'name', width: 16 },
@@ -581,6 +622,7 @@ async function buildWorkbookBuffer(bundle) {
     { header: '教师编号', key: 'teacherCode', width: 12 }, { header: '姓名', key: 'name', width: 16 },
     { header: 'Session ID', key: 'sessionId', width: 38 }, { header: '题号', key: 'itemId', width: 8 },
     { header: '情境简称', key: 'itemTitle', width: 24 }, { header: '情境访谈状态', key: 'scenarioStatus', width: 14 },
+    { header: '模型配置', key: 'llmProfile', width: 18 }, { header: '实际模型', key: 'llmModel', width: 22 },
     { header: '发言序号', key: 'sequence', width: 10 }, { header: '发言者', key: 'role', width: 10 },
     { header: '逐字内容', key: 'content', width: 90 }
   ], transcriptRows);
@@ -588,6 +630,7 @@ async function buildWorkbookBuffer(bundle) {
     { header: '教师编号', key: 'teacherCode', width: 12 }, { header: '姓名', key: 'name', width: 16 },
     { header: 'Session ID', key: 'sessionId', width: 38 }, { header: '题号', key: 'itemId', width: 8 },
     { header: '情境简称', key: 'itemTitle', width: 24 }, { header: '状态', key: 'status', width: 12 },
+    { header: '模型配置', key: 'llmProfile', width: 18 }, { header: '实际模型', key: 'llmModel', width: 22 },
     { header: '开始时间', key: 'startedAt', width: 20 }, { header: '提交时间', key: 'submittedAt', width: 20 },
     { header: '访谈时长（分钟）', key: 'durationMinutes', width: 17 }, { header: '总发言轮数', key: 'totalTurns', width: 12 },
     { header: 'AI发言数', key: 'aiTurns', width: 10 }, { header: '教师发言数', key: 'teacherTurns', width: 12 },

@@ -32,9 +32,9 @@ npm run build
 
 `npm run verify` 同时检查评分口径和 V7.4 访谈流程，任一项不一致都会失败。
 
-## 网页 CloudBase 匿名登录
+## 网页 CloudBase 账号登录
 
-网页进入首页即调用 CloudBase Web SDK：已有 CloudBase 凭证时直接换取网关 `HttpOnly` 会话 Cookie；没有凭证时调用 `auth().signInAnonymously()` 建立匿名身份。SDK 保存的短期 access token 只用于换取网关 Cookie；后续业务请求不携带可伪造的 `openid`、`uid` 或 access token。
+网页支持教师用用户名、邮箱验证码和密码自行注册，之后可用用户名或邮箱配合密码登录；已有正式账号凭证时可直接恢复网关 `HttpOnly` 会话 Cookie。不会自动创建匿名身份。SDK 保存的短期 access token 只用于换取网关 Cookie；后续业务请求不携带可伪造的 `openid`、`uid` 或 access token。
 
 在 `.env.production` 中配置：
 
@@ -42,15 +42,15 @@ npm run build
 VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web
 VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 VITE_CLOUDBASE_REGION=ap-shanghai
-# 可选：选择 gsyg_interviewChat 内置 LLM profile；不填默认 wxai
-VITE_INTERVIEW_LLM_PROFILE=deepseek
+# 可选：选择 gsyg_interviewChat 内置 LLM profile；生产环境也可由云函数默认值决定
+VITE_INTERVIEW_LLM_PROFILE=openai-official
 ```
 
-登录前需要在 CloudBase 控制台启用「匿名登录」，并在环境安全配置中加入网页域名。详见 `cloudfunctions/gsyg_webGateway/README.md`。
+登录前需要在 CloudBase 控制台启用「用户名密码登录」和邮箱验证码注册，并在环境安全配置中加入网页域名。详见 `cloudfunctions/gsyg_webGateway/README.md`。
 
 ## 后端安全边界（上线前必做）
 
-现有 `gsyg_*` 云函数最初由微信小程序调用，并以 `wxContext.OPENID` 作为身份。**网页不能直接调用它们。** 网页统一调用 `VITE_WEB_API_BASE_URL/call` 的 HTTPS 网关；网关验证 CloudBase 匿名身份、从验证结果中取得稳定 UID，再受控调用同一套数据集合和确定性算法。
+现有 `gsyg_*` 云函数最初由微信小程序调用，并以 `wxContext.OPENID` 作为身份。**网页不能直接调用它们。** 网页统一调用 `VITE_WEB_API_BASE_URL/call` 的 HTTPS 网关；网关验证 CloudBase 正式账号、从验证结果中取得稳定 UID，再受控调用同一套数据集合和确定性算法。
 
 网关约定：
 
@@ -67,8 +67,8 @@ Cookie: gsyg_web_session=<HttpOnly cookie，由浏览器自动携带>
 部署时必须：
 
 1. 部署 `cloudfunctions/gsyg_webGateway/` HTTP 云函数，并按其 README 配置 `GSYG_WEB_GATEWAY_TOKEN`、`GSYG_WEB_SESSION_SECRET`、CORS 与 CloudBase 环境变量。
-2. 用同一 `GSYG_WEB_GATEWAY_TOKEN` 重部署 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal`；它们会拒绝匿名演示 actor 和伪造网页 actor。
-3. 仅允许已建立匿名会话的教师调用资料写入、会话上报、筛题和 AI 访谈；保留内容安全审核和审计日志。
+2. 用同一 `GSYG_WEB_GATEWAY_TOKEN` 重部署 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal`、`gsyg_interviewChat`、`gsyg_whoami`、`gsyg_exportData`；它们会拒绝匿名演示 actor 和伪造网页 actor。
+3. 仅允许已建立正式账号会话的教师调用资料写入、会话上报、筛题和 AI 访谈；保留内容安全审核和审计日志。
 4. 若需让教师跨小程序与网页继续同一份记录，服务端必须基于已验证手机号或统一帐号建立绑定，绝不能按姓名合并。
 
 前端不存放 CloudBase 管理员 API Key、LLM Key、网关共享密钥或会话签名密钥。

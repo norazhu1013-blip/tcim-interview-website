@@ -9,7 +9,7 @@ const COLL = 'gsyg_sessions';
 function resolveActor(event) {
   const gateway = event && event.__gsygGateway;
   if (gateway && gateway.token && gateway.token === process.env.GSYG_WEB_GATEWAY_TOKEN && /^web:[A-Za-z0-9_-]{4,128}$/.test(gateway.actor || '')) {
-    return { id: gateway.actor, identityType: gateway.identityType === 'web_wechat' ? 'web_wechat' : 'web_anonymous' };
+    return { id: gateway.actor, identityType: gateway.identityType === 'web_account' ? 'web_account' : (gateway.identityType === 'web_wechat' ? 'web_wechat' : 'web_anonymous') };
   }
   const { OPENID } = cloud.getWXContext();
   return { id: OPENID, identityType: 'wechat' };
@@ -26,6 +26,8 @@ exports.main = async (event) => {
       openid: actor.id,
       identityType: actor.identityType,
       sessionId: sessionId,
+      studyMode: event.studyMode === 'single_trial' ? 'single_trial' : 'full_assessment',
+      targetItemId: event.studyMode === 'single_trial' && event.targetItemId === 'Q4' ? 'Q4' : null,
       profile: event.profile || null,
       answers: event.answers || {},
       scores: event.scores || null,

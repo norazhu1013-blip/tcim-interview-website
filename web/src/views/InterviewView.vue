@@ -29,6 +29,7 @@ const chatEnd = ref(null)
 const stage = ref(existing?.stage || 'S1_CONTEXT')
 const lastLLMProfile = ref(existing?.llmProfile || '')
 const lastLLMModel = ref(existing?.llmModel || '')
+const generationFailures = ref(Array.isArray(existing?.generationFailures) ? existing.generationFailures.slice() : [])
 const webLLMProfile = String(import.meta.env.VITE_INTERVIEW_LLM_PROFILE || '').trim()
 const tcimEnabled = isTcisMode()
 // 注册 A01 语义预筛 provider（幂等；缺网关/构建时不注入，回退离线空 Proposal）
@@ -118,6 +119,7 @@ async function requestNext() {
     chatEnd.value?.scrollIntoView({ behavior: 'smooth' })
     return true
   }
+  const requestedAt = Date.now()
   const process = computeProcess(answer)
   const profile = getProfile() || {}
   const context = {
@@ -148,6 +150,14 @@ async function requestNext() {
   if (!next?.ok || (!next.question && !next.done)) {
     generationPaused.value = true
     generationError.value = next?.error || 'invalid_interview_response'
+    generationFailures.value.push({
+      at: Date.now(),
+      durationMs: Date.now() - requestedAt,
+      stage: stage.value,
+      afterTeacherTurns: messages.value.filter((message) => message.role === 'teacher').length,
+      error: generationError.value
+    })
+    generationFailures.value = generationFailures.value.slice(-20)
     persist(false)
     return false
   }
@@ -222,6 +232,7 @@ function persist(isDone) {
     stage: stage.value,
     llmProfile: lastLLMProfile.value,
     llmModel: lastLLMModel.value,
+    generationFailures: generationFailures.value.slice(),
     generationError: generationPaused.value ? generationError.value : '',
     mode: tcimEnabled ? 'tcim' : 'legacy',
     tcimSession: tcimEnabled ? tcimSession.value : undefined,
