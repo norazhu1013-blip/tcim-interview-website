@@ -63,6 +63,13 @@ check('三级指标水平分层正确(高指标较充分)', () => {
   if (a1.score <= c2.score) throw new Error('A1 不应低于 C2(主/次得分占比不同)')
 })
 
+check('三源来源标签: 有访谈证据的指标标注"测评+访谈",无的为"测评为主"', () => {
+  const c2 = r.tertiary.find((t) => t.code === 'C2')  // mock 访谈含 Q1/Q4(C2) → 应为 both
+  const b1 = r.tertiary.find((t) => t.code === 'B1')  // mock 访谈未含 B1 → score
+  if (!c2 || c2.source !== '测评 + 访谈') throw new Error('C2 source=' + (c2 && c2.source))
+  if (!b1 || b1.source !== '测评定位为主') throw new Error('B1 source=' + (b1 && b1.source))
+})
+
 // 跨次成长对比 + 导出
 const rA = r
 const rB = buildReport({ ...mockSession(), scores: { ...mockSession().scores, perItem: { ...mockSession().scores.perItem, Q1: 2, Q5: 2 } } })

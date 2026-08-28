@@ -125,6 +125,10 @@ export function buildReport(session) {
 
   // 4) 访谈证据回填：每个已作答情境 → 主指标 + 访谈焦点 + 教师原话引用
   const evidence = interviewEvidence(s)
+  // 三源融合（简版呈现）：标注该三级指标是否被访谈证据佐证（分数定位 + 访谈确认）
+  const evByIndicator = {}
+  for (const e of evidence) { if (e.indicator && e.quote) evByIndicator[e.indicator] = true }
+  for (const t of tertiary) t.source = evByIndicator[t.code] ? '测评 + 访谈' : '测评定位为主'
 
   // 5) 学习建议：对三级指标里偏低的给可观察/可行动的方向（对齐 observation_points）
   const suggestions = buildSuggestions(s, tertiary)

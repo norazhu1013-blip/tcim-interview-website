@@ -105,6 +105,7 @@ function back() { router.back() }
           <span class="ter-code">{{ t.code }}</span>
           <div class="ter-bar"><i :style="{ width: terScoreBar(t) }"></i></div>
           <span class="ter-val">{{ t.score.toFixed(1) }}</span>
+          <span class="ter-src" :class="t.source === '测评 + 访谈' ? 'both' : 'score'">{{ t.source }}</span>
         </div>
       </div>
       <p class="tip">三级指标标注为独立观测维度，非好坏评价；分数越高代表该维度证据越充分。</p>
@@ -212,6 +213,9 @@ function back() { router.back() }
 .ter-bar { flex: 1; height: 12px; background: #eef0f4; border-radius: 6px; overflow: hidden; }
 .ter-bar i { display: block; height: 100%; background: #3f63d6; border-radius: 6px; }
 .ter-val { width: 40px; text-align: right; font-size: 13px; color: #4b5563; }
+.ter-src { font-size: 11px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.ter-src.both { background: #eef2fb; color: #3f63d6; }
+.ter-src.score { background: #f1f3f7; color: #7b8496; }
 .sec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .sec-card { background: #f7f8fb; border-radius: 12px; padding: 14px; }
 .sec-card strong { font-size: 14px; color: #2c3345; display: block; margin-bottom: 8px; }
