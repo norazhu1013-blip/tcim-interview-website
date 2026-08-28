@@ -198,6 +198,43 @@ check('本地安全收束只引用教师最后原话，不虚构已覆盖内容'
     assert(!/[？?]/.test(result.question));
   });
 
+  await checkAsync('教师不满于反复追问时，恢复路径安全收束而非继续复读', async () => {
+    mockModelText = '这不是JSON';
+    const result = await interview.main({
+      history: [
+        { role: 'ai', text: '您刚才说“就是看重”，您为什么会特别看重这一点？' },
+        { role: 'teacher', text: '不要这样问了' }
+      ],
+      remainingMs: 300000,
+      teacherName: '李娟'
+    });
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(result.recovered, true);
+    assert.strictEqual(result.done, true);
+    assert(!/[？?]/.test(result.question));
+    assert(!result.question.includes('为什么特别看重'));
+  });
+
+  check('恢复问题不再落回“为什么特别看重”的复读句式', () => {
+    const q = t.buildGroundedRecoveryQuestion({
+      history: [{ role: 'teacher', text: '因为重要，幼儿园以游戏为基本活动' }],
+      teacherName: '李娟'
+    }, null);
+    assert(!q.includes('为什么特别看重'));
+  });
+
+  check('近几轮已问过同一落点时，恢复问题换一个落点', () => {
+    const q = t.buildGroundedRecoveryQuestion({
+      history: [
+        { role: 'teacher', text: '因为重要' },
+        { role: 'ai', text: '您希望这样的处理给孩子带来什么？' },
+        { role: 'teacher', text: '就是看重' }
+      ],
+      teacherName: '李娟'
+    }, null);
+    assert(t.coreQuestionMove(q) !== '您希望这样的处理给孩子带来什么？');
+  });
+
   checks.forEach(([status, label]) => console.log(`${status}  ${label}`));
   const failed = checks.filter(([status]) => status === 'FAIL');
   if (failed.length) process.exit(1);

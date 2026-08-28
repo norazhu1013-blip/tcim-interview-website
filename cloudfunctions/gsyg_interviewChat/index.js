@@ -203,7 +203,10 @@ function latestTeacherMessage(history) {
 
 function isStrongFrustrationText(text) {
   const s = String(text || '').replace(/\s+/g, '');
-  return /(?:烦(?:死|透|了)?|别问了|不要再问|不想继续|不愿继续|不想回答|不回答了|到这里吧|结束吧)/.test(s);
+  // 含“对提问方式本身”的不满（重复/复读/为什么只会问/好奇怪/不要这样问/换个问法），
+  // 这类元沟通一出现就应停止追问，不能当作新锚点继续复读。注意不要把幼儿游戏里
+  // 正常的“重复”术语（如“有的幼儿享受重复”）误判为抱怨。
+  return /(?:烦(?:死|透|了)?|别问了|不要再问|不要这样问|别这样问|换个问法|为什么只会问|怎么只会问|只会问这一句|问来问去|老问一样|一直问一样|问得一样|复读|好奇怪|真奇怪|不想继续|不愿继续|不想回答|不回答了|到这里吧|结束吧)/.test(s);
 }
 
 function formatHistory(history) {
@@ -764,12 +767,29 @@ function visibleQuestionIssue(question) {
   return '';
 }
 
+// 抽出问题的“落点”，剥掉“您刚才说…、”这类承接壳与内部前言，只留下真正在问什么。
+// 用于识别“换了个引语但其实在反复追问同一件事”的复读式问题。
+function coreQuestionMove(text) {
+  return String(text || '')
+    .replace(/您刚才说[“”]?[^“”]*[“”]?，/, '')
+    .replace(/我刚才的问题没有说清楚。/, '')
+    .replace(/我刚才想问的是：[^。]*。/, '')
+    .replace(/^回到这个情境，/, '')
+    .replace(/\s+/g, '')
+    .trim();
+}
+
 // 质量保护触发或模型调用偶发失败时，不把失败交给旧客户端去启动固定脚本。
 // 只使用教师最新原话生成一条短的承接问题；下一轮仍重新调用模型，不接管访谈主线。
 function buildGroundedRecoveryQuestion(event, strategy) {
   const history = (event && event.history) || [];
   const latest = latestTeacherMessage(history);
   const compactLatest = String(latest || '').replace(/\s+/g, '');
+  // 教师已对“提问方式”本身不满（不要这样问/好奇怪/为什么只会问/重复…）→ 立即吸收并安全收束，
+  // 绝不把这些元沟通再当作新锚点去追问，否则会“复读同一句”死循环。
+  if (isStrongFrustrationText(latest) || isExplicitStopText(latest)) {
+    return closingFromLatestTeacher(latest);
+  }
   const confusion = /(?:没|不)(?:看懂|明白|听懂)|什么意思|不知道你问|为什么问这个/.test(compactLatest);
   const teacherTurns = teacherMessages(history);
   const substantive = teacherTurns.slice().reverse().find((text) => {
@@ -797,25 +817,35 @@ function buildGroundedRecoveryQuestion(event, strategy) {
     if (together) {
       candidates.push('我刚才想问的是：您既重视' + together[1] + '，也重视' + together[2] + '。实际处理时，您会怎样同时顾到这两点？');
     }
-    candidates.push('我刚才的问题没有说清楚。' + anchor + '您为什么会特别看重这一点？');
+    candidates.push('我刚才的问题没有说清楚。' + anchor + '您最想说明的是哪一点？');
   } else if (move === 'CLARIFY') {
     candidates.push(anchor + '您最想说明的是哪一点？');
-    candidates.push(anchor + '您为什么会特别看重这一点？');
+    candidates.push(anchor + '您希望这样的处理给孩子带来什么？');
   } else if (move === 'BOUNDARY') {
     candidates.push(anchor + '什么情况下您的处理会有所不同？');
     candidates.push(anchor + '您会根据什么决定是否换一种处理？');
   } else {
-    candidates.push(anchor + '您为什么会特别看重这一点？');
     candidates.push(anchor + '您希望这样的处理给孩子带来什么？');
     candidates.push(anchor + '什么情况下您的处理会有所不同？');
+    candidates.push(anchor + '您最希望先帮助孩子解决什么？');
   }
 
   const previous = new Set(((event && event.history) || [])
     .filter((h) => isAIRole(h.role) && h.text)
     .map((h) => String(h.text).replace(/\s+/g, '').trim()));
+  // 过去的“问题落点”（剥掉引语承接壳）若近 3 轮已问过，就换一个落点，避免反复追问同一件事。
+  const recentMoves = new Set(((event && event.history) || [])
+    .filter((h) => isAIRole(h.role) && h.text)
+    .slice(-3)
+    .map((h) => coreQuestionMove(h.text))
+    .filter(Boolean));
   for (const candidate of candidates) {
     const normalized = normalizeVisibleQuestion(candidate, event && event.teacherName);
-    if (!visibleQuestionIssue(normalized) && !previous.has(normalized.replace(/\s+/g, ''))) return normalized;
+    const normalizedCompact = normalized.replace(/\s+/g, '');
+    const core = coreQuestionMove(normalized);
+    if (!visibleQuestionIssue(normalized)
+        && !previous.has(normalizedCompact)
+        && !recentMoves.has(core)) return normalized;
   }
   return latest
     ? '回到这个情境，您最希望先帮助孩子解决什么？'
@@ -836,6 +866,7 @@ if (process.env.NODE_ENV === 'test') {
     normalizeVisibleQuestion,
     salvageVisibleQuestion,
     visibleQuestionIssue,
+    coreQuestionMove,
     buildGroundedRecoveryQuestion,
     closingFromLatestTeacher,
     extractOpenAIResponseText,
