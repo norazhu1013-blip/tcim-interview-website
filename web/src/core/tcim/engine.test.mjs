@@ -68,6 +68,42 @@ for (const [itemId, answer] of Object.entries(tcimData.items)) {
   }
 }
 
+  // 1.1：收束时必须把收束语作为 question 返回（防止页面把它当成空消息丢弃，
+  // 导致回看/replay/transcripts 缺最后一句收束语）。
+  {
+    const closingItemId = 'Q1'
+    const closingSession = initTcisSession(closingItemId, ['A', 'C', 'B', 'D'], [])
+    const closingAnswers = [
+      '我会先看看地面湿不滑，篮球架附近有没有别的孩子，水桶会不会弄坏设备。',
+      '我还会同时留意孩子是不是投入、会不会互相影响。',
+      '如果风险不大我会让他们继续玩，但会提醒他们注意安全。',
+      '最后我会再观察一会儿，看处理有没有效果再调整。'
+    ]
+    let closingQ = ''
+    let aiHistoryLast = ''
+    let reachedDone = false
+    for (let i = 0; i < 40; i += 1) {
+      const out = await processTeacherTurn(closingSession, closingAnswers[i % closingAnswers.length])
+      if (out.done) {
+        reachedDone = true
+        closingQ = out.question || ''
+        const aiHistory = closingSession.history.filter((h) => h.role === 'ai')
+        aiHistoryLast = aiHistory.length ? String(aiHistory[aiHistory.length - 1].text) : ''
+        break
+      }
+    }
+    total += 1
+    if (!reachedDone) {
+      console.error(`✗ 1.1 ${closingItemId} 未能在 40 轮内收束`)
+      failures += 1
+    } else if (!closingQ.trim() || aiHistoryLast !== closingQ) {
+      console.error(`✗ 1.1 收束语未返回页面: question="${closingQ}" aiLast="${aiHistoryLast}"`)
+      failures += 1
+    } else {
+      console.log(`✓ 1.1 ${closingItemId} 收束语返回页面: ${closingQ.slice(0, 12)}…`)
+    }
+  }
+
 }
 
 run().then(() => {

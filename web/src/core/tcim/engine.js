@@ -611,7 +611,7 @@ export async function processTeacherTurn(session, teacherTurn) {
       knowledge_need: false
     })
     replayEvent(session, { event: 'GenerationEvent', action_type: 'CLOSE', question: closing, constraint_result: 'pass' })
-    return { question: '', done: true, updates, actionPlan: { action_type: 'STOP_CANDIDATE', target_slot: 'ALL' }, replay: session.replay }
+    return { question: closing, done: true, updates, actionPlan: { action_type: 'STOP_CANDIDATE', target_slot: 'ALL' }, replay: session.replay }
   }
 
   const ranked = rankSlots(session.itemId, evidence)
@@ -663,7 +663,7 @@ export async function processTeacherTurn(session, teacherTurn) {
       knowledge_need: false
     })
     replayEvent(session, { event: 'GenerationEvent', action_type: 'CLOSE', question: closing, constraint_result: 'pass' })
-    return { question: '', done: true, updates, actionPlan: { action_type: 'STOP_CANDIDATE', target_slot: gen.target_slot || 'ALL' }, replay: session.replay }
+    return { question: closing, done: true, updates, actionPlan: { action_type: 'STOP_CANDIDATE', target_slot: gen.target_slot || 'ALL' }, replay: session.replay }
   }
   // PRDM 措辞适配：按 DialoguePlan 调整问句（不改专业目标/证据判断）。
   // 只在「未问过的模板」上做措辞；重复用通用问时不叠加前缀，避免逐字重复。
