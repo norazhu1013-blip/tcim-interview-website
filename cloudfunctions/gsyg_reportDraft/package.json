@@ -1,0 +1,9 @@
+{
+  "name": "gsyg_reportDraft",
+  "version": "1.0.0",
+  "description": "逐轮访谈云端草稿（按 openid+sessionId+itemId 幂等 upsert，turnSeq 乱序保护）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -7,7 +7,7 @@ import { computeProcess } from '../core/process.js'
 import { initTcisSession, processTeacherTurn, firstQuestion, isV2Enabled } from '../core/tcim/engine.js'
 import { isTcisMode } from '../core/tcim/mode.js'
 import { getProfile, getSession, saveSession } from '../services/storage.js'
-import { interviewNext, reportInterview } from '../services/api.js'
+import { interviewNext, reportInterview, reportDraft } from '../services/api.js'
 import { registerSemanticProvider } from '../services/semanticLLM.js'
 
 const route = useRoute()
@@ -36,6 +36,7 @@ const tcimEnabled = isTcisMode()
 if (tcimEnabled) registerSemanticProvider()
 // TCIM 确定性会话：localStorage 恢复或新初始化
 const tcimSession = ref(existing?.tcimSession || null)
+let _lastDraftedTurn = -1
 let timer = null
 
 const isReview = computed(() => existing?.status === 'done')
@@ -239,7 +240,27 @@ function persist(isDone) {
     tcimReplay: tcimEnabled ? tcimSession.value?.replay?.slice() : undefined
   }
   session.value = saveSession(session.value)
+  syncDraft(isDone)
   if (isDone) reportCompletion()
+}
+
+// 逐轮云端草稿（1.3）：教师每发一轮回答就按 sessionId+itemId+turnSeq 幂等 upsert，
+// 让服务端知道进行中的访谈；浏览器本地保存只作离线副本。失败不阻断访谈，仅记录。
+async function syncDraft(isDone) {
+  const teacherTurns = messages.value.filter((m) => m.role === 'teacher').length
+  if (teacherTurns <= _lastDraftedTurn) return // 本轮无新教师回答，不重复同步
+  _lastDraftedTurn = teacherTurns
+  try {
+    await reportDraft({
+      sessionId: session.value.sessionId,
+      itemId: item.item_id,
+      turnSeq: teacherTurns,
+      status: isDone ? 'done' : 'in_progress',
+      messages: messages.value.map((m) => ({ role: m.role, text: m.text }))
+    })
+  } catch (e) {
+    console.warn('[interview] draft sync failed', e?.message || e)
+  }
 }
 
 // 向云端上报整次访谈：await 校验服务端回执，把成功回执或失败原因写回会话，

@@ -15,7 +15,8 @@ const _ = db.command;
 const COLL = {
   teachers: 'gsyg_teachers',
   sessions: 'gsyg_sessions',
-  interviews: 'gsyg_interviews'
+  interviews: 'gsyg_interviews',
+  drafts: 'gsyg_interview_drafts'
 };
 
 const PAGE = 100; // 微信云数据库单次 get 上限
@@ -74,7 +75,7 @@ exports.main = async (event) => {
     return { ok: false, error: 'forbidden', hint: '当前 openid 不在管理员列表；请在云开发控制台把该 teacher 记录 isAdmin 改为 true' };
   }
 
-  const which = Array.isArray(event.collections) && event.collections.length ? event.collections : ['teachers', 'sessions', 'interviews'];
+  const which = Array.isArray(event.collections) && event.collections.length ? event.collections : ['teachers', 'sessions', 'interviews', 'drafts'];
   const since = event.since ? Number(event.since) : null;
   // 向后兼容已发布的旧版小程序：旧页面调用 exportData({})，没有 format。
   // 缺省时返回研究者更容易使用的 Excel；只有明确传 json 才导出原始 JSON。
@@ -135,6 +136,12 @@ exports.main = async (event) => {
         };
         bundle.task_card_index = taskCardIndex;
         stats.task_card_index_size = taskCardIndex.length;
+      }
+      // 逐轮草稿（1.3）：进行中/已完成统计，让研究者一眼看出哪些访谈尚未收尾
+      if (k === 'drafts') {
+        let inProgress = 0, done = 0;
+        for (const r of rows) { if (r.status === 'done') done++; else inProgress++; }
+        stats.drafts = { in_progress: inProgress, done, total: rows.length };
       }
     }
     bundle.stats = stats;

@@ -43,3 +43,5 @@ export function reportInterview(session) {
     feedback: session.interviewFeedback || null
   })
 }
+
+export const reportDraft = (draft) => callGateway('reportDraft', draft)

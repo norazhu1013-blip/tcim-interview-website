@@ -55,6 +55,7 @@ const ACTIONS = Object.freeze({
   selectFinal: 'gsyg_selectFinal',
   interviewChat: 'gsyg_interviewChat',
   reportInterview: 'gsyg_reportInterview',
+  reportDraft: 'gsyg_reportDraft',
   semanticProbe: 'gsyg_semanticProbe',
   planner: 'gsyg_planner'
 });
