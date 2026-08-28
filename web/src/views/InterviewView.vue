@@ -37,6 +37,7 @@ if (tcimEnabled) registerSemanticProvider()
 // TCIM 确定性会话：localStorage 恢复或新初始化
 const tcimSession = ref(existing?.tcimSession || null)
 let _lastDraftedTurn = -1
+let _timeUpClosed = false
 let timer = null
 
 const isReview = computed(() => existing?.status === 'done')
@@ -212,6 +213,20 @@ function buildLocalClosing() {
   return `谢谢您的分享。我记下了您刚才强调的“${excerpt}”。本情境访谈先到这里。`
 }
 
+// 1.5：倒计时归零只触发一次的受控收束——写收束语、标 done、保存并上报、停输入。
+function timeUpOnce() {
+  if (_timeUpClosed || done.value || isReview.value) return
+  _timeUpClosed = true
+  clearInterval(timer)
+  remaining.value = 0
+  const closing = '本情境的访谈时间已到，感谢您的认真分享。我们先到这里。'
+  if (!messages.value.some((m) => m.role === 'ai' && m.text === closing)) {
+    messages.value.push({ role: 'ai', text: closing, ts: Date.now(), generationSource: 'timeout' })
+  }
+  done.value = true
+  persist(true)
+}
+
 function endAfterError() {
   if (done.value || sending.value) return
   messages.value.push({ role: 'ai', text: buildLocalClosing(), ts: Date.now() })
@@ -294,7 +309,13 @@ onMounted(async () => {
   remaining.value = Math.max(0, 10 * 60 - elapsed)
   timer = setInterval(() => {
     remaining.value = Math.max(0, remaining.value - 1)
+    if (remaining.value <= 0) timeUpOnce()
   }, 1000)
+  // 1.5：恢复旧会话且已超时 → 直接受控收束，不再生成新问
+  if (remaining.value <= 0) {
+    timeUpOnce()
+    return
+  }
   if (!messages.value.length && !isReview.value) {
     sending.value = true
     try {

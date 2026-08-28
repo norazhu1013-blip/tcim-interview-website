@@ -70,6 +70,15 @@ check('网页失败界面明确保留回答并提供重试', () => {
   assert(view.includes('durationMs: Date.now() - requestedAt'));
 });
 
+check('计时归零触发单次受控收束并停止输入（1.5）', () => {
+  const view = fs.readFileSync(path.join(__dirname, '../web/src/views/InterviewView.vue'), 'utf8');
+  assert(view.includes('function timeUpOnce'));
+  assert(view.includes('_timeUpClosed'));           // 只触发一次
+  assert(view.includes('remaining.value <= 0'));    // 归零即触发
+  assert(view.includes('chat-complete'));           // done 后输入区被完成态替代
+  assert(view.includes('!done && !isReview'));      // 输入区在 done 时隐藏(停止输入)
+});
+
 check('错误姓氏、英文残词和多问题可在发送前清理', () => {
   const cleaned = t.normalizeVisibleQuestion(
     '张老师，您觉得这种space有什么不同？您还会怎么做？',
