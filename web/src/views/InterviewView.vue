@@ -239,7 +239,24 @@ function persist(isDone) {
     tcimReplay: tcimEnabled ? tcimSession.value?.replay?.slice() : undefined
   }
   session.value = saveSession(session.value)
-  if (isDone) reportInterview(session.value)
+  if (isDone) reportCompletion()
+}
+
+// 向云端上报整次访谈：await 校验服务端回执，把成功回执或失败原因写回会话，
+// 供 DoneView/回看显示「云端已保存 / 待同步」。失败不弹错、不阻断页面（最终保存由 Feedback 门卫把关）。
+async function reportCompletion() {
+  try {
+    const res = await reportInterview(session.value)
+    if (res && res.ok && res.serverRecordId) {
+      session.value.reportReceipt = { serverRecordId: res.serverRecordId, serverUpdatedAt: res.serverUpdatedAt, payloadHash: res.payloadHash }
+      session.value.reportError = ''
+    } else {
+      session.value.reportError = (res && res.error) || 'report_failed'
+    }
+  } catch (e) {
+    session.value.reportError = e?.message || 'report_failed'
+  }
+  session.value = saveSession(session.value)
 }
 
 function leave() {

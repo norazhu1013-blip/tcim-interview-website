@@ -3,6 +3,7 @@
 // feedback 只在有值时写入,避免每题上报(feedback=null)覆盖掉已提交的反馈。
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+const crypto = require('crypto');
 
 const db = cloud.database();
 const COLL = 'gsyg_interviews';
@@ -34,15 +35,19 @@ exports.main = async (event) => {
     };
     // 仅在带 feedback 时写入(不用 null 覆盖既有反馈)
     if (event.feedback) data.feedback = event.feedback;
+    // 回执：客户端据此确认真实落库，避免"页面完成但库无记录"。
+    const payloadHash = crypto.createHash('sha256')
+      .update(JSON.stringify({ sessionId, studyMode: data.studyMode, targetItemId: data.targetItemId, transcripts: data.transcripts, feedback: event.feedback || null }))
+      .digest('hex');
     const existing = await db.collection(COLL).where({ sessionId: sessionId }).limit(1).get();
     if (existing.data && existing.data.length) {
       const id = existing.data[0]._id;
       if (existing.data[0].openid !== actor.id) return { ok: false, error: 'forbidden' };
       await db.collection(COLL).doc(id).update({ data: data });
-      return { ok: true, id: id };
+      return { ok: true, id: id, serverRecordId: id, serverUpdatedAt: now, payloadHash };
     }
     const r = await db.collection(COLL).add({ data: Object.assign({ createdAt: now }, data) });
-    return { ok: true, id: r._id };
+    return { ok: true, id: r._id, serverRecordId: r._id, serverUpdatedAt: now, payloadHash };
   } catch (e) {
     return { ok: false, error: e && e.message };
   }
