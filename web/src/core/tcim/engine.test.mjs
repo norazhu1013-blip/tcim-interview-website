@@ -139,6 +139,46 @@ for (const [itemId, answer] of Object.entries(tcimData.items)) {
     }
   }
 
+  // 问句闭环：内容不同的回答必须导致不同的最终问句文本（不只目标槽）
+  {
+    async function qFor(answer) {
+      const s = initTcisSession('Q1', ['A', 'C', 'B', 'D'], [])
+      await processTeacherTurn(s, '')
+      return processTeacherTurn(s, answer)
+    }
+    const aRisk = '我会先检查地面湿不滑、篮球架旁边有没有别的孩子、水桶会不会弄坏设备，根据风险决定怎么处理。'
+    const aRule = '我会跟孩子们说明规则是让大家都能安全用场地、也要保护材料，但会留空间让他们自己想玩法。'
+    const o1 = await qFor(aRisk)
+    const o2 = await qFor(aRule)
+    total += 1
+    if (o1.question === o2.question || o1.actionPlan?.target_slot === o2.actionPlan?.target_slot) {
+      console.error(`✗ 问句闭环: 不同回答未产生不同问句/目标\n   A: ${o1.question}\n   B: ${o2.question}`)
+      failures += 1
+    } else {
+      console.log(`✓ 问句闭环: ${o1.actionPlan?.target_slot} → ${o2.actionPlan?.target_slot}`)
+    }
+  }
+
+  // 结束一致性：done 时收束语同时进入 history、作为返回 question、并写入 replay GenerationEvent
+  {
+    const s = initTcisSession('Q1', ['A', 'C', 'B', 'D'], [])
+    let done = false
+    let closing = ''
+    for (let i = 0; i < 40 && !done; i += 1) {
+      const out = await processTeacherTurn(s, '我会先观察他们是不是自己发起的游戏，再判断要不要介入。')
+      if (out.done) { done = true; closing = out.question || '' }
+    }
+    const aiHist = s.history.filter((h) => h.role === 'ai').map((h) => h.text)
+    const gen = (s.replay || []).filter((e) => e.event === 'GenerationEvent' && e.action_type === 'CLOSE').pop()
+    total += 1
+    if (!done || !closing || aiHist[aiHist.length - 1] !== closing || !gen || gen.question !== closing) {
+      console.error('✗ 结束一致性: done=' + done + ' closing=' + closing + ' genQ=' + (gen && gen.question))
+      failures += 1
+    } else {
+      console.log(`✓ 结束一致性: 收束语=${closing.slice(0, 10)}… 且 history/return/replay 一致`)
+    }
+  }
+
 }
 
 run().then(() => {
