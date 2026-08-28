@@ -20,6 +20,7 @@ async function retry() {
   retrying.value = true
   retryError.value = ''
   try {
+    session.value.reportRevision = (session.value.reportRevision || 0) + 1
     const res = await reportInterview(session.value)
     if (res && res.ok && res.serverRecordId) {
       session.value.reportReceipt = { serverRecordId: res.serverRecordId, serverUpdatedAt: res.serverUpdatedAt, payloadHash: res.payloadHash }

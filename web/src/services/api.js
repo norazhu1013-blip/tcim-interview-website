@@ -64,7 +64,8 @@ export function reportInterview(session) {
     studyMode: session.studyMode || 'full_assessment',
     targetItemId: session.targetItemId || null,
     transcripts,
-    feedback: session.interviewFeedback || null
+    feedback: session.interviewFeedback || null,
+    revision: Number(session.reportRevision || 0)
   }
   const payloadBytes = byteLength(JSON.stringify(payload))
   if (payloadBytes > DISCARD_LIMIT_BYTES) {

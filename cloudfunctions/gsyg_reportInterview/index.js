@@ -24,6 +24,8 @@ exports.main = async (event) => {
   if (!sessionId) return { ok: false, error: 'missing_sessionId' };
   try {
     const now = Date.now();
+    // 乱序保护：客户端每次上报自增 reportRevision；旧 revision 晚到即拒绝覆盖。
+    const incomingRevision = Number(event.revision || 0);
     const data = {
       openid: actor.id,
       identityType: actor.identityType,
@@ -31,7 +33,8 @@ exports.main = async (event) => {
       studyMode: event.studyMode === 'single_trial' ? 'single_trial' : 'full_assessment',
       targetItemId: event.studyMode === 'single_trial' && event.targetItemId === 'Q4' ? 'Q4' : null,
       transcripts: event.transcripts || null,
-      updatedAt: now
+      updatedAt: now,
+      reportRevision: incomingRevision
     };
     // 仅在带 feedback 时写入(不用 null 覆盖既有反馈)
     if (event.feedback) data.feedback = event.feedback;
@@ -43,6 +46,11 @@ exports.main = async (event) => {
     if (existing.data && existing.data.length) {
       const id = existing.data[0]._id;
       if (existing.data[0].openid !== actor.id) return { ok: false, error: 'forbidden' };
+      const storedRevision = Number(existing.data[0].reportRevision || 0);
+      if (Number.isFinite(incomingRevision) && incomingRevision > 0 && incomingRevision < storedRevision) {
+        // 旧一轮晚到 → 拒绝覆盖,幂等返回现有回执
+        return { ok: true, id, staleRejected: true, serverUpdatedAt: existing.data[0].updatedAt || now, payloadHash: existing.data[0].payloadHash || payloadHash };
+      }
       await db.collection(COLL).doc(id).update({ data: data });
       return { ok: true, id: id, serverRecordId: id, serverUpdatedAt: now, payloadHash };
     }

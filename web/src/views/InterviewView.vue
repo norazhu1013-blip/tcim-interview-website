@@ -281,6 +281,7 @@ async function syncDraft(isDone) {
 // 供 DoneView/回看显示「云端已保存 / 待同步」。失败不弹错、不阻断页面（最终保存由 Feedback 门卫把关）。
 async function reportCompletion() {
   try {
+    session.value.reportRevision = (session.value.reportRevision || 0) + 1
     const res = await reportInterview(session.value)
     session.value.reportPayloadBytes = res?.requestPayloadBytes || 0
     if (res && res.ok && res.serverRecordId) {
