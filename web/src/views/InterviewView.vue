@@ -8,7 +8,7 @@ import { initTcisSession, processTeacherTurn, firstQuestion, isV2Enabled } from 
 import { isTcisMode } from '../core/tcim/mode.js'
 import { getProfile, getSession, saveSession } from '../services/storage.js'
 import { interviewNext, reportInterview, reportDraft } from '../services/api.js'
-import { registerSemanticProvider } from '../services/semanticLLM.js'
+import { registerSemanticProvider, cloudHealth } from '../services/semanticLLM.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -336,6 +336,11 @@ onBeforeUnmount(() => clearInterval(timer))
       <span :class="{ urgent: remaining < 60 }">{{ isReview ? '回看' : timeText }}</span>
     </header>
 
+    <div class="cloud-health" :class="cloudHealth.ok ? 'ok' : 'down'">
+      <span v-if="cloudHealth.ok">云端连接正常</span>
+      <span v-else>云端服务暂不可用（{{ cloudHealth.lastError }}）· 访谈在本地继续，请稍后同步</span>
+    </div>
+
     <article class="interview-context">
       <details open>
         <summary>查看案例、四个做法与本人排序</summary>
@@ -378,3 +383,14 @@ onBeforeUnmount(() => clearInterval(timer))
     </div>
   </section>
 </template>
+
+<style scoped>
+.cloud-health {
+  padding: 6px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  border-bottom: 1px solid #eef0f4;
+}
+.cloud-health.ok { color: #067647; background: #f1fbf4; }
+.cloud-health.down { color: #b42318; background: #fdecea; }
+</style>

@@ -175,6 +175,42 @@ function statusFromLevel(level) {
   return 'HIGH_QUALITY'
 }
 
+// 2.1：教师本轮回答是否谈到了某槽的证据锚点（任一 level 关键词命中即可）。
+// 用于让后续问承接教师刚说到的那个槽，而不是机械跳到别的缺口。
+function slotTouchedByTeacher(teacherTurn, anchor) {
+  if (!teacherTurn || !anchor) return false
+  for (let lv = 1; lv <= 3; lv += 1) {
+    const kws = buildKeywords(anchor[`level_${lv}`] || '')
+    if (overlapCount(teacherTurn, kws) > 0) return true
+  }
+  return false
+}
+
+// 教师本轮回答命中某槽锚点关键词的总命中数（用于在多个被命中的槽之间择优承接）。
+function anchorHitsInTurn(teacherTurn, anchor) {
+  if (!teacherTurn || !anchor) return 0
+  let hits = 0
+  for (let lv = 1; lv <= 3; lv += 1) {
+    const kws = buildKeywords(anchor[`level_${lv}`] || '')
+    hits += overlapCount(teacherTurn, kws)
+  }
+  return hits
+}
+
+// 取教师原话里命中锚点的一段简短引用（≤14 字），用于审计/回放，不强塞进可见文本。
+function teacherAnchorSpan(teacherTurn, anchor) {
+  if (!teacherTurn || !anchor) return ''
+  const norm = String(teacherTurn)
+  for (let lv = 1; lv <= 3; lv += 1) {
+    const kws = buildKeywords(anchor[`level_${lv}`] || '')
+    for (const kw of kws) {
+      const short = String(kw).replace(/\s+/g, '')
+      if (short && short.length >= 2 && short.length <= 14 && norm.includes(kw)) return short
+    }
+  }
+  return ''
+}
+
 /** 前测 prior：由排序/过程特征触发表3 priority 规则。 */
 function initPrior(itemId, ranking, tags) {
   const item = TCIM_DATA.items[itemId]
@@ -292,7 +328,7 @@ function probeForSlot(itemId, slotId) {
 }
 
 /** 确定性 Generator：为选中的 target_slot 生成教师可见问题（单问、非诱导）。 */
-function generateQuestion(itemId, ev, turnNo, history, preferredSlot) {
+function generateQuestion(itemId, ev, turnNo, history, preferredSlot, teacherTurn) {
   const ranked = rankSlots(itemId, ev)
   if (!ranked.length) return { question: '感谢您的分享，本情境的访谈先到这里。', done: true }
 
@@ -326,13 +362,33 @@ function generateQuestion(itemId, ev, turnNo, history, preferredSlot) {
         .filter((t) => t && !templateAsked(t))
       return freshTemplates.length > 0
     })
-    top = candidates[0] || ranked[0]
+    // 2.1：教师本轮回答命中的槽优先承接其话题（而非跳到别的缺口）；teacherTurn 为空不影响原行为。
+    // 在多个被命中的槽之间，按命中数择优（命中最多者最贴近教师刚说的点）。
+    let touched = null
+    if (teacherTurn) {
+      const item = TCIM_DATA.items[itemId]
+      const ab = {}
+      for (const a of (item.anchors && item.anchors.anchors) || []) ab[a.slot_id] = a
+      const scored = candidates
+        .map((c) => ({ c, hits: anchorHitsInTurn(teacherTurn, ab[c.slot.slot_id]) }))
+        .filter((x) => x.hits > 0)
+        .sort((x, y) => y.hits - x.hits)
+      touched = scored.length ? scored[0].c : null
+    }
+    top = touched || candidates[0] || ranked[0]
   }
   const slotId = top.slot.slot_id
   const p = probeForSlot(itemId, slotId)
   const st = ev[slotId]
   if (!st.asked_questions) st.asked_questions = []
   const askedCount = st.asked_questions.length
+
+  // 2.1：教师本轮回答是否命中了该槽，用于记录承接关系（不改问句文本本身的专业性）
+  const it = TCIM_DATA.items[itemId]
+  const ab = {}
+  for (const a of (it.anchors && it.anchors.anchors) || []) ab[a.slot_id] = a
+  const followsTeacher = !!(teacherTurn && slotTouchedByTeacher(teacherTurn, ab[slotId]))
+  const anchorSpan = followsTeacher ? teacherAnchorSpan(teacherTurn, ab[slotId]) : ''
 
   // 模板：第一问用「典型非诱导问法」；后续用「可接受跟进」；都问过则无模板
   let template = ''
@@ -347,7 +403,7 @@ function generateQuestion(itemId, ev, turnNo, history, preferredSlot) {
 
   if (template) {
     st.asked_questions.push(template)
-    return { question: template, done: false, target_slot: slotId, probe_strategy: (p && p.preferred_action) || '澄清' }
+    return { question: template, done: false, target_slot: slotId, probe_strategy: (p && p.preferred_action) || '澄清', followup_reason: followsTeacher ? 'teacher_topic_match' : 'evidence_gap', anchor_span: anchorSpan }
   }
   // 无模板兜底：用未全局用过的通用追问（结合教师排序，非诱导、不泄露答案）
   const genericBank = [
@@ -367,7 +423,7 @@ function generateQuestion(itemId, ev, turnNo, history, preferredSlot) {
     return { question: '感谢您的分享，本情境的访谈先到这里。', done: true, target_slot: slotId, probe_strategy: 'CLOSE' }
   }
   st.asked_questions.push(generic)
-  return { question: generic, done: false, target_slot: slotId, probe_strategy: '通用追问' }
+  return { question: generic, done: false, target_slot: slotId, probe_strategy: '通用追问', followup_reason: followsTeacher ? 'teacher_topic_match' : 'evidence_gap', anchor_span: anchorSpan }
 }
 
 
@@ -517,12 +573,16 @@ export async function processTeacherTurn(session, teacherTurn) {
   const evidenceBefore = JSON.parse(JSON.stringify(session.evidence))
 
   // ---- A01 语义预筛（先做，供 V2 双状态链使用；V0.1 时仅作观察透传）----
+  // 2.3：把本题 anchors 一起传给语义层，否则云端 anchorBySlot 收到空数组，无法校验锚点。
+  const anchorBySlot = {}
+  for (const a of ((item.anchors && item.anchors.anchors) || [])) anchorBySlot[a.slot_id] = a
   const semantic = await analyzeSemantic(trimmed, {
     itemId: session.itemId,
     turnId,
     evidenceSummary: session.evidence,
     questionTitle: (item.metadata && item.metadata.title) || '',
-    validSlotIds
+    validSlotIds,
+    anchorBySlot
   })
   for (const sp of (semantic.ok && semantic.proposal ? semantic.proposal.slot_evidence_proposals || [] : [])) {
     replayEvent(session, { event: 'SemanticEvent', type: 'slot_proposal', slot: sp.slot_id, proposed_level: sp.proposed_level, confidence: sp.confidence, supporting_spans: sp.supporting_spans || [], provider: semantic.provider })
@@ -649,7 +709,7 @@ export async function processTeacherTurn(session, teacherTurn) {
       }
     })
   }
-  const gen = generateQuestion(session.itemId, evidence, session.turnNo, session.history)
+  const gen = generateQuestion(session.itemId, evidence, session.turnNo, session.history, agentDecision ? agentDecision.primary_target_slot : null, trimmed)
   // 模板与通用问全部用尽 → 正常收束（避免无限循环）
   if (gen.done) {
     session.done = true
@@ -674,13 +734,16 @@ export async function processTeacherTurn(session, teacherTurn) {
   let finalQuestion = genText
   let constraintResult = checked.ok ? 'pass' : 'rewritten'
   if (!checked.ok) {
-    // 安全兜底：单问、非诱导、不泄露；用「当前槽未用过的通用追问」，避免固定句循环
+    // 安全兜底：单问、非诱导、不泄露；用「当前槽未用过的通用追问」，避免固定句循环。
+    // 2.6：先全历史逐字去重,选一条尚未问过的;都用尽了才按轮次轮换(最后兜底)。
     const safeBank = [
       '关于这一点，您能再多说一些您是怎么判断的吗？',
       '您最想先帮孩子解决的是哪一件事？',
       '如果换一个更具体的场景，您会怎么处理？'
     ]
-    finalQuestion = safeBank[Math.min(session.turnNo % safeBank.length, safeBank.length - 1)]
+    const safeAsked = new Set(priorQuestions.map((q) => String(q).replace(/\s+/g, '')))
+    const freshSafe = safeBank.find((q) => !safeAsked.has(String(q).replace(/\s+/g, '')))
+    finalQuestion = freshSafe || safeBank[Math.min(session.turnNo % safeBank.length, safeBank.length - 1)]
     replayEvent(session, {
       event: 'ConstraintEvent',
       target_slot: gen.target_slot,
@@ -688,6 +751,9 @@ export async function processTeacherTurn(session, teacherTurn) {
       rewritten_to: finalQuestion
     })
   }
+  // 2.2/2.1：让 actionPlan 反映 Generator 真正选定的槽与策略（此前 target_slot 取自纯缺口排序 ranked[0]，
+  // 与教师可见问题可能不一致——Planner/Gate 目标与最终问题必须对齐）。
+  actionPlan.target_slot = gen.target_slot || actionPlan.target_slot
   actionPlan.probe_strategy = gen.probe_strategy
   session.history.push({ role: 'ai', text: finalQuestion, ts: Date.now() })
   replayEvent(session, {
@@ -699,7 +765,11 @@ export async function processTeacherTurn(session, teacherTurn) {
     constraint_result: constraintResult,
     constraint_issues: checked.ok ? [] : checked.issues,
     prdm_move: (prdm && prdm.dialogue_move) || 'n/a',
-    evidence_before_count: Object.keys(evidenceBefore).length
+    evidence_before_count: Object.keys(evidenceBefore).length,
+    // 2.1：记录本轮问题与教师上一答的承接关系(回放/研究审计用)
+    source_turn_id: turnId,
+    followup_reason: gen.followup_reason || 'evidence_gap',
+    anchor_span: gen.anchor_span || ''
   })
   return {
     question: finalQuestion,

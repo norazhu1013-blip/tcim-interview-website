@@ -15,9 +15,14 @@
  * 网关/云函数调用由 web-gateway.callGateway('semanticProbe', {...}) 完成；身份走 HttpOnly 会话 Cookie，
  * 业务数据不带 openid/uid。
  */
+import { ref } from 'vue'
 import { callGateway } from './web-gateway.js'
 // 引擎不 import 本模块，故静态 import 无循环依赖，保证 provider 在开机前同步就位。
 import { setSemanticProvider as engineSetSemanticProvider } from '../core/tcim/engine.js'
+
+// 2.7：独立的云端同步状态。TCIM 的下一问在本地确定性生成，即使语义层/网关失联也能继续，
+// 因此绝不能拿「下一问生成成功」推断云端正常——用这个状态让 UI 持续展示真实健康度。
+export const cloudHealth = ref({ ok: true, lastError: '', updatedAt: 0, lastOperation: '' })
 
 // 能力/人格/动机判定词（G05 硬拦）
 const JUDGE_RE = /能力|人格|动机|心理|性格|智力水平|属于.{0,3}(高|中|低)能力/
@@ -83,7 +88,11 @@ function semanticEnabled() {
 export function makeSemanticProvider() {
   return async function semanticProvider(teacherTurn, ctx) {
     const turn = String(teacherTurn || '').trim()
-    if (!semanticEnabled() || !turn) return emptyProposal(turn)
+    if (!semanticEnabled()) {
+      cloudHealth.value = { ok: false, lastError: 'semantic_disabled', updatedAt: Date.now(), lastOperation: 'semanticProbe' }
+      return emptyProposal(turn)
+    }
+    if (!turn) return emptyProposal(turn)
 
     // ctx 里可能带 itemId/evidenceSummary；构造给云函数的上下文（不携带 openid/uid）
     const event = {
@@ -98,11 +107,14 @@ export function makeSemanticProvider() {
     try {
       const res = await callGateway('semanticProbe', event)
       if (!res || !res.ok || !res.proposal) {
+        cloudHealth.value = { ok: false, lastError: (res && res.error) || 'semantic_empty', updatedAt: Date.now(), lastOperation: 'semanticProbe' }
         // 网关/云函数异常或返回空 → 回退空 Proposal（不丢回答、不猜测）
         return emptyProposal(turn)
       }
+      cloudHealth.value = { ok: true, lastError: '', updatedAt: Date.now(), lastOperation: 'semanticProbe' }
       return normalizeServerProposal(res.proposal, turn)
     } catch (e) {
+      cloudHealth.value = { ok: false, lastError: e?.message || 'semantic_network', updatedAt: Date.now(), lastOperation: 'semanticProbe' }
       // 网络失败 → 回退空 Proposal，保证 TCIM 始终能用
       return emptyProposal(turn)
     }

@@ -72,10 +72,10 @@ function buildSystemPrompt() {
     'no_change_reasons: [{"slot_id":"Q8-S1","reason":"<为何本轮无证据增益>"}]',
     'uncertainty: ["<一句尚不清楚、需要澄清的判断>"]',
     '',
-    '【硬性禁止】',
+    '【硬性禁止】（proposed_level / confidence / slot_id 只是**内部 JSON 字段名**，允许用于结构化输出；下面对它们的限制仅约束**教师可见文本**，即 candidate_spans.text、supporting_spans、no_change_reasons、uncertainty 等字段的**值**）',
     '1) 不得判定教师「能力高/中/低」「人格」「动机」「心理状态」——这是确定性引擎/专业评审的事（G05）。',
     '2) 不得因为教师话短、犹豫、客气、礼貌、流畅而推断任何能力。',
-    '3) 不得出现 level、confidence、分数、标准答案、专家排序、R/P/G。',
+    '3) proposed_level、confidence、slot_id 这些**字段名**允许出现；但任何对**教师可见**的内容不得出现 level、confidence、能力等级、分数、标准答案、专家排序、R/P/G 等词。',
     '4) 不得编造教师没说的片段；无法定位就留空。',
     '5) 教师原话是只读参考；没有可信证据时，返回全空 JSON（candidate_spans:[] ，slot_evidence_proposals:[]）。',
     ''

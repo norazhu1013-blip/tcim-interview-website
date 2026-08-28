@@ -104,6 +104,41 @@ for (const [itemId, answer] of Object.entries(tcimData.items)) {
     }
   }
 
+  // 2.5：反事实回答依赖 —— 内容意义不同的回答必须引出不同的下一问（不能只按模板序号轮换）
+  {
+    async function followupFor(answer) {
+      const s = initTcisSession('Q1', ['A', 'C', 'B', 'D'], [])
+      await processTeacherTurn(s, '')
+      return processTeacherTurn(s, answer)
+    }
+    const aRisk = '我会先检查地面湿不滑、篮球架旁边有没有别的孩子、水桶会不会弄坏设备，以及用水范围；然后根据风险大小决定要不要马上处理。'
+    const aRule = '我会跟孩子们说明规则是让大家都能安全一起用这个场地，也要保护材料，但不会硬说篮球架只能用来打篮球，还是可以留空间让他们自己想玩法。'
+    const rRisk = await followupFor(aRisk)
+    const rRule = await followupFor(aRule)
+    total += 1
+    if (rRisk.actionPlan?.target_slot === rRule.actionPlan?.target_slot) {
+      console.error(`✗ 2.5 反事实依赖: 两种回答引出同一槽 ${rRisk.actionPlan?.target_slot}`)
+      failures += 1
+    } else {
+      console.log(`✓ 2.5 反事实依赖: ${rRisk.actionPlan?.target_slot} vs ${rRule.actionPlan?.target_slot}`)
+    }
+  }
+
+  // 2.5：承接锚点 —— 下一问的 GenerationEvent 必须携带 source_turn_id / anchor_span / followup_reason
+  {
+    const s = initTcisSession('Q1', ['A', 'C', 'B', 'D'], [])
+    await processTeacherTurn(s, '')
+    await processTeacherTurn(s, '我会先检查地面湿不滑、篮球架旁边有没有别的孩子、根据风险决定怎么处理。')
+    const gen = (s.replay || []).reverse().find((e) => e.event === 'GenerationEvent')
+    total += 1
+    if (!gen || !gen.source_turn_id || !gen.followup_reason || !('anchor_span' in gen)) {
+      console.error('✗ 2.5 承接锚点缺失: ' + JSON.stringify(gen && { source_turn_id: gen.source_turn_id, followup_reason: gen.followup_reason, anchor_span: gen.anchor_span }))
+      failures += 1
+    } else {
+      console.log(`✓ 2.5 承接锚点: source_turn_id=${gen.source_turn_id} followup_reason=${gen.followup_reason} anchor=${gen.anchor_span}`)
+    }
+  }
+
 }
 
 run().then(() => {
