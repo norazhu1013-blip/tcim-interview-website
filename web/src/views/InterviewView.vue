@@ -236,8 +236,7 @@ function persist(isDone) {
     generationFailures: generationFailures.value.slice(),
     generationError: generationPaused.value ? generationError.value : '',
     mode: tcimEnabled ? 'tcim' : 'legacy',
-    tcimSession: tcimEnabled ? tcimSession.value : undefined,
-    tcimReplay: tcimEnabled ? tcimSession.value?.replay?.slice() : undefined
+    tcimSession: tcimEnabled ? tcimSession.value : undefined
   }
   session.value = saveSession(session.value)
   syncDraft(isDone)
@@ -268,6 +267,7 @@ async function syncDraft(isDone) {
 async function reportCompletion() {
   try {
     const res = await reportInterview(session.value)
+    session.value.reportPayloadBytes = res?.requestPayloadBytes || 0
     if (res && res.ok && res.serverRecordId) {
       session.value.reportReceipt = { serverRecordId: res.serverRecordId, serverUpdatedAt: res.serverUpdatedAt, payloadHash: res.payloadHash }
       session.value.reportError = ''

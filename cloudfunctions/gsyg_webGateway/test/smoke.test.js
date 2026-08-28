@@ -6,6 +6,7 @@ process.env.GSYG_WEB_GATEWAY_TOKEN = '0123456789abcdef0123456789abcdef';
 process.env.GSYG_WEB_SESSION_SECRET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 process.env.WEB_CLOUDBASE_ENV_ID = 'test-env';
 process.env.WEB_ALLOWED_ORIGIN = 'https://app.example.test';
+process.env.GSYG_WEB_MAX_BODY = '2kb'; // 压缩上限,便于在单测里触发结构化 413
 
 const { ACTIONS, createCloudInvoker, createGateway, verifyCloudBaseAccessToken } = require('../index.js');
 
@@ -112,6 +113,18 @@ async function main() {
     assert.equal(interviewBody.ok, true);
     assert.equal(forwarded.name, 'gsyg_interviewChat');
     assert.equal(forwarded.timeout, 65000);
+
+    // 1.4：超过 body 上限时,网关返回结构化 413 而非默认 HTML(前端才能识别 payload_too_large)
+    const bigResponse = await fetch(`${endpoint}/call`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reportSession', data: { sessionId: 'big', blob: 'x'.repeat(3000) } })
+    });
+    const bigBody = await bigResponse.json();
+    assert.equal(bigResponse.status, 413);
+    assert.equal(bigBody.ok, false);
+    assert.equal(bigBody.error, 'payload_too_large');
+    assert.equal(bigBody.httpStatus, 413);
 
     const rejected = await fetch(`${endpoint}/call`, {
       method: 'POST',

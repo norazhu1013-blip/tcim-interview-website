@@ -324,6 +324,17 @@ function createGateway({
     }
   });
 
+  // 结构化 413（1.4）：express.json 超过 limit 时抛出 entity.too.large，
+  // 统一转成机器可读的 JSON，而不是默认 HTML 413 让前端只能得到 gateway_http_413。
+  app.use((err, req, res, next) => {
+    if (err && (err.type === 'entity.too.large' || err.status === 413 || /payload too large|entity too large|request entity too large/i.test(String(err.message || '')))) {
+      console.warn('[gateway] payload too large', { path: req.path, status: 413 });
+      return res.status(413).json({ ok: false, error: 'payload_too_large', httpStatus: 413 });
+    }
+    console.error('[gateway] unhandled error', err && err.message);
+    return res.status(500).json({ ok: false, error: 'gateway_internal_error' });
+  });
+
   return app;
 }
 
