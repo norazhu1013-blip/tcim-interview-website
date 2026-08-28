@@ -37,6 +37,7 @@ async function goInterview() {
     </div>
     <div class="stack-actions">
       <button class="button primary wide" :disabled="loading" @click="goInterview">去 AI 访谈</button>
+      <button class="button secondary wide" @click="router.push(`/report/${session.sessionId}`)">查看能力画像报告</button>
       <button class="button secondary wide" @click="router.push(`/review/${session.sessionId}`)">查看答题排序</button>
       <button class="button text wide" @click="router.push('/')">返回首页</button>
     </div>

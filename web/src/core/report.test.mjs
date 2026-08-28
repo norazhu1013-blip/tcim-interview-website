@@ -1,0 +1,67 @@
+// report.js 测试：确定性能力画像报告
+import { buildReport, TERTIARY_INDICATORS, SECONDARY_INDICATORS } from './report.js'
+
+function mockSession() {
+  const perItem = { Q1: 4, Q2: 3, Q3: 2, Q4: 4, Q5: 4, Q6: 3, Q7: 3, Q8: 2, Q9: 3, Q10: 3 }
+  return {
+    sessionId: 's1',
+    scores: {
+      perItem,
+      total: Object.values(perItem).reduce((a, b) => a + b, 0),
+      mean: 3.1,
+      level: '中高水平'
+    },
+    answers: {
+      Q1: { final_ranking: ['A', 'B', 'C', 'D'], duration_ms: 120000, move_log: [{ option: 'B', to_pos: 2 }] },
+      Q2: { final_ranking: ['C', 'B', 'A', 'D'], duration_ms: 90000, move_log: [] }
+    },
+    selection: {
+      final: [
+        { id: 'Q1', task_card: { ability_focus: { interview_main_focus: '教师能否顺应幼儿自主生成的玩水游戏' } } },
+        { id: 'Q5', task_card: { ability_focus: { interview_main_focus: '教师能否理解幼儿游戏中的价值' } } },
+        { id: 'Q4', task_card: { ability_focus: { interview_main_focus: '教师能否把个人发现转化为共同资源' } } }
+      ]
+    },
+    interview: {
+      Q1: { status: 'done', messages: [{ role: 'ai', text: '您会先看什么？' }, { role: 'teacher', text: '我会先看他们玩得开不开心，游戏是不是他们自己想出来的' }] },
+      Q5: { status: 'done', messages: [{ role: 'ai', text: '您怎么看？' }, { role: 'teacher', text: '我觉得游戏是孩子自己的活动，我主要是支持' }] }
+    }
+  }
+}
+
+let failures = 0
+function check(name, fn) {
+  try { fn(); console.log('PASS', name) }
+  catch (e) { console.error('FAIL', name, '—', e.message); failures++ }
+}
+
+const r = buildReport(mockSession())
+
+check('三级指标有 7 项且都带分数', () => {
+  if (r.tertiary.length !== 7) throw new Error('tertiary 长度=' + r.tertiary.length)
+  if (!r.tertiary.every((t) => typeof t.score === 'number' && t.code)) throw new Error('tertiary 字段缺失')
+})
+check('二级指标为 A/B/C 且分数在 0-4', () => {
+  if (r.secondary.length !== 3) throw new Error('secondary 长度=' + r.secondary.length)
+  if (!r.secondary.every((s) => s.score >= 0 && s.score <= 4)) throw new Error('secondary 分数越界: ' + JSON.stringify(r.secondary.map((x) => x.score)))
+})
+check('过程解释含作答题数与用时', () => {
+  if (!/完成/.test(r.process.text) || !/分钟/.test(r.process.text)) throw new Error('过程文本: ' + r.process.text)
+})
+check('访谈证据回填引用已访谈情境(含教师原话)', () => {
+  if (!r.evidence.length) throw new Error('无证据')
+  if (!r.evidence.some((e) => e.itemId === 'Q1' && e.quote.includes('开不开心'))) throw new Error('缺少 Q1 教师原话证据')
+})
+check('学习建议非空且非评判', () => {
+  if (!r.suggestions.length) throw new Error('建议为空')
+  if (r.suggestions.some((s) => /(很差|不好|不合格)/.test(s.direction))) throw new Error('出现评判词')
+})
+check('三级指标水平分层正确(高指标较充分)', () => {
+  const a1 = r.tertiary.find((t) => t.code === 'A1')
+  const c2 = r.tertiary.find((t) => t.code === 'C2')
+  if (!a1 || !c2) throw new Error('缺少 A1/C2')
+  if (a1.score <= c2.score) throw new Error('A1 不应低于 C2(主/次得分占比不同)')
+})
+
+if (failures) { console.error(`\n${failures} 项失败`); process.exit(1) }
+console.log('\nreport 检查全部通过。')

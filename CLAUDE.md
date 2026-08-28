@@ -343,3 +343,9 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **2.6 兜底库去重**:`safeBank` 选句前按全历史逐字去重(都用尽才按轮次轮换)。
   - **2.7 本地出题不掩盖失联**:`semanticLLM.js` 导出响应式 `cloudHealth`(每次 semanticProbe 成功/失败/禁用都记 ok/lastError/updatedAt);`InterviewView` 顶部加常驻同步状态条(云端连接正常 / 云端服务暂不可用+错误码),不再用「下一问生成成功」推断云端正常。
   - **验证**:engine smoke 13/13、web build、web verify(240+V7.4)、semantic.test、resilience 17/17、node v7 13/13、semantic_core.test 全过。**部署**:语义层改动需重传 `gsyg_semanticProbe`;其余 web 引擎/前端改动重建网页即可。
+- **2026-08-28 报告页（确定性能力画像报告，v1）**:设计文档 §9 P12–P15 的报告页此前"本期未做"，本次补齐。**定位**：纯前端确定性整理（AI 不参与评分/判断），只做「分数定位 + 过程解释 + 访谈证据回填」；每条可回溯到题目/过程标签/访谈原话；不暴露标准排序/专家答案/评分规则；非评判（用「优势点/发展点」）。
+  - **`web/src/core/report.js`**（纯函数 `buildReport(session)`）：三级指标（A1/A2/A3/B1/B2/C1/C2）水平按 `INDICATOR_MAP` 主(1.0)/次(0.5)加权聚合→0-4；二级 A/B/C 取所属三级平均；过程解释（用时/改动/摇摆，非评判）；访谈证据回填（每已访谈情境→主指标+ability_focus+教师原话引用）；学习建议（对得分<1.5 的三级指标给可观察/可行动方向，对齐 observation_points）。
+  - **`web/src/views/ReportView.vue`**：测验概览、7 轴 SVG 雷达（纯 SVG 无依赖）、二级解读（A/B/C + 优势/发展点）、三级指标展开、访谈证据回填、学习建议。强调"内容为分数/维度/证据，不暴露评分规则"。
+  - **路由/入口**：`main.js` 加 `/report/:sid`；`ScoreView` 加「查看能力画像报告」按钮。
+  - **测试**：`web/src/core/report.test.mjs`（7 指标/二级 0-4/过程/证据含原话/建议非评判），通过。验证：report + engine smoke 13/13 + resilience 17/17 + node v7 13/13 + web build + web verify(240+V7.4) 全过。
+  - **简版（须知）**：§9 的完整「三源融合 + 常模定位 + P-IVI」是研究侧算法，不在本模块；此 v1 用确定性数据量化 + 访谈证据回填，后续可接常模/LLM 叙述增强。
