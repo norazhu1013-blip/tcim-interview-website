@@ -194,10 +194,37 @@ test('near-duplicate question is rejected once and automatically regenerated wit
     history: [{ role: 'assistant', text: '您刚才提到孩子很开心，您为什么会特别看重这个方面？' }]
   });
   assert.equal(calls, 2);
-  assert.match(correctionPrompt, /程序质检退回：近似复问/);
+  assert.match(correctionPrompt, /程序质检退回：复问或诱导性问句/);
   assert.equal(result.visible_text, '如果幼儿转身去找同伴，您会怎样调整做法？');
   assert.equal(result.trace.generation_attempts, 2);
   assert.deepEqual(result.usage, { input_tokens: 22, output_tokens: 9, total_tokens: 31 });
+});
+
+test('leading confirmation question is rejected and regenerated as an open evidence question', async () => {
+  let calls = 0;
+  const teacherTurn = '我先让他们自己商量，如果争执升级再靠近。';
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: calls === 1
+          ? '给孩子自主协商的空间是更好的做法，您也同意吗？'
+          : '您会看到什么变化，才判断需要从等待转为靠近？',
+        understanding: { teacher_quote: '如果争执升级再靠近', meaning: '教师会按情境变化调整介入', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next',
+    compiled_card: compiledCard(),
+    teacher_turn: teacherTurn,
+    history: [{ role: 'assistant', text: '当时您为什么选择先等待？' }]
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.visible_text, '您会看到什么变化，才判断需要从等待转为靠近？');
+  assert.equal(result.trace.question_quality.nonLeading, true);
+  assert.equal(result.trace.question_quality.passed, true);
 });
 
 test('duplicate correction is bounded to one regeneration attempt', async () => {

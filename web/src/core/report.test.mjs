@@ -26,9 +26,14 @@ function mockSession() {
       Q1: {
         status: 'done', mode: 'dialogue_agent_new_five_tables_evidence_state', simulationOnly: false,
         messages: [{ role: 'ai', text: '您会先看什么？' }, { role: 'teacher', text: '我会先看他们玩得开不开心，游戏是不是他们自己想出来的' }],
-        dialogueSession: { evidenceState: { records: [{
+        dialogueSession: {
+          runtimeCard: { evidencePolicies: [{
+            recordId: 'T3-Q01-001', evidenceClaimId: 'ECL-Q01-PLAY-FRAME', understandingId: 'UND-Q01-001',
+            capabilityRefs: ['C02-Q01-PLAY-FRAME'], maxSupportedConclusion: 'EPISODE_DESCRIPTION', contextBoundary: '仅Q1'
+          }] },
+          evidenceState: { claims: {}, records: [{
           evidenceId: 'e-1', evidenceClaimId: 'ECL-Q01-PLAY-FRAME', understandingId: 'UND-Q01-001',
-          relation: 'SUPPORT', span: '玩得开不开心', lifecycle: 'ACTIVE'
+          relation: 'SUPPORT', span: '玩得开不开心', lifecycle: 'ACTIVE', responseOrigin: 'RO1', effectiveStatus: 'SUFFICIENT'
         }] } }
       },
       Q5: {
@@ -106,6 +111,22 @@ check('三源来源标签: 有访谈证据的指标标注"测评+访谈",无的�
   const b1 = r.tertiary.find((t) => t.code === 'B1')  // mock 访谈未含 B1 → score
   if (!c2 || c2.source !== '测评 + 访谈') throw new Error('C2 source=' + (c2 && c2.source))
   if (!b1 || b1.source !== '测评定位为主') throw new Error('B1 source=' + (b1 && b1.source))
+})
+
+check('Canonical Evidence能稳定转换为有边界的能力画像候选', () => {
+  const c02 = r.canonicalCapabilityProfile.dimensions.find((row) => row.capabilityId === 'C02')
+  if (!c02 || c02.evidenceCount !== 1) throw new Error('C02独立证据转换失败')
+  if (c02.band.code !== 'EPISODE_SUPPORTED') throw new Error('C02 band=' + c02.band.code)
+  if (!/RO0\/RO1/.test(r.canonicalCapabilityProfile.interpretationBoundary)) throw new Error('缺少来源边界')
+})
+
+check('RO3/RO4只作反思响应，不回写为教师原有能力', () => {
+  const influenced = mockSession()
+  influenced.comparisonInterview.Q1.dialogueSession.evidenceState.records[0].responseOrigin = 'RO4'
+  const profile = buildReport(influenced).canonicalCapabilityProfile
+  const c02 = profile.dimensions.find((row) => row.capabilityId === 'C02')
+  if (c02.evidenceCount !== 0 || c02.aiInfluenced.length !== 1) throw new Error('AI影响证据污染原有能力')
+  if (profile.summary.excludedAiInfluencedEvidence !== 1) throw new Error('排除数未审计')
 })
 
 // 跨次成长对比 + 导出

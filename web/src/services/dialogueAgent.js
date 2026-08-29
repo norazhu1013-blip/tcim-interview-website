@@ -223,6 +223,7 @@ function mapAgentResult(response) {
       requestId: String(response.request_id || ''),
       providerRequestId: String(response.provider_request_id || ''),
       generationAttempts: Number(response.trace?.generation_attempts || 1),
+      questionQuality: response.trace?.question_quality || null,
       latencyMs: Number(response.latency_ms || 0),
       usage: response.usage || null
     }
@@ -267,6 +268,7 @@ export async function runDialogueAgent(request, options = {}) {
     }),
     evidence_summary: compactEvidenceState(request.evidenceState),
     dialogue_progress_state: compactDialogueProgressState(request.dialogueProgressState),
+    interview_utility_state: request.interviewUtilityState || null,
     history: previousHistory(request),
     runtime_limits: {
       remaining_ms: Number(options.remainingMs || 0),

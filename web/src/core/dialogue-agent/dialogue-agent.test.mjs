@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   AGENT_RESULT_SCHEMA,
+  completeFinalTeacherTurn,
   createDialogueSession,
   createRuntimeCardFromRuntimeData,
   evidenceKey,
@@ -14,6 +15,11 @@ import {
   validateHardBoundaries,
   validateRuntimeCard
 } from './index.js'
+import {
+  WRAP_UP_RESERVE_MS,
+  interviewTimePhase,
+  mayStartForegroundGeneration
+} from '../interview-timing.js'
 import { compactDialogueProgressState, compactRuntimeCard } from '../../services/dialogueAgent.js'
 import { resolveLocalModelConfigBaseUrl } from '../../services/modelConfig.js'
 
@@ -246,6 +252,8 @@ test('Evidence 只提交映射合法且精确回指教师原话的 span', async 
   assert.equal(claim(session, RISK).status, 'SUFFICIENT')
   assert.deepEqual(session.evidenceState.records.map((record) => record.span), ['地面是否湿滑', '是否影响其他孩子'])
   assert.ok(session.evidenceState.auditLog.some((event) => event.type === 'EvidenceCommitted' && event.exactTeacherSpans[0] === '地面是否湿滑'))
+  assert.ok(session.interviewUtilityState.coverage.independentCapabilityIds.includes('C11'))
+  assert.equal(session.interviewUtilityState.semantics, 'ADVISORY_ONLY_DIALOGUE_AGENT_MAY_DECLINE')
 })
 
 test('单轮 HIGH_QUALITY 提议被确定性降级，跨轮确认后才可升级', async () => {
@@ -545,6 +553,25 @@ test('教师明确退出由硬边界本地收束且不再调用模型', async ()
   assert.equal(out.hardBoundaryHandled, true)
   assert.equal(session.status, 'COMPLETED')
   assert.ok(session.auditLog.some((event) => event.type === 'HardBoundaryHandled' && event.kind === 'EXIT'))
+})
+
+test('最合90秒进入收尾且不再启动新的前台追问', () => {
+  assert.equal(interviewTimePhase(WRAP_UP_RESERVE_MS + 1), 'DIALOGUE')
+  assert.equal(interviewTimePhase(WRAP_UP_RESERVE_MS), 'WRAP_UP')
+  assert.equal(interviewTimePhase(0), 'EXPIRED')
+  assert.equal(mayStartForegroundGeneration(WRAP_UP_RESERVE_MS), false)
+  assert.equal(mayStartForegroundGeneration(WRAP_UP_RESERVE_MS + 15_000), false)
+})
+
+test('收尾轮保存教师原话并直接完成，不需要模型再提问', async () => {
+  const session = createDialogueSession(runtimeCard())
+  await startDialogue(session, async () => agentResult())
+  const out = completeFinalTeacherTurn(session, '我还会看孩子是否愿意继续。', { reservedMs: WRAP_UP_RESERVE_MS })
+  assert.equal(out.action, 'CLOSE')
+  assert.equal(session.status, 'COMPLETED')
+  assert.equal(session.history.at(-2).role, 'teacher')
+  assert.equal(session.history.at(-2).text, '我还会看孩子是否愿意继续。')
+  assert.ok(session.auditLog.some((event) => event.type === 'DialogueClosedByTimeController'))
 })
 
 for (const { name, fn } of tests) {

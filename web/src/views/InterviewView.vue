@@ -8,11 +8,19 @@ import {
   createDialogueSession,
   createRuntimeCardFromRuntimeData,
   applyBackgroundEvidenceAnalysis,
+  completeFinalTeacherTurn,
   retryDialogue,
   startDialogue,
   submitTeacherTurn,
   validateDialogueSessionForResume
 } from '../core/dialogue-agent/index.js'
+import {
+  INTERVIEW_DURATION_MS,
+  WRAP_UP_NOTICE,
+  WRAP_UP_RESERVE_MS,
+  interviewTimePhase,
+  mayStartForegroundGeneration
+} from '../core/interview-timing.js'
 import {
   COMPARISON_INTERVIEW_MODE as INTERVIEW_MODE,
   isFormalComparisonInterviewRecord,
@@ -44,8 +52,9 @@ const done = ref(formalExisting?.status === 'done')
 const generationPaused = ref(Boolean(formalExisting?.generationError || formalExisting?.dialogueSession?.pendingRequest))
 const generationError = ref(formalExisting?.generationError || (formalExisting?.dialogueSession?.pendingRequest ? 'generation_interrupted' : ''))
 const startedAt = ref(formalExisting?.startedAt || Date.now())
-const deadlineAt = ref(formalExisting?.deadlineAt || startedAt.value + 10 * 60 * 1000)
-const remaining = ref(10 * 60)
+const deadlineAt = ref(formalExisting?.deadlineAt || startedAt.value + INTERVIEW_DURATION_MS)
+const remaining = ref(Math.ceil(INTERVIEW_DURATION_MS / 1000))
+const wrapUpStartedAt = ref(formalExisting?.wrapUpStartedAt || null)
 const chatEnd = ref(null)
 const lastLLMProfile = ref(formalExisting?.llmProfile || '')
 const lastLLMModel = ref(formalExisting?.llmModel || '')
@@ -83,6 +92,11 @@ function seconds(value) { return `${(Number(value || 0) / 1000).toFixed(1)}秒` 
 
 const isReview = computed(() => activeExisting.value?.status === 'done')
 const timeText = computed(() => `${String(Math.floor(remaining.value / 60)).padStart(2, '0')}:${String(remaining.value % 60).padStart(2, '0')}`)
+const inWrapUp = computed(() => interviewTimePhase(remaining.value * 1000) === 'WRAP_UP')
+const teacherStageLabel = computed(() => {
+  if (isReview.value || done.value) return '访谈已完成'
+  return inWrapUp.value ? '完成最后补充' : '自由讲述与追问'
+})
 const selectedProviderConfigured = computed(() => Boolean(modelConfig.value.configured?.[selectedModelProvider.value]))
 const selectedProviderName = computed(() => selectedModelProvider.value === 'openai' ? 'OpenAI' : 'Kimi K3')
 const lockedModelSelection = computed(() => session.value?.dialogueModelSelection || null)
@@ -112,7 +126,9 @@ function loadActiveRecord(record, asSimulation) {
   messages.value = record?.messages?.slice() || []
   done.value = record?.status === 'done'
   startedAt.value = record?.startedAt || Date.now()
-  deadlineAt.value = record?.deadlineAt || startedAt.value + 10 * 60 * 1000
+  deadlineAt.value = record?.deadlineAt || startedAt.value + INTERVIEW_DURATION_MS
+  wrapUpStartedAt.value = record?.wrapUpStartedAt || null
+  performanceMetrics.value = Array.isArray(record?.performanceMetrics) ? record.performanceMetrics.slice() : []
   lastLLMProfile.value = record?.llmProfile || ''
   lastLLMModel.value = record?.llmModel || ''
   generationFailures.value = Array.isArray(record?.generationFailures) ? record.generationFailures.slice() : []
@@ -239,6 +255,7 @@ function addVisiblePerformanceMetric(requestedAt, phase) {
     inputTokens: Number(trace.usage?.input_tokens || 0),
     outputTokens: Number(trace.usage?.output_tokens || 0),
     totalTokens: Number(trace.usage?.total_tokens || 0),
+    questionQuality: trace.questionQuality || null,
     targetMs: latencyTargetMs,
     withinTarget: Date.now() - requestedAt <= latencyTargetMs,
     evidenceStatus: phase === 'first' ? 'not_applicable' : 'pending',
@@ -391,11 +408,55 @@ async function send() {
   input.value = ''
   sending.value = true
   try {
-    await generateAfterTeacher(text, modelSession)
+    const remainingMs = Math.max(0, deadlineAt.value - Date.now())
+    if (!mayStartForegroundGeneration(remainingMs)) {
+      enterWrapUpWindow('FINAL_TEACHER_SUBMISSION')
+      const elicitingQuestion = [...messages.value].reverse().find((message) => message.role === 'ai')?.text || ''
+      const outcome = completeFinalTeacherTurn(modelSession, text, {
+        reason: 'TIME_RESERVED_WRAP_UP',
+        reservedMs: WRAP_UP_RESERVE_MS
+      })
+      messages.value.push({
+        role: 'ai',
+        text: outcome.visibleText,
+        ts: Date.now(),
+        generationSource: 'time_controller'
+      })
+      done.value = true
+      clearInterval(timer)
+      persist(true)
+      await nextTick()
+      chatEnd.value?.scrollIntoView({ behavior: 'smooth' })
+      void runBackgroundEvidenceAnalysis({
+        teacherText: text,
+        turnId: outcome.turnId,
+        elicitingQuestion,
+        metricId: null
+      })
+    } else {
+      await generateAfterTeacher(text, modelSession)
+    }
   } finally {
     sending.value = false
     _activeGeneration = null
   }
+}
+
+function enterWrapUpWindow(reason = 'CLOCK_THRESHOLD') {
+  if (wrapUpStartedAt.value || done.value || isReview.value) return
+  wrapUpStartedAt.value = Date.now()
+  if (dialogueSession.value) {
+    dialogueSession.value.version += 1
+    dialogueSession.value.auditLog.push({
+      eventId: `dialogue-log-${dialogueSession.value.auditLog.length + 1}`,
+      type: 'WrapUpWindowEntered',
+      at: wrapUpStartedAt.value,
+      sessionVersion: dialogueSession.value.version,
+      reason,
+      reservedMs: WRAP_UP_RESERVE_MS
+    })
+  }
+  persist(false)
 }
 
 async function retryQuestion() {
@@ -458,7 +519,9 @@ function timeUpOnce() {
 
 function refreshRemaining() {
   remaining.value = Math.max(0, Math.ceil((deadlineAt.value - Date.now()) / 1000))
-  if (remaining.value <= 0) timeUpOnce()
+  const phase = interviewTimePhase(remaining.value * 1000)
+  if (phase === 'EXPIRED') timeUpOnce()
+  else if (phase === 'WRAP_UP') enterWrapUpWindow()
 }
 
 function startDeadlineTimer() {
@@ -612,7 +675,7 @@ async function configureRealModel() {
       _timeUpClosed = false
       if (!formalExisting) {
         startedAt.value = Date.now()
-        deadlineAt.value = startedAt.value + 10 * 60 * 1000
+        deadlineAt.value = startedAt.value + INTERVIEW_DURATION_MS
         generationPaused.value = false
         generationError.value = ''
       }
@@ -635,7 +698,7 @@ async function startDemo() {
   modelSelectionRequired.value = false
   _timeUpClosed = false
   startedAt.value = Date.now()
-  deadlineAt.value = startedAt.value + 10 * 60 * 1000
+  deadlineAt.value = startedAt.value + INTERVIEW_DURATION_MS
   startDeadlineTimer()
   sending.value = true
   try {
@@ -686,6 +749,7 @@ function persist(isDone) {
     status: isDone ? 'done' : 'in_progress',
     startedAt: startedAt.value,
     deadlineAt: deadlineAt.value,
+    wrapUpStartedAt: wrapUpStartedAt.value,
     finishedAt: isDone ? Date.now() : null,
     messages: messages.value.slice(),
     teacherRanking: answer.final_ranking,
@@ -896,9 +960,15 @@ onBeforeUnmount(() => {
   <section v-if="session && item" class="interview-live">
     <header class="interview-header">
       <button v-if="isReview || done" class="icon-button" @click="leave">←</button>
-      <div><strong>{{ item.title }}</strong><small>Dialogue Agent 主导 · 新五表提供专业视野 · Evidence State 留存依据</small></div>
-      <span :class="{ urgent: remaining < 60 }">{{ isReview ? (simulationOnly ? '演示回看' : '回看') : timeText }}</span>
+      <div><strong>{{ item.title }}</strong><small>围绕这个情境，聊聊您当时会怎样判断</small></div>
+      <em class="teacher-stage">{{ teacherStageLabel }}</em>
+      <span :class="{ urgent: remaining <= WRAP_UP_RESERVE_MS / 1000 }">{{ isReview ? (simulationOnly ? '演示回看' : '回看') : timeText }}</span>
     </header>
+
+    <div v-if="inWrapUp && !done && !isReview" class="wrap-up-notice" role="status">
+      <strong>收尾时间</strong>
+      <span>{{ WRAP_UP_NOTICE }}</span>
+    </div>
 
     <div class="cloud-health" :class="agentHealth.provider === 'mock' ? 'demo' : (agentHealth.ok ? 'ok' : (agentHealth.checked ? 'down' : 'checking'))">
       <span v-if="pausedForConcurrentTab">本情境已在另一个页面打开；当前页面不会读写访谈记录。</span>
@@ -910,7 +980,7 @@ onBeforeUnmount(() => {
         本次测评已锁定 {{ lockedModelSelection.provider }}<template v-if="lockedModelSelection.model"> / {{ lockedModelSelection.model }}</template>，但本机当前是 {{ agentHealth.provider }}<template v-if="agentHealth.model"> / {{ agentHealth.model }}</template>；系统不会混用模型。
       </span>
       <span v-else-if="agentHealth.ok">
-        Dialogue Agent 已就绪 · {{ agentHealth.provider }}<template v-if="agentHealth.model"> / {{ agentHealth.model }}</template>
+        AI已连接<template v-if="agentHealth.model"> · {{ agentHealth.model }}</template>
       </span>
       <span v-else>Dialogue Agent 暂不可用（{{ agentHealth.error || '本机服务未启动' }}）· 已输入内容仍会保存在本机</span>
       <button
@@ -937,6 +1007,7 @@ onBeforeUnmount(() => {
           <span>{{ row.phase === 'first' ? '首问' : row.turnId }}</span>
           <strong :class="row.withinTarget ? 'met' : 'missed'">{{ seconds(row.visibleLatencyMs) }}</strong>
           <small>输入{{ row.inputTokens || 0 }} · 输出{{ row.outputTokens || 0 }}</small>
+          <small v-if="row.questionQuality" :class="row.questionQuality.passed ? 'met' : 'missed'">问话{{ row.questionQuality.passed ? '质检通过' : '需复核' }}</small>
           <small v-if="row.evidenceStatus === 'pending'">Evidence后台分析中</small>
           <small v-else-if="row.evidenceStatus === 'completed'">Evidence {{ seconds(row.evidenceLatencyMs) }}（不阻塞）</small>
           <small v-else-if="row.evidenceStatus === 'failed'" class="missed">Evidence待重试</small>
@@ -945,9 +1016,9 @@ onBeforeUnmount(() => {
     </details>
 
     <article class="interview-context">
-      <details open>
-        <summary>查看案例、四个做法与本人排序</summary>
-        <p>{{ item.stem }}</p>
+      <p class="scenario-text">{{ item.stem }}</p>
+      <details>
+        <summary>查看四个做法与我的排序</summary>
         <div class="context-options">
           <p v-for="letter in answer.final_ranking" :key="letter">
             <strong>{{ letter }}</strong><span>{{ item.options[letter] }}</span>
@@ -1060,8 +1131,14 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <div v-else-if="!done && !isReview && agentHealth.ok" class="chat-input">
-      <textarea v-model="input" rows="2" maxlength="2000" placeholder="请输入您的回答…" @keydown.ctrl.enter="send"></textarea>
-      <button class="button primary" :disabled="!input.trim() || sending" @click="send">发送</button>
+      <textarea
+        v-model="input"
+        rows="2"
+        maxlength="2000"
+        :placeholder="inWrapUp ? '请完成最后的补充…' : '请输入您的回答…'"
+        @keydown.ctrl.enter="send"
+      ></textarea>
+      <button class="button primary" :disabled="!input.trim() || sending" @click="send">{{ inWrapUp ? '完成并保存' : '发送' }}</button>
     </div>
     <div v-else class="chat-complete">
       <span>{{ simulationOnly ? '本情境演示已完成（不计入正式结果）' : '本情境访谈已完成' }}</span>
@@ -1084,6 +1161,11 @@ onBeforeUnmount(() => {
 .cloud-health.demo { color: #8a4b08; background: #fff7e8; }
 .cloud-health.down { color: #b42318; background: #fdecea; }
 .cloud-health.checking { color: #475467; background: #f8fafc; }
+.teacher-stage { flex: none; border: 1px solid #d7e0f4; border-radius: 999px; padding: 4px 9px; color: #425b91; background: #f6f8ff; font-size: 12px; font-style: normal; white-space: nowrap; }
+.scenario-text { margin: 0; color: #344054; font-size: 14px; line-height: 1.7; }
+.interview-context details { margin-top: 8px; }
+.wrap-up-notice { display: flex; gap: 8px; align-items: center; padding: 9px 14px; border-bottom: 1px solid #f1d59b; color: #7a4d00; background: #fff8e8; font-size: 13px; }
+.wrap-up-notice strong { flex: none; }
 .health-action {
   margin-left: 10px;
   border: 0;
@@ -1103,7 +1185,8 @@ onBeforeUnmount(() => {
 .latency-board .missed { color: #b54708; }
 .latency-overview { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 12px 9px; border-bottom: 1px solid #eef0f4; }
 .latency-rows { padding: 5px 12px 9px; }
-.latency-rows > div { display: grid; grid-template-columns: 52px 58px 1fr auto; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px dashed #eef0f4; }
+.latency-rows > div { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 5px 0; border-bottom: 1px dashed #eef0f4; }
+.latency-rows > div > small:last-child { margin-left: auto; }
 .latency-rows > div:last-child { border-bottom: 0; }
 .demo-consent { border-color: #f2c078; background: #fffaf0; }
 .model-setup {
@@ -1134,6 +1217,7 @@ onBeforeUnmount(() => {
 .model-key-note { margin: -2px 0 0; color: #667085; font-size: 12px; }
 .model-config-error { margin: 0; color: #b42318; font-size: 13px; }
 @media (max-width: 620px) {
+  .teacher-stage { display: none; }
   .provider-choices { grid-template-columns: 1fr; }
   .model-setup .chat-recovery-actions { flex-direction: column; }
 }

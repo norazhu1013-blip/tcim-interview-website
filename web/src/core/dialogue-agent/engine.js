@@ -15,6 +15,7 @@ import {
   initializeDialogueProgressState,
   validateDialogueProgressState
 } from './progress.js'
+import { deriveInterviewUtilityState } from './utility.js'
 
 export const DIALOGUE_SESSION_SCHEMA = 'dialogue-agent.session/v3'
 
@@ -129,6 +130,7 @@ export function createDialogueSession(runtimeCard, options = {}) {
     runtimeCard: clone(runtimeCard),
     evidenceState: initializeEvidenceState(runtimeCard),
     dialogueProgressState: initializeDialogueProgressState(runtimeCard),
+    interviewUtilityState: null,
     history: [],
     auditLog: [],
     backgroundEvidenceAnalyses: [],
@@ -140,6 +142,7 @@ export function createDialogueSession(runtimeCard, options = {}) {
     evidenceKeys: checked.evidenceKeys,
     dialoguePolicySummary: policySummary(runtimeCard)
   }, now)
+  session.interviewUtilityState = deriveInterviewUtilityState(session)
   return session
 }
 
@@ -160,6 +163,7 @@ function nextRequest(session, kind, teacherTurn, options = {}) {
     },
     evidenceState: clone(session.evidenceState),
     dialogueProgressState: clone(session.dialogueProgressState),
+    interviewUtilityState: clone(session.interviewUtilityState || deriveInterviewUtilityState(session)),
     history: clone(session.history)
   }
 }
@@ -244,6 +248,7 @@ async function execute(session, request, provider, options = {}) {
     },
     { now }
   )
+  session.interviewUtilityState = deriveInterviewUtilityState(session)
   session.lastAgentResult = clone(result)
   session.pendingRequest = null
   session.history.push({
@@ -319,6 +324,7 @@ export function applyBackgroundEvidenceAnalysis(session, analysis, context = {},
     at: now()
   })
   session.backgroundEvidenceAnalyses = session.backgroundEvidenceAnalyses.slice(-30)
+  session.interviewUtilityState = deriveInterviewUtilityState(session)
   session.version += 1
   audit(session, 'BackgroundEvidenceApplied', {
     resultId,
@@ -343,6 +349,7 @@ export async function submitTeacherTurn(session, teacherTurn, provider, options 
     teacherTurn: text,
     declined: explicitExit
   }, { now })
+  session.interviewUtilityState = deriveInterviewUtilityState(session)
   session.version += 1
   audit(session, 'TeacherTurnSaved', { turnId: `turn-${session.turnSeq}`, exactText: text }, now)
 
@@ -363,6 +370,56 @@ export async function submitTeacherTurn(session, teacherTurn, provider, options 
   const request = nextRequest(session, 'TEACHER_TURN', text, options)
   audit(session, 'AgentRequested', { requestId: request.requestId, turnId: request.turnId, kind: request.kind }, now)
   return execute(session, request, provider, options)
+}
+
+/**
+ * 时间控制器预留的最后一轮：保存教师原话并结束，不再让模型生成新问题。
+ * 后台 Evidence Analyzer 仍可随后分析这一轮，因而不会以速度换取证据丢失。
+ */
+export function completeFinalTeacherTurn(session, teacherTurn, options = {}) {
+  if (!session || !['ACTIVE', 'READY'].includes(session.status)) throw new Error('dialogue_not_active')
+  const text = String(teacherTurn || '').trim()
+  if (!text) throw new Error('teacher_turn_empty')
+  const now = options.now || defaultNow
+  const reason = String(options.reason || 'TIME_RESERVED_WRAP_UP')
+  session.turnSeq += 1
+  const turnId = `turn-${session.turnSeq}`
+  session.history.push({ role: 'teacher', text, turnId, at: now() })
+  session.dialogueProgressState = archiveTeacherTurn(session.dialogueProgressState, {
+    turnId,
+    teacherTurn: text,
+    declined: false
+  }, { now })
+  session.dialogueProgressState = closeDialogueProgress(session.dialogueProgressState, {
+    turnId,
+    explicitExit: false,
+    reason
+  }, { now })
+  session.interviewUtilityState = deriveInterviewUtilityState(session)
+  const visibleText = '谢谢您的补充，这段回答已经完整保存。本情境访谈先到这里。'
+  session.history.push({
+    role: 'agent',
+    text: visibleText,
+    action: 'CLOSE',
+    resultId: 'time-reserved-wrap-up',
+    turnId,
+    at: now()
+  })
+  session.status = 'COMPLETED'
+  session.pendingRequest = null
+  session.version += 1
+  audit(session, 'FinalTeacherTurnSaved', { turnId, exactText: text, reason }, now)
+  audit(session, 'DialogueClosedByTimeController', { turnId, reason, reservedMs: options.reservedMs || null }, now)
+  return {
+    ok: true,
+    status: 'completed',
+    retryable: false,
+    action: 'CLOSE',
+    visibleText,
+    question: null,
+    turnId,
+    localTimeControl: true
+  }
 }
 
 /** 重试复用已保存请求，不重复追加教师原话，也不生成本地专业问句。 */

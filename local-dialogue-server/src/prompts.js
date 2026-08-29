@@ -11,6 +11,7 @@ const FAST_SYSTEM_PROMPT = [
   '优先跟随教师最新原话中的新区别、理由、观察、行动或条件；不得复问同一问句，也不要重复近期问题的实质落点。无新价值时可以 CLOSE。',
   'dialogue_progress_state.stagnation.score 升高表示进展不足，此时必须换实质落点、减轻问题负担或收束。',
   '不得评价教师对错、能力等级、人格或动机；不得透露分数、排序规则、Evidence ID、内部先验。教师纠正时先接受，短答或疲劳时降低负担。',
+  '不得先提供一套专业答案、行动方案或价值判断，再请教师认同；不得把教师对AI内容的认同当作其原有能力证据。',
   'AFFORDANCE/MONITOR 只是建议；只有 HARD_BOUNDARY 必须遵守。boundary 非 NONE 时必须引用对应 HARD_BOUNDARY policy_id。',
   '这是前台低延时调用：只决定问题、方向和硬边界；Evidence、详细理解、假设和完成理由由程序或后台补齐。',
   '首问 teacher_quote 为空；后续轮 teacher_quote 必须从本轮教师原话逐字引用一个短片段。direction.label 要短。只输出符合 JSON Schema 的对象。'
@@ -126,6 +127,7 @@ function buildPrompts(input, options = {}) {
     teacher_context: input.teacher_context || {},
     evidence_summary: input.evidence_summary || {},
     dialogue_progress_state: dialogueProgressState,
+    interview_utility_state: input.interview_utility_state || {},
     previous_history: history,
     recent_assistant_questions: recentQuestions,
     current_teacher_turn: teacherTurn,

@@ -6,10 +6,12 @@ const {
   FAST_DIALOGUE_RESPONSE_SCHEMA,
   EVIDENCE_ANALYSIS_SCHEMA,
   DUPLICATE_QUESTION_ERROR,
+  LEADING_QUESTION_ERROR,
   recentAssistantQuestions,
   validateDialogueOutput,
   validateEvidenceAnalysisOutput,
   normalizeFastDialogueOutput,
+  assessQuestionQuality,
   collectDialoguePolicyIndex
 } = require('./schema');
 const { ProviderError, selectProvider } = require('./providers');
@@ -66,24 +68,29 @@ function validateProviderLock(input, provider) {
   }
 }
 
-function hasDuplicateQuestionError(validation) {
+function hasCorrectableQuestionError(validation) {
   return Boolean(validation && Array.isArray(validation.errors)
-    && validation.errors.some((error) => String(error).startsWith(`${DUPLICATE_QUESTION_ERROR}:`)));
+    && validation.errors.some((error) => (
+      String(error).startsWith(`${DUPLICATE_QUESTION_ERROR}:`)
+      || String(error).startsWith(`${LEADING_QUESTION_ERROR}:`)
+    )));
 }
 
-function duplicateCorrectionUser(originalUser, rejectedOutput, history) {
+function questionCorrectionUser(originalUser, rejectedOutput, history, validation) {
   const rejectedQuestion = String(rejectedOutput && rejectedOutput.visible_text || '').trim();
   const recentQuestions = recentAssistantQuestions(history, 5);
   return [
     originalUser,
     '',
-    '【程序质检退回：近似复问】',
+    '【程序质检退回：复问或诱导性问句】',
     `上一候选问句：${JSON.stringify(rejectedQuestion)}`,
     `近期已问问句：${JSON.stringify(recentQuestions)}`,
-    '该候选与近期问题的实质落点过于相似。请只重新生成一个完整 JSON 对象，并满足：',
+    `退回原因：${JSON.stringify(validation?.errors || [])}`,
+    '请只重新生成一个完整 JSON 对象，并满足：',
     '1. 不要只替换承接引语或同义改写；',
     '2. 承接当前教师原话中的另一个具体区别，转向不同的证据缺口，或在无新增价值时 CLOSE；',
-    '3. action=ASK 时仍只能有一个问题。'
+    '3. 不得提供专业答案后请教师同意，不得把AI观点塞进问句；',
+    '4. action=ASK 时仍只能有一个问题。'
   ].join('\n');
 }
 
@@ -249,8 +256,8 @@ function createDialogueAgent(options = {}) {
             maxQuestionChars
           });
           if (validated.ok) break;
-          if (generationAttempt === 1 && hasDuplicateQuestionError(validated)) {
-            userPrompt = duplicateCorrectionUser(prompts.user, generated.output, prompts.repetitionHistory);
+          if (generationAttempt === 1 && hasCorrectableQuestionError(validated)) {
+            userPrompt = questionCorrectionUser(prompts.user, generated.output, prompts.repetitionHistory, validated);
             continue;
           }
           break;
@@ -269,6 +276,12 @@ function createDialogueAgent(options = {}) {
         const providerName = generated.provider || provider.id;
         const model = generated.model || provider.model || '';
         const providerRequestId = generated.provider_request_id || '';
+        const qualitySignals = assessQuestionQuality(generated.output, {
+          phase: prompts.phase,
+          teacherTurn: prompts.teacherTurn,
+          history: prompts.repetitionHistory,
+          maxQuestionChars
+        });
         return {
           ok: true,
           request_id: requestId,
@@ -294,6 +307,7 @@ function createDialogueAgent(options = {}) {
             prompt_version: PROMPT_VERSION,
             prompt_cache_key: prompts.promptCacheKey,
             generation_attempts: attempts.length,
+            question_quality: qualitySignals,
             usage,
             latency_ms: latencyMs
           },

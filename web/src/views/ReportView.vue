@@ -9,6 +9,10 @@ const router = useRouter()
 const sessionId = route.params.sid
 const session = getSession(sessionId)
 const report = computed(() => buildReport(session || {}))
+const observedCapabilityRows = computed(() => (
+  report.value.canonicalCapabilityProfile?.dimensions
+    ?.filter((row) => row.evidenceCount || row.prompted.length || row.aiInfluenced.length || row.conflicts.length) || []
+))
 
 // 跨次成长对比：取当前会话之前最近一份已完成报告作对比。
 const prevReport = computed(() => {
@@ -85,6 +89,28 @@ function back() { router.back() }
       <p class="report-note">{{ report.process.text }}</p>
     </div>
 
+    <div class="card">
+      <h3>Canonical Evidence 能力画像候选</h3>
+      <p class="tip profile-boundary">{{ report.canonicalCapabilityProfile.interpretationBoundary }}</p>
+      <div class="canonical-summary">
+        <span><strong>{{ report.canonicalCapabilityProfile.summary.independentSupportedDimensions }}</strong>个维度有独立证据</span>
+        <span><strong>{{ report.canonicalCapabilityProfile.summary.crossContextSupportedDimensions }}</strong>个维度跨情境支持</span>
+        <span><strong>{{ report.canonicalCapabilityProfile.summary.excludedAiInfluencedEvidence }}</strong>条AI影响证据未回写</span>
+      </div>
+      <div v-for="row in observedCapabilityRows" :key="row.capabilityId" class="canonical-row">
+        <div>
+          <strong>{{ row.capabilityId }} · {{ row.name }}</strong>
+          <span class="exp-level" :class="{ tentative: row.band.code === 'CONFLICTED' }">{{ row.band.label }}</span>
+        </div>
+        <small>独立证据 {{ row.evidenceCount }} 条 · {{ row.independentContexts.length }} 个情境</small>
+        <blockquote v-for="e in row.independent.slice(0, 3)" :key="e.evidenceId">「{{ e.quote }}」 <small>{{ e.itemId }} / {{ e.responseOrigin }}</small></blockquote>
+        <p v-if="row.prompted.length" class="origin-note">提示后澄清 {{ row.prompted.length }} 条：单列，不当作独立能力证据。</p>
+        <p v-if="row.aiInfluenced.length" class="origin-note excluded">AI提供内容后的回应 {{ row.aiInfluenced.length }} 条：只记录反思/学习响应，已从原有能力画像排除。</p>
+        <p class="profile-limit">结论边界：{{ row.maximumClaim }}</p>
+      </div>
+      <p v-if="!observedCapabilityRows.length" class="tip">尚未形成可转换的 Canonical Evidence；这表示当前证据不足，不表示教师缺乏相应能力。</p>
+    </div>
+
     <!-- 能力画像 -->
     <div class="card">
       <h3>能力画像（七个三级指标）</h3>
@@ -141,13 +167,15 @@ function back() { router.back() }
     <!-- 访谈证据回填 -->
     <div class="card">
       <h3>访谈证据回填</h3>
-      <p class="tip">以下出自教师真实访谈原话，用于佐证画像；每条可回溯到具体情境。</p>
+      <p class="tip">以下是可回溯的教师原话。只有RO0/RO1自主表达用于原有能力画像；其他来源会分开呈现。</p>
       <div v-for="e in report.evidence" :key="'ev' + e.itemId" class="ev-row">
         <strong>{{ e.itemId }}</strong>
         <span v-if="e.indicator" class="pill">{{ e.indicator }}</span>
         <p v-if="e.focus">{{ e.focus }}</p>
-        <blockquote v-if="e.quote">「{{ e.quote }}」</blockquote>
-        <p v-else class="evidence-pending">尚未形成可回溯的 canonical Evidence。</p>
+        <blockquote v-if="e.independentQuote">独立表达：「{{ e.independentQuote }}」</blockquote>
+        <blockquote v-if="e.promptedQuote" class="prompted">提示后澄清：「{{ e.promptedQuote }}」</blockquote>
+        <blockquote v-if="e.aiInfluencedQuote" class="excluded">AI影响后回应（不计入原有能力）：「{{ e.aiInfluencedQuote }}」</blockquote>
+        <p v-if="!e.quote" class="evidence-pending">尚未形成可回溯的 canonical Evidence。</p>
       </div>
       <p v-if="!report.evidence.length" class="tip">暂无已完成的访谈证据。</p>
     </div>
@@ -234,6 +262,20 @@ function back() { router.back() }
 .ev-row p { font-size: 13px; color: #4b5563; margin: 6px 0 0; }
 .ev-row blockquote { margin: 8px 0 0; padding-left: 10px; border-left: 3px solid #3f63d6; color: #374151; font-size: 13px; }
 .ev-row .evidence-pending { color: #8a4b08; }
+.canonical-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.canonical-summary span { padding: 7px 10px; border-radius: 10px; color: #475467; background: #f7f8fb; font-size: 12px; }
+.canonical-summary strong { margin-right: 3px; color: #3f63d6; font-size: 15px; }
+.canonical-row { padding: 12px 0; border-top: 1px solid #eef0f4; }
+.canonical-row > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.canonical-row > small { display: block; margin-top: 4px; color: #667085; }
+.canonical-row blockquote { margin: 8px 0 0; padding-left: 10px; border-left: 3px solid #3f63d6; color: #344054; font-size: 13px; }
+.canonical-row blockquote small { color: #98a2b3; }
+.origin-note, .profile-limit { margin: 7px 0 0; color: #667085; font-size: 12px; line-height: 1.5; }
+.origin-note.excluded, .ev-row blockquote.excluded { border-color: #d0d5dd; color: #667085; background: #f9fafb; }
+.ev-row blockquote.prompted { border-color: #f0b44d; }
+.profile-limit { color: #7a5d20; }
+.profile-boundary { color: #475467; line-height: 1.6; }
+.exp-level.tentative { color: #b54708; background: #fff4e5; }
 .sugg-list { margin: 0; padding-left: 18px; }
 .sugg-list li { margin: 8px 0; line-height: 1.6; color: #374151; }
 .tip { font-size: 12px; color: #98a1b3; margin: 8px 0 0; }
