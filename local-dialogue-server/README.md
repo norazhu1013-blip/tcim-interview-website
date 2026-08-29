@@ -59,6 +59,7 @@ OpenAI provider 使用 Responses API、严格 JSON Schema，并固定发送 `sto
 - `POST /v1/dialogue/first`：强制首问；
 - `POST /v1/dialogue/next`：强制后续轮；
 - `POST /v1/dialogue/turn`：由请求体的 `phase` 指定 `first` 或 `next`；
+- `POST /v1/evidence/analyze`：在前台问题显示后异步分析本轮教师原话，返回可校验的 Evidence 候选；
 - `GET /v1/model-config`：读取当前 provider、模型、就绪状态及两类密钥是否已配置；
 - `POST /v1/model-config`：本机选择 `kimi`、`openai` 或 `mock`，可选提交当前 provider 的 `api_key`；保存后立即热切换；
 - `GET /health`：查看 provider、模型、就绪状态和超时配置。
@@ -79,6 +80,8 @@ OpenAI provider 使用 Responses API、严格 JSON Schema，并固定发送 `sto
 `POST` 请求体为 `{ "provider": "kimi|openai|mock", "api_key": "可选" }`。Kimi/OpenAI 不填写 `api_key` 会沿用已保存的密钥；填写时长度必须为 1–512 个字符、不能全为空白，也不能含换行或 NUL 字节。mock 不接受密钥。接口与其他本地端点共用回环来源和 CORS 安全门，只接受来自 `localhost`、`127.0.0.1` 或 `[::1]` 的页面。密钥不会出现在响应中。`.env` 通过同目录临时文件原子替换；在 Windows 上会显式移除继承权限，只允许当前用户、SYSTEM 和 Administrators 访问。
 
 切换发生时，已经开始的一轮仍使用该轮启动时的 provider，下一轮才使用新选择，避免单轮请求中途换模型。正式访谈每轮还会携带 `expected_provider` 和 `expected_model` 会话锁；若另一标签页已切换全局模型，服务分别返回 HTTP 409 `provider_mismatch` 或 `model_mismatch`，不会静默混用模型继续保存正式数据。
+
+低延时版本把每轮工作分为两条链：前台 Dialogue Agent 只输出问句、简短方向和硬边界；后台 Evidence Analyzer 再生成最多三条规范证据候选。前台返回后网页立即显示问题，不等待后台分析。完整运行卡仍保存在浏览器会话中用于审计，发送给模型的只是按本轮相关性裁剪的轻量运行卡。
 
 首问示例：
 
@@ -237,7 +240,11 @@ node --test test/*.test.js
 | `TCIM_DIALOGUE_PORT` | `8787` | 监听端口 |
 | `TCIM_DIALOGUE_TIMEOUT_MS` | `45000` | 单次上游调用超时 |
 | `TCIM_DIALOGUE_MAX_BODY_BYTES` | `1048576` | 最大 JSON 请求体 |
-| `TCIM_DIALOGUE_MAX_HISTORY_TURNS` | `40` | 送入模型的最大历史轮数 |
+| `TCIM_DIALOGUE_MAX_HISTORY_TURNS` | `8` | 送入前台模型的最大历史轮数 |
+| `TCIM_DIALOGUE_FAST_REASONING_EFFORT` | `low` | 前台问句调用的推理强度 |
+| `TCIM_DIALOGUE_FAST_MAX_OUTPUT_TOKENS` | `500` | 前台问句最大输出量 |
+| `TCIM_EVIDENCE_REASONING_EFFORT` | `medium` | 后台 Evidence 分析推理强度 |
+| `TCIM_EVIDENCE_MAX_OUTPUT_TOKENS` | `1600` | 后台 Evidence 最大输出量 |
 | `TCIM_LOCAL_DATA_FILE` | `.runtime-data/state.json` | 本地数据文件，相对本服务目录 |
 | `TCIM_DIALOGUE_ALLOW_UNSAFE_PROVIDER_URLS` | `0` | 仅限本机 provider 测试替身的显式开关 |
 | `KIMI_API_KEY` | 无 | Kimi 服务端密钥 |

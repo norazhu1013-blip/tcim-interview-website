@@ -2,7 +2,28 @@
 
 const crypto = require('crypto');
 
-const PROMPT_VERSION = 'tcim-dialogue-v2-five-tables-2026-08-29-r3';
+const PROMPT_VERSION = 'tcim-dialogue-v3-low-latency-2026-08-30-r1';
+
+const FAST_SYSTEM_PROMPT = [
+  '你是 TCIM 幼儿园教师专业访谈的前台 Dialogue Agent。目标是开放理解教师的游戏支持与引导能力，并自然提出下一问。',
+  '五表运行卡是专业地图和边界，不是标准答案或必问清单。由你决定如何理解、承接、转向或收束。',
+  '每轮最多一句准确承接，再问一个简短、非诱导、可回答的问题；ASK 必须且只能有一个问号，visible_text 不超过140字。',
+  '优先跟随教师最新原话中的新区别、理由、观察、行动或条件；不得复问同一问句，也不要重复近期问题的实质落点。无新价值时可以 CLOSE。',
+  'dialogue_progress_state.stagnation.score 升高表示进展不足，此时必须换实质落点、减轻问题负担或收束。',
+  '不得评价教师对错、能力等级、人格或动机；不得透露分数、排序规则、Evidence ID、内部先验。教师纠正时先接受，短答或疲劳时降低负担。',
+  'AFFORDANCE/MONITOR 只是建议；只有 HARD_BOUNDARY 必须遵守。boundary 非 NONE 时必须引用对应 HARD_BOUNDARY policy_id。',
+  '这是前台低延时调用：只决定问题、方向和硬边界；Evidence、详细理解、假设和完成理由由程序或后台补齐。',
+  '首问 teacher_quote 为空；后续轮 teacher_quote 必须从本轮教师原话逐字引用一个短片段。direction.label 要短。只输出符合 JSON Schema 的对象。'
+].join('\n');
+
+const EVIDENCE_SYSTEM_PROMPT = [
+  '你是 TCIM 的后台 Evidence Analyzer，不与教师直接说话，也不生成下一问。',
+  '只分析当前教师原话能否支持运行卡中的 CAPABILITY_EVIDENCE。没有充分逐字证据时返回空数组。',
+  '每条候选必须使用运行卡内成对的 evidence_claim_id/understanding_id，并逐字引用当前教师原话。',
+  'RO0=未经提示主动提出；RO1=开放问题后独立提出；RO2=澄清追问后补充；RO3=AI给出选项后认可；RO4=AI讲解后复述或迁移。RO3/RO4不能证明提示前已具备能力。',
+  'relation 仅 SUPPORT/CONTRADICT/REVISE；状态应保守。最多返回3条最有价值候选，rationale 每条不超过60字。',
+  '只输出符合 JSON Schema 的对象。'
+].join('\n');
 
 const SYSTEM_PROMPT = [
   '你是 TCIM 幼儿园教师专业情境访谈中的 Dialogue Agent。',
@@ -93,7 +114,7 @@ function buildPromptCacheKey(input) {
 
 function buildPrompts(input, options = {}) {
   const phase = input.phase === 'first' ? 'first' : 'next';
-  const maxHistoryTurns = options.maxHistoryTurns || 40;
+  const maxHistoryTurns = options.maxHistoryTurns || 8;
   const history = normalizeHistory(input.history, maxHistoryTurns);
   const dialogueProgressState = compactProgressState(input.dialogue_progress_state);
   const recentQuestions = uniqueRecentQuestions(history, dialogueProgressState, 5);
@@ -116,7 +137,7 @@ function buildPrompts(input, options = {}) {
     : '这是后续轮。先准确理解当前教师原话，再结合历史、Evidence 摘要和编译卡决定是澄清、深化、转向还是结束；不得跳过教师刚提出的新信息。';
 
   return {
-    system: `${SYSTEM_PROMPT}\n\n【本题静态五表编译卡】\n${JSON.stringify(input.compiled_card)}`,
+    system: `${FAST_SYSTEM_PROMPT}\n\n【本题轻量运行卡】\n${JSON.stringify(input.compiled_card)}`,
     user: `${instruction}\n\n【本轮动态输入】\n${JSON.stringify(payload)}`,
     phase,
     teacherTurn,
@@ -130,10 +151,32 @@ function buildPrompts(input, options = {}) {
   };
 }
 
+function buildEvidencePrompts(input, options = {}) {
+  const history = normalizeHistory(input.history, options.maxHistoryTurns || 6);
+  const teacherTurn = String(input.teacher_turn || '').trim();
+  const payload = {
+    item_id: input.item_id || '',
+    current_teacher_turn: teacherTurn,
+    eliciting_question: String(input.eliciting_question || ''),
+    previous_history: history,
+    current_evidence_summary: input.evidence_summary || {}
+  };
+  return {
+    system: `${EVIDENCE_SYSTEM_PROMPT}\n\n【本轮相关 Evidence 规则】\n${JSON.stringify(input.compiled_card)}`,
+    user: `【待分析内容】\n${JSON.stringify(payload)}`,
+    teacherTurn,
+    history,
+    promptCacheKey: `${buildPromptCacheKey(input)}:evidence`
+  };
+}
+
 module.exports = {
   PROMPT_VERSION,
   SYSTEM_PROMPT,
+  FAST_SYSTEM_PROMPT,
+  EVIDENCE_SYSTEM_PROMPT,
   buildPrompts,
+  buildEvidencePrompts,
   buildPromptCacheKey,
   normalizeHistory,
   compactProgressState,

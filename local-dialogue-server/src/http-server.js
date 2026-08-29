@@ -202,6 +202,23 @@ function createHttpServer(options = {}) {
       return;
     }
 
+    if (url.pathname === '/v1/evidence/analyze' && req.method === 'POST') {
+      if (!String(req.headers['content-type'] || '').toLowerCase().includes('application/json')) {
+        return sendJson(res, 415, { ok: false, error: 'unsupported_media_type', message: 'Content-Type must be application/json' });
+      }
+      try {
+        if (typeof agent.analyzeEvidence !== 'function') throw new InputError('background evidence analysis is unavailable', 'service_unavailable', 503);
+        const input = await readJson(req, maxBodyBytes);
+        const result = await agent.analyzeEvidence(input, { signal: clientController.signal });
+        return sendJson(res, 200, result);
+      } catch (error) {
+        const mapped = errorResponse(error);
+        if (!(error instanceof InputError) && !(error instanceof ProviderError)) console.error('[evidence-server] request failed:', error);
+        if (!res.headersSent && !res.destroyed) return sendJson(res, mapped.status, mapped.body);
+      }
+      return;
+    }
+
     const phases = {
       '/v1/dialogue/turn': null,
       '/v1/dialogue/first': 'first',

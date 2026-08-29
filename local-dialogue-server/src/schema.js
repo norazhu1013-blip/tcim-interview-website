@@ -82,6 +82,39 @@ const DIALOGUE_RESPONSE_SCHEMA = Object.freeze({
   required: ['action', 'visible_text', 'direction', 'evidence_candidates', 'completion_recommendation', 'boundary', 'understanding', 'working_hypotheses']
 });
 
+// 后台证据分析与前台问句生成分离。它只返回规范 Evidence 候选，避免教师
+// 必须等待冗长的证据理由、工作假设和审计字段全部生成后才看到下一问。
+const EVIDENCE_ANALYSIS_SCHEMA = Object.freeze({
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    evidence_candidates: DIALOGUE_RESPONSE_SCHEMA.properties.evidence_candidates
+  },
+  required: ['evidence_candidates']
+});
+
+const FAST_DIALOGUE_RESPONSE_SCHEMA = Object.freeze({
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    action: { type: 'string', enum: ACTIONS },
+    visible_text: { type: 'string' },
+    direction: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        label: { type: 'string' },
+        open_thread_id: { type: 'string' },
+        consulted_policy_ids: { type: 'array', items: { type: 'string' } }
+      },
+      required: ['label', 'open_thread_id', 'consulted_policy_ids']
+    },
+    boundary: DIALOGUE_RESPONSE_SCHEMA.properties.boundary,
+    teacher_quote: { type: 'string' }
+  },
+  required: ['action', 'visible_text', 'direction', 'boundary', 'teacher_quote']
+});
+
 const ROOT_KEYS = new Set(DIALOGUE_RESPONSE_SCHEMA.required);
 const DIRECTION_KEYS = new Set(['label', 'open_thread_id', 'rationale', 'consulted_policy_ids']);
 const EVIDENCE_KEYS = new Set(['evidence_claim_id', 'understanding_id', 'relation', 'proposed_status', 'response_origin', 'confidence', 'spans', 'rationale']);
@@ -367,10 +400,71 @@ function validateDialogueOutput(value, context = {}) {
   return { ok: errors.length === 0, errors };
 }
 
+function validateEvidenceAnalysisOutput(value, context = {}) {
+  const errors = [];
+  if (!exactKeys(value, new Set(['evidence_candidates']), 'output', errors)) return { ok: false, errors };
+  const candidates = Array.isArray(value.evidence_candidates) ? value.evidence_candidates : [];
+  if (!Array.isArray(value.evidence_candidates)) errors.push('output.evidence_candidates must be an array');
+  const teacherTurn = String(context.teacherTurn || '');
+  const evidencePolicyIndex = collectEvidencePolicyIndex(context.compiledCard);
+  candidates.forEach((candidate, index) => {
+    const path = `output.evidence_candidates[${index}]`;
+    if (!exactKeys(candidate, EVIDENCE_KEYS, path, errors)) return;
+    const claimId = String(candidate.evidence_claim_id || '').trim();
+    const understandingId = String(candidate.understanding_id || '').trim();
+    const policy = evidencePolicyIndex.get(claimId);
+    if (!claimId || !policy) errors.push(`${path}.evidence_claim_id is not present in compiled_card.evidencePolicies`);
+    if (!understandingId || (policy && policy.understandingId !== understandingId)) errors.push(`${path}.understanding_id does not match its evidence policy`);
+    if (!EVIDENCE_RELATIONS.includes(candidate.relation)) errors.push(`${path}.relation is invalid`);
+    if (!EVIDENCE_STATUSES.includes(candidate.proposed_status)) errors.push(`${path}.proposed_status is invalid`);
+    if (!RESPONSE_ORIGINS.includes(candidate.response_origin)) errors.push(`${path}.response_origin must be RO0 through RO4`);
+    else if (policy && policy.allowedResponseOrigins.length && !policy.allowedResponseOrigins.includes(candidate.response_origin)) errors.push(`${path}.response_origin is not allowed by its evidence policy`);
+    if (typeof candidate.confidence !== 'number' || candidate.confidence < 0 || candidate.confidence > 1) errors.push(`${path}.confidence must be from 0 to 1`);
+    if (!Array.isArray(candidate.spans) || !candidate.spans.length) errors.push(`${path}.spans must contain at least one exact quote`);
+    for (const span of Array.isArray(candidate.spans) ? candidate.spans : []) {
+      if (typeof span !== 'string' || !span || !teacherTurn.includes(span)) errors.push(`${path}.spans must quote the current teacher turn exactly`);
+    }
+    if (typeof candidate.rationale !== 'string') errors.push(`${path}.rationale must be a string`);
+  });
+  return { ok: errors.length === 0, errors };
+}
+
+function normalizeFastDialogueOutput(value, phase) {
+  if (value && Array.isArray(value.evidence_candidates)) return value;
+  const quote = String(value?.teacher_quote || '');
+  const action = value?.action;
+  return {
+    action,
+    visible_text: String(value?.visible_text || ''),
+    direction: {
+      label: String(value?.direction?.label || '继续理解教师'),
+      open_thread_id: String(value?.direction?.open_thread_id || ''),
+      rationale: String(value?.direction?.label || '低延时前台方向'),
+      consulted_policy_ids: Array.isArray(value?.direction?.consulted_policy_ids) ? value.direction.consulted_policy_ids : []
+    },
+    evidence_candidates: [],
+    completion_recommendation: {
+      recommended: action === 'CLOSE',
+      reason: action === 'CLOSE' ? '前台判断本情境可收束' : '继续开放理解教师'
+    },
+    boundary: value?.boundary || { kind: 'NONE', policy_id: '' },
+    understanding: {
+      teacher_quote: phase === 'first' ? '' : quote,
+      meaning: phase === 'first' ? '尚未获得教师回答' : `教师本轮强调：${quote}`,
+      confidence: phase === 'first' ? 'LOW' : 'MEDIUM'
+    },
+    working_hypotheses: []
+  };
+}
+
 module.exports = {
   DIALOGUE_RESPONSE_SCHEMA,
+  FAST_DIALOGUE_RESPONSE_SCHEMA,
+  EVIDENCE_ANALYSIS_SCHEMA,
   DUPLICATE_QUESTION_ERROR,
   validateDialogueOutput,
+  validateEvidenceAnalysisOutput,
+  normalizeFastDialogueOutput,
   collectEvidencePolicyIndex,
   collectDialoguePolicyIndex,
   normalizeQuestionForComparison,

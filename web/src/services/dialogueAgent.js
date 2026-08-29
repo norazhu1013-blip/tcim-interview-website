@@ -10,6 +10,29 @@ function pick(value, keys) {
   return out
 }
 
+function relevanceText(value) {
+  return String(value || '').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '')
+}
+
+function relevanceScore(row, query) {
+  const source = relevanceText(Object.values(row || {}).filter((value) => typeof value === 'string').join(' '))
+  const target = relevanceText(query)
+  if (!target || !source) return 0
+  let score = 0
+  for (let index = 0; index < target.length - 1; index += 1) {
+    if (source.includes(target.slice(index, index + 2))) score += 1
+  }
+  return score
+}
+
+function selectRows(rows, limit, query = '', priority = () => false) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row, index) => ({ row, index, score: relevanceScore(row, query), priority: priority(row) ? 1 : 0 }))
+    .sort((left, right) => right.priority - left.priority || right.score - left.score || left.index - right.index)
+    .slice(0, limit)
+    .map(({ row }) => row)
+}
+
 function compactScenario(brief = {}) {
   return {
     questionId: brief.questionId,
@@ -19,17 +42,13 @@ function compactScenario(brief = {}) {
     // 排序字母只有在保留选项语义时才能构成可用先验。不将选项文本传给
     // Dialogue Agent 会使 A/B/C/D 失去指代，导致首问退化为跨题通用问句。
     pretestOptions: (brief.pretestOptions || []).map((row) => pick(row, [
-      'id', 'type', 'epistemicStatus', 'content', 'optionCode', 'assessmentRelation',
-      'applicability', 'plausibleInterpretation', 'alternativeExplanation', 'missingInformation',
-      'discriminatingObservation', 'relatedCapabilities', 'doNotAssume', 'sourceRef'
+      'optionCode', 'content', 'assessmentRelation'
     ])),
-    contextFacts: (brief.contextFacts || []).map((row) => pick(row, [
-      'id', 'epistemicStatus', 'content', 'plausibleInterpretation', 'alternativeExplanation',
-      'missingInformation', 'discriminatingObservation', 'relatedCapabilities', 'doNotAssume', 'sourceRef'
+    contextFacts: (brief.contextFacts || []).slice(0, 2).map((row) => pick(row, [
+      'id', 'epistemicStatus', 'content'
     ])),
-    importantUnknowns: (brief.importantUnknowns || []).map((row) => pick(row, [
-      'id', 'epistemicStatus', 'content', 'plausibleInterpretation', 'alternativeExplanation',
-      'missingInformation', 'discriminatingObservation', 'relatedCapabilities', 'doNotAssume', 'sourceRef'
+    importantUnknowns: (brief.importantUnknowns || []).slice(0, 2).map((row) => pick(row, [
+      'id', 'epistemicStatus', 'content', 'doNotAssume'
     ]))
   }
 }
@@ -38,50 +57,72 @@ function compactScenario(brief = {}) {
  * 浏览器保存完整运行卡用于审计；发给模型的是等义的紧凑卡，避免每轮重复传输
  * Excel 治理元数据和展示字段。任何 HARD_BOUNDARY、Evidence ID 与结论边界都不裁掉。
  */
-export function compactRuntimeCard(runtimeCard) {
+export function compactRuntimeCard(runtimeCard, context = {}) {
   const teacherContext = runtimeCard?.scenarioBrief?.teacherContext || {}
+  const query = `${context.teacherTurn || ''} ${(context.recentTeacherTurns || []).join(' ')}`.trim()
+  const lenses = selectRows(runtimeCard?.professionalLenses, 4, query, (row) => row?.scope === 'SCENARIO_LENS')
+  const evidencePolicies = selectRows(
+    (runtimeCard?.evidencePolicies || []).filter((row) => row?.claimType !== 'ORIGIN_POLICY' && row?.runtimeUse !== 'ORIGIN_POLICY'),
+    3,
+    query
+  )
+  const hardBoundaries = (runtimeCard?.dialoguePolicies || []).filter((row) => row?.type === 'HARD_BOUNDARY')
+  const advisoryPolicies = selectRows((runtimeCard?.dialoguePolicies || []).filter((row) => row?.type !== 'HARD_BOUNDARY'), 2, query)
   return {
     datasetId: runtimeCard?.dataProvenance?.datasetId || '',
     schemaVersion: runtimeCard?.dataProvenance?.schemaVersion || '',
     configFingerprint: runtimeCard?.dataProvenance?.configFingerprint || '',
     itemId: runtimeCard?.itemId || '',
     scenarioBrief: compactScenario(runtimeCard?.scenarioBrief),
-    rankingPrior: {
-      assessmentRelation: 'PRIOR_ONLY',
-      finalRanking: teacherContext.finalRanking || [],
-      firstRanking: teacherContext.firstRanking || [],
-      scoreSummary: teacherContext.scoreSummary || null,
-      pretestPrior: pick(runtimeCard?.scenarioBrief?.pretestPrior, ['content', 'doNotAssume', 'sourceRef'])
-    },
+    rankingPrior: query ? { assessmentRelation: 'PRIOR_ONLY', alreadyConsideredAtOpening: true } : {
+        assessmentRelation: 'PRIOR_ONLY',
+        finalRanking: teacherContext.finalRanking || [],
+        firstRanking: teacherContext.firstRanking || [],
+        scoreSummary: teacherContext.scoreSummary || null,
+        pretestPrior: pick(runtimeCard?.scenarioBrief?.pretestPrior, ['content', 'doNotAssume'])
+      },
     processPrior: teacherContext.processPrior || null,
-    professionalLenses: (runtimeCard?.professionalLenses || []).map((row) => pick(row, [
-      'recordId', 'capabilityId', 'name', 'definition', 'pathId', 'pathName', 'pathDescription',
-      'applicability', 'exclusions', 'tradeoffs', 'observableOpportunities', 'observableIndicators',
-      'notEquivalentTo', 'absenceNotInterpretableWhen', 'prohibitedInference', 'autonomyNote', 'scope', 'sourceRef'
+    professionalLenses: lenses.map((row) => pick(row, [
+      'capabilityId', 'name', 'definition', 'applicability', 'tradeoffs',
+      'observableIndicators', 'prohibitedInference'
     ])),
-    evidencePolicies: (runtimeCard?.evidencePolicies || []).map((row) => pick(row, [
-      'recordId', 'understandingId', 'evidenceClaimId', 'claimType', 'capabilityRefs', 'pathRefs',
+    evidencePolicies: evidencePolicies.map((row) => pick(row, [
+      'understandingId', 'evidenceClaimId', 'claimTemplate', 'applicability',
+      'counterevidence', 'alternativeExplanation'
+    ])),
+    dialoguePolicies: [...hardBoundaries, ...advisoryPolicies].map((row) => row?.type === 'HARD_BOUNDARY'
+      ? pick(row, ['policyId', 'type', 'name', 'triggerConditions', 'prohibitedActions', 'safetyGateRequired'])
+      : pick(row, ['policyId', 'type', 'name', 'probeIntents', 'prohibitedActions', 'agentMayDecline'])),
+    synthesisPolicies: [],
+    dataProvenance: pick(runtimeCard?.dataProvenance, ['datasetId', 'schemaVersion', 'configFingerprint'])
+  }
+}
+
+export function compactEvidenceRuntimeCard(runtimeCard, context = {}) {
+  const query = String(context.teacherTurn || '')
+  const policies = selectRows(
+    (runtimeCard?.evidencePolicies || []).filter((row) => row?.claimType !== 'ORIGIN_POLICY' && row?.runtimeUse !== 'ORIGIN_POLICY'),
+    6,
+    query
+  )
+  return {
+    datasetId: runtimeCard?.dataProvenance?.datasetId || '',
+    schemaVersion: runtimeCard?.dataProvenance?.schemaVersion || '',
+    configFingerprint: runtimeCard?.dataProvenance?.configFingerprint || '',
+    itemId: runtimeCard?.itemId || '',
+    scenarioBrief: pick(runtimeCard?.scenarioBrief, ['questionId', 'scenarioId', 'content']),
+    rankingPrior: null,
+    processPrior: null,
+    professionalLenses: [],
+    evidencePolicies: policies.map((row) => pick(row, [
+      'recordId', 'understandingId', 'evidenceClaimId', 'claimType', 'capabilityRefs',
       'claimTemplate', 'applicability', 'supportAnchors', 'allowedResponseOrigins',
       'independenceRequirement', 'teacherConfirmationRequired', 'sourceSpanRequired', 'minEvidenceLevel',
       'counterevidence', 'pseudoEvidence', 'alternativeExplanation', 'discriminatingObservation',
-      'contradictionRule', 'contextBoundary', 'maxSupportedConclusion', 'prohibitedConclusion',
-      'crossContextRequirement', 'fairnessNote', 'memoryCandidateAllowed', 'owner', 'runtimeUse', 'sourceRef'
+      'maxSupportedConclusion', 'prohibitedConclusion', 'sourceRef'
     ])),
-    dialoguePolicies: (runtimeCard?.dialoguePolicies || []).map((row) => pick(row, [
-      'recordId', 'policyId', 'type', 'name', 'targetUnderstandingIds', 'targetCapabilityIds',
-      'missionRelation', 'triggerConditions', 'postureOptions', 'freedomScope', 'allowedActions',
-      'probeIntents', 'prohibitedActions', 'constraintLevel', 'rrmcSignal', 'eventTriggers',
-      'expirationTurns', 'agentMayDecline', 'relationshipSignals', 'cognitiveLoadSignals',
-      'safetyGateRequired', 'runtimeUse', 'sourceRef'
-    ])),
-    synthesisPolicies: (runtimeCard?.synthesisPolicies || []).map((row) => pick(row, [
-      'recordId', 'policyId', 'type', 'name', 'triggerConditions', 'requiredEvidenceClaimIds',
-      'requiredCapabilityIds', 'minSourceDiversity', 'counterevidenceRequired',
-      'teacherConfirmationRequired', 'contextBoundary', 'confidenceBands', 'maxPermittedClaim',
-      'prohibitedClaim', 'memoryType', 'memoryWriteRule', 'memoryExpiryRule', 'correctionRule',
-      'prohibitedStopCondition', 'runtimeUse', 'sourceRef'
-    ])),
-    dataProvenance: runtimeCard?.dataProvenance || {}
+    dialoguePolicies: [],
+    synthesisPolicies: []
   }
 }
 
@@ -93,7 +134,7 @@ function compactEvidenceState(state = {}) {
     claims: Object.values(state.claims || {}).map((claim) => pick(claim, [
       'evidenceClaimId', 'understandingId', 'status', 'confidence', 'hasConflict', 'revisionCount'
     ])),
-    recentRecords: (state.records || []).slice(-12).map((record) => pick(record, [
+    recentRecords: (state.records || []).slice(-4).map((record) => pick(record, [
       'evidenceClaimId', 'understandingId', 'relation', 'span', 'proposedStatus', 'effectiveStatus',
       'responseOrigin', 'confidence', 'policyRecordId', 'policySourceRef', 'policySchemaVersion',
       'policyConfigFingerprint', 'determinationReasons', 'lifecycle'
@@ -111,15 +152,15 @@ export function compactDialogueProgressState(state = {}) {
     itemId: state.itemId || '',
     version: Number(state.version || 0),
     phase: state.phase || 'OPENING',
-    questionLedger: (state.questionLedger || []).slice(-12).map((entry) => pick(entry, [
+    questionLedger: (state.questionLedger || []).slice(-6).map((entry) => pick(entry, [
       'questionId', 'turnId', 'action', 'questionText', 'goalLabel', 'rationale', 'openThreadId',
       'phase', 'answerStatus', 'answerTurnId', 'answerExcerpt', 'understanding', 'workingHypotheses'
     ])),
-    openThreads: (state.openThreads || []).slice(-12).map((thread) => pick(thread, [
+    openThreads: (state.openThreads || []).slice(-4).map((thread) => pick(thread, [
       'openThreadId', 'statement', 'rationale', 'status', 'originTurnId', 'lastTouchedTurnId',
       'touchCount', 'consultedPolicyIds', 'hypothesisIds', 'lastTeacherTurnId'
     ])),
-    coveredCues: (state.coveredCues || []).slice(-20).map((cue) => pick(cue, [
+    coveredCues: (state.coveredCues || []).slice(-8).map((cue) => pick(cue, [
       'cueId', 'sourceTurnId', 'span', 'meaning', 'confidence', 'sourceKind', 'openThreadId',
       'hypothesisIds', 'formalEvidenceIds'
     ])),
@@ -220,7 +261,10 @@ export async function runDialogueAgent(request, options = {}) {
     ...(options.expectedProvider ? { expected_provider: String(options.expectedProvider) } : {}),
     ...(options.expectedModel ? { expected_model: String(options.expectedModel) } : {}),
     teacher_turn: first ? '' : request.teacherTurn,
-    compiled_card: compactRuntimeCard(request.runtimeCard),
+    compiled_card: compactRuntimeCard(request.runtimeCard, {
+      teacherTurn: request.teacherTurn,
+      recentTeacherTurns: previousHistory(request).filter((turn) => turn.role === 'teacher').slice(-2).map((turn) => turn.text)
+    }),
     evidence_summary: compactEvidenceState(request.evidenceState),
     dialogue_progress_state: compactDialogueProgressState(request.dialogueProgressState),
     history: previousHistory(request),
@@ -237,6 +281,49 @@ export async function runDialogueAgent(request, options = {}) {
     signal: options.signal
   })
   return mapAgentResult(result)
+}
+
+export async function analyzeDialogueEvidence(request, options = {}) {
+  const body = {
+    phase: 'next',
+    session_id: request.runtimeCard.sessionId,
+    item_id: request.runtimeCard.itemId,
+    ...(options.expectedProvider ? { expected_provider: String(options.expectedProvider) } : {}),
+    ...(options.expectedModel ? { expected_model: String(options.expectedModel) } : {}),
+    teacher_turn: request.teacherTurn,
+    eliciting_question: request.elicitingQuestion || '',
+    compiled_card: compactEvidenceRuntimeCard(request.runtimeCard, { teacherTurn: request.teacherTurn }),
+    evidence_summary: compactEvidenceState(request.evidenceState),
+    history: previousHistory(request)
+  }
+  const response = await requestJson('/v1/evidence/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal
+  })
+  return {
+    resultId: String(response.request_id || crypto.randomUUID()),
+    evidenceCandidates: (response.evidence_candidates || []).map((candidate) => ({
+      evidenceClaimId: candidate.evidence_claim_id,
+      understandingId: candidate.understanding_id,
+      relation: candidate.relation,
+      proposedStatus: candidate.proposed_status,
+      responseOrigin: candidate.response_origin,
+      confidence: candidate.confidence,
+      spans: candidate.spans,
+      rationale: candidate.rationale
+    })),
+    trace: {
+      provider: response.provider || 'unknown',
+      model: String(response.model || 'unknown'),
+      promptVersion: String(response.prompt_version || 'unknown'),
+      requestId: String(response.request_id || ''),
+      providerRequestId: String(response.provider_request_id || ''),
+      latencyMs: Number(response.latency_ms || 0),
+      usage: response.usage || null
+    }
+  }
 }
 
 export async function getDialogueAgentHealth(options = {}) {

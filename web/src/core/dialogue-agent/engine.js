@@ -131,6 +131,7 @@ export function createDialogueSession(runtimeCard, options = {}) {
     dialogueProgressState: initializeDialogueProgressState(runtimeCard),
     history: [],
     auditLog: [],
+    backgroundEvidenceAnalyses: [],
     pendingRequest: null,
     lastAgentResult: null
   }
@@ -287,6 +288,46 @@ export async function startDialogue(session, provider, options = {}) {
   const request = nextRequest(session, 'FIRST_QUESTION', '', options)
   audit(session, 'AgentRequested', { requestId: request.requestId, turnId: request.turnId, kind: request.kind }, options.now || defaultNow)
   return execute(session, request, provider, options)
+}
+
+/**
+ * 前台问题已经显示后，后台 Evidence Analyzer 可把同一教师轮次的候选补写进
+ * canonical Evidence。它不追加对话、不改变已经显示的问题，也不阻塞下一轮。
+ */
+export function applyBackgroundEvidenceAnalysis(session, analysis, context = {}, options = {}) {
+  if (!session || !session.evidenceState || !session.runtimeCard) throw new Error('dialogue_session_invalid')
+  const teacherTurn = String(context.teacherTurn || '').trim()
+  const turnId = String(context.turnId || '').trim()
+  if (!teacherTurn || !turnId) throw new Error('background_evidence_context_required')
+  const now = options.now || defaultNow
+  const resultId = String(analysis?.resultId || `background-evidence:${turnId}:${Date.now()}`)
+  const committed = commitEvidenceCandidates(
+    session.evidenceState,
+    analysis?.evidenceCandidates || [],
+    { turnId, teacherTurn, agentResultId: resultId },
+    session.runtimeCard,
+    { now }
+  )
+  session.evidenceState = committed.state
+  session.backgroundEvidenceAnalyses ||= []
+  session.backgroundEvidenceAnalyses.push({
+    resultId,
+    turnId,
+    acceptedEvidenceIds: committed.accepted.flatMap((item) => item.evidenceIds || []),
+    rejected: clone(committed.rejected),
+    trace: clone(analysis?.trace || {}),
+    at: now()
+  })
+  session.backgroundEvidenceAnalyses = session.backgroundEvidenceAnalyses.slice(-30)
+  session.version += 1
+  audit(session, 'BackgroundEvidenceApplied', {
+    resultId,
+    turnId,
+    acceptedEvidenceIds: committed.accepted.flatMap((item) => item.evidenceIds || []),
+    rejectedEvidence: clone(committed.rejected),
+    trace: clone(analysis?.trace || {})
+  }, now)
+  return committed
 }
 
 export async function submitTeacherTurn(session, teacherTurn, provider, options = {}) {

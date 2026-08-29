@@ -8,6 +8,47 @@ const { PROMPT_VERSION } = require('../src/prompts');
 const { questionSimilarity } = require('../src/schema');
 const { validOutput, compiledCard } = require('./fixtures');
 
+test('foreground question and background evidence use separate compact model calls', async () => {
+  const calls = [];
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async (request) => {
+      calls.push({ schemaName: request.schemaName, reasoningEffort: request.reasoningEffort, maxOutputTokens: request.maxOutputTokens });
+      if (request.schemaName === 'tcim_evidence_analysis_v1') {
+        return {
+          output: {
+            evidence_candidates: [{
+              evidence_claim_id: 'ECL-Q01-PLAY-FRAME',
+              understanding_id: 'UND-Q01-001',
+              relation: 'SUPPORT',
+              proposed_status: 'PARTIAL',
+              response_origin: 'RO1',
+              confidence: 0.7,
+              spans: ['我会先观察幼儿'],
+              rationale: '教师自主提出观察'
+            }]
+          },
+          provider: 'mock', model: 'test', usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }
+        };
+      }
+      return { output: validOutput(), provider: 'mock', model: 'test' };
+    }
+  };
+  const agent = createDialogueAgent({ provider });
+  const foreground = await agent.run({ phase: 'first', compiled_card: compiledCard(), history: [], evidence_summary: {} });
+  const background = await agent.analyzeEvidence({
+    compiled_card: compiledCard(),
+    teacher_turn: '我会先观察幼儿的反应。',
+    history: [{ role: 'assistant', text: foreground.visible_text }],
+    evidence_summary: {}
+  });
+  assert.equal(foreground.evidence_candidates.length, 0);
+  assert.equal(background.evidence_candidates.length, 1);
+  assert.deepEqual(calls.map((call) => call.schemaName), ['tcim_dialogue_fast_v3', 'tcim_evidence_analysis_v1']);
+  assert.equal(calls[0].reasoningEffort, 'low');
+  assert.equal(calls[0].maxOutputTokens, 500);
+});
+
 test('first turn accepts a valid strict provider result', async () => {
   const provider = { id: 'mock', model: 'test', ready: true, generate: async () => ({ output: validOutput(), provider: 'mock', model: 'test' }) };
   const result = await createDialogueAgent({ provider }).run({ phase: 'first', compiled_card: compiledCard(), history: [], evidence_summary: {} });

@@ -99,24 +99,24 @@ function createOpenAIProvider(options = {}) {
     id: 'openai',
     model,
     ready: Boolean(apiKey),
-    async generate({ system, user, signal, promptCacheKey, schema = DIALOGUE_RESPONSE_SCHEMA }) {
+    async generate({ system, user, signal, promptCacheKey, schema = DIALOGUE_RESPONSE_SCHEMA, schemaName = 'tcim_dialogue_turn_v2', reasoningEffort: requestReasoningEffort, maxOutputTokens: requestMaxOutputTokens }) {
       if (!apiKey) throw new ProviderError('OPENAI_API_KEY is not configured', { provider: 'openai', code: 'provider_not_configured', status: 503 });
       if (typeof fetchImpl !== 'function') throw new ProviderError('fetch is unavailable', { provider: 'openai', code: 'fetch_unavailable', status: 500 });
       const payload = {
         model,
         instructions: system,
         input: user,
-        reasoning: { effort: reasoningEffort },
+        reasoning: { effort: String(requestReasoningEffort || reasoningEffort) },
         text: {
           verbosity: 'low',
           format: {
             type: 'json_schema',
-            name: 'tcim_dialogue_turn_v2',
+            name: schemaName,
             strict: true,
             schema
           }
         },
-        max_output_tokens: maxOutputTokens,
+        max_output_tokens: readPositiveInt(requestMaxOutputTokens, maxOutputTokens),
         store: false,
         prompt_cache_key: promptCacheKey
       };
@@ -153,7 +153,7 @@ function createKimiProvider(options = {}) {
     id: 'kimi',
     model,
     ready: Boolean(apiKey),
-    async generate({ system, user, signal, schema = DIALOGUE_RESPONSE_SCHEMA }) {
+    async generate({ system, user, signal, schema = DIALOGUE_RESPONSE_SCHEMA, schemaName = 'tcim_dialogue_turn_v2', reasoningEffort: requestReasoningEffort, maxOutputTokens: requestMaxOutputTokens }) {
       if (!apiKey) throw new ProviderError('KIMI_API_KEY or MOONSHOT_API_KEY is not configured', { provider: 'kimi', code: 'provider_not_configured', status: 503 });
       if (typeof fetchImpl !== 'function') throw new ProviderError('fetch is unavailable', { provider: 'kimi', code: 'fetch_unavailable', status: 500 });
       const payload = {
@@ -162,12 +162,12 @@ function createKimiProvider(options = {}) {
           { role: 'system', content: system },
           { role: 'user', content: user }
         ],
-        reasoning_effort: reasoningEffort,
-        max_completion_tokens: maxCompletionTokens,
+        reasoning_effort: String(requestReasoningEffort || reasoningEffort),
+        max_completion_tokens: readPositiveInt(requestMaxOutputTokens, maxCompletionTokens),
         response_format: {
           type: 'json_schema',
           json_schema: {
-            name: 'tcim_dialogue_turn_v2',
+            name: schemaName,
             strict: true,
             schema
           }

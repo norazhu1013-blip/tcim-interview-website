@@ -1,12 +1,16 @@
 'use strict';
 
 const crypto = require('crypto');
-const { buildPrompts, PROMPT_VERSION } = require('./prompts');
+const { buildPrompts, buildEvidencePrompts, PROMPT_VERSION } = require('./prompts');
 const {
-  DIALOGUE_RESPONSE_SCHEMA,
+  FAST_DIALOGUE_RESPONSE_SCHEMA,
+  EVIDENCE_ANALYSIS_SCHEMA,
   DUPLICATE_QUESTION_ERROR,
   recentAssistantQuestions,
-  validateDialogueOutput
+  validateDialogueOutput,
+  validateEvidenceAnalysisOutput,
+  normalizeFastDialogueOutput,
+  collectDialoguePolicyIndex
 } = require('./schema');
 const { ProviderError, selectProvider } = require('./providers');
 
@@ -98,8 +102,12 @@ function createDialogueAgent(options = {}) {
   const providerSelector = options.providerSelector || selectProvider;
   let activeProvider = options.provider || providerSelector({ ...options, env });
   const timeoutMs = positiveInt(options.timeoutMs || env.TCIM_DIALOGUE_TIMEOUT_MS, 45000);
-  const maxHistoryTurns = positiveInt(options.maxHistoryTurns || env.TCIM_DIALOGUE_MAX_HISTORY_TURNS, 40);
+  const maxHistoryTurns = positiveInt(options.maxHistoryTurns || env.TCIM_DIALOGUE_MAX_HISTORY_TURNS, 8);
   const maxQuestionChars = positiveInt(options.maxQuestionChars || env.TCIM_DIALOGUE_MAX_QUESTION_CHARS, 140);
+  const fastReasoningEffort = String(options.fastReasoningEffort || env.TCIM_DIALOGUE_FAST_REASONING_EFFORT || 'low');
+  const evidenceReasoningEffort = String(options.evidenceReasoningEffort || env.TCIM_EVIDENCE_REASONING_EFFORT || 'medium');
+  const fastMaxOutputTokens = positiveInt(options.fastMaxOutputTokens || env.TCIM_DIALOGUE_FAST_MAX_OUTPUT_TOKENS, 500);
+  const evidenceMaxOutputTokens = positiveInt(options.evidenceMaxOutputTokens || env.TCIM_EVIDENCE_MAX_OUTPUT_TOKENS, 1600);
 
   function assertProvider(provider) {
     if (!provider || typeof provider !== 'object' || typeof provider.generate !== 'function') {
@@ -121,6 +129,58 @@ function createDialogueAgent(options = {}) {
     return nextProvider;
   }
 
+  async function analyzeEvidence(rawInput, runOptions = {}) {
+    const provider = activeProvider;
+    const input = validateInput({ ...rawInput, phase: 'next' }, 'next');
+    validateProviderLock(input, provider);
+    const prompts = buildEvidencePrompts(input, { maxHistoryTurns: 6 });
+    const controller = new AbortController();
+    const externalSignal = runOptions.signal;
+    const abort = () => controller.abort(new Error('client disconnected'));
+    if (externalSignal?.aborted) abort();
+    else externalSignal?.addEventListener('abort', abort, { once: true });
+    const startedAt = Date.now();
+    const requestId = crypto.randomUUID();
+    try {
+      const generated = await provider.generate({
+        system: prompts.system,
+        user: prompts.user,
+        schema: EVIDENCE_ANALYSIS_SCHEMA,
+        schemaName: 'tcim_evidence_analysis_v1',
+        reasoningEffort: evidenceReasoningEffort,
+        maxOutputTokens: evidenceMaxOutputTokens,
+        promptCacheKey: prompts.promptCacheKey,
+        signal: controller.signal,
+        requestId
+      });
+      const evidenceOutput = { evidence_candidates: Array.isArray(generated.output?.evidence_candidates) ? generated.output.evidence_candidates : [] };
+      const validated = validateEvidenceAnalysisOutput(evidenceOutput, {
+        teacherTurn: prompts.teacherTurn,
+        compiledCard: input.compiled_card
+      });
+      if (!validated.ok) {
+        throw new ProviderError(`evidence output failed validation: ${validated.errors.join('; ')}`, {
+          provider: generated.provider || provider.id,
+          code: 'invalid_evidence_output',
+          details: validated.errors.join('; ')
+        });
+      }
+      return {
+        ok: true,
+        request_id: requestId,
+        evidence_candidates: evidenceOutput.evidence_candidates,
+        provider: generated.provider || provider.id,
+        model: generated.model || provider.model || '',
+        prompt_version: `${PROMPT_VERSION}:evidence-v1`,
+        usage: generated.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+        latency_ms: Date.now() - startedAt,
+        provider_request_id: generated.provider_request_id || ''
+      };
+    } finally {
+      externalSignal?.removeEventListener('abort', abort);
+    }
+  }
+
   assertProvider(activeProvider);
 
   return {
@@ -128,6 +188,7 @@ function createDialogueAgent(options = {}) {
     timeoutMs,
     prepareProvider,
     setProvider,
+    analyzeEvidence,
     async run(rawInput, forcedPhase, runOptions = {}) {
       // One turn keeps the provider it started with even if the next turn is
       // switched while this request is awaiting the upstream model.
@@ -161,7 +222,10 @@ function createDialogueAgent(options = {}) {
           generated = await provider.generate({
             system: prompts.system,
             user: userPrompt,
-            schema: DIALOGUE_RESPONSE_SCHEMA,
+            schema: FAST_DIALOGUE_RESPONSE_SCHEMA,
+            schemaName: 'tcim_dialogue_fast_v3',
+            reasoningEffort: fastReasoningEffort,
+            maxOutputTokens: fastMaxOutputTokens,
             phase: prompts.phase,
             itemId: String(input.item_id || input.compiled_card.itemId || input.compiled_card.item_id || ''),
             teacherTurn: prompts.teacherTurn,
@@ -173,6 +237,10 @@ function createDialogueAgent(options = {}) {
             generationAttempt
           });
           attempts.push(generated);
+          generated.output = normalizeFastDialogueOutput(generated.output, prompts.phase);
+          const knownDialoguePolicies = collectDialoguePolicyIndex(input.compiled_card).all;
+          generated.output.direction.consulted_policy_ids = generated.output.direction.consulted_policy_ids
+            .filter((policyId) => knownDialoguePolicies.has(policyId));
           validated = validateDialogueOutput(generated.output, {
             phase: prompts.phase,
             teacherTurn: prompts.teacherTurn,

@@ -7,6 +7,7 @@ import { computeProcess } from '../core/process.js'
 import {
   createDialogueSession,
   createRuntimeCardFromRuntimeData,
+  applyBackgroundEvidenceAnalysis,
   retryDialogue,
   startDialogue,
   submitTeacherTurn,
@@ -19,7 +20,7 @@ import {
 } from '../core/dialogue-agent/records.js'
 import { getProfile, getSession, saveSession } from '../services/storage.js'
 import { reportInterview, reportDraft } from '../services/api.js'
-import { getDialogueAgentHealth, runDialogueAgent } from '../services/dialogueAgent.js'
+import { analyzeDialogueEvidence, getDialogueAgentHealth, runDialogueAgent } from '../services/dialogueAgent.js'
 import { configureDialogueModel, getDialogueModelConfig } from '../services/modelConfig.js'
 
 const route = useRoute()
@@ -49,6 +50,7 @@ const chatEnd = ref(null)
 const lastLLMProfile = ref(formalExisting?.llmProfile || '')
 const lastLLMModel = ref(formalExisting?.llmModel || '')
 const generationFailures = ref(Array.isArray(formalExisting?.generationFailures) ? formalExisting.generationFailures.slice() : [])
+const performanceMetrics = ref(Array.isArray(formalExisting?.performanceMetrics) ? formalExisting.performanceMetrics.slice() : [])
 const dialogueSession = ref(formalExisting?.dialogueSession || null)
 const agentHealth = ref({ checked: false, ok: false, provider: '', model: '', error: '' })
 const simulationOnly = ref(false)
@@ -68,6 +70,16 @@ let _activeGeneration = null
 let _releaseInterviewExecutionLock = null
 let _interviewExecutionLockTask = null
 let timer = null
+
+const latencyTargetMs = 7000
+const latencySummary = computed(() => {
+  const rows = performanceMetrics.value.filter((row) => Number(row.visibleLatencyMs) > 0)
+  const latest = rows.at(-1) || null
+  const averageMs = rows.length ? Math.round(rows.reduce((sum, row) => sum + Number(row.visibleLatencyMs || 0), 0) / rows.length) : 0
+  const withinTarget = rows.filter((row) => Number(row.visibleLatencyMs) <= latencyTargetMs).length
+  return { rows, latest, averageMs, withinTarget, total: rows.length }
+})
+function seconds(value) { return `${(Number(value || 0) / 1000).toFixed(1)}秒` }
 
 const isReview = computed(() => activeExisting.value?.status === 'done')
 const timeText = computed(() => `${String(Math.floor(remaining.value / 60)).padStart(2, '0')}:${String(remaining.value % 60).padStart(2, '0')}`)
@@ -214,7 +226,73 @@ function pauseForLocalSessionError(error, requestedAt) {
   return false
 }
 
-async function acceptAgentOutcome(outcome, requestedAt) {
+function addVisiblePerformanceMetric(requestedAt, phase) {
+  const trace = dialogueSession.value?.lastAgentResult?.trace || {}
+  const metric = {
+    metricId: `${dialogueSession.value?.itemId || item.item_id}:${phase}:${Date.now()}`,
+    turnId: phase === 'first' ? 'turn-0' : `turn-${dialogueSession.value?.turnSeq || 0}`,
+    phase,
+    provider: trace.provider || lastLLMProfile.value || '',
+    model: trace.model || lastLLMModel.value || '',
+    visibleLatencyMs: Date.now() - requestedAt,
+    providerLatencyMs: Number(trace.latencyMs || 0),
+    inputTokens: Number(trace.usage?.input_tokens || 0),
+    outputTokens: Number(trace.usage?.output_tokens || 0),
+    totalTokens: Number(trace.usage?.total_tokens || 0),
+    targetMs: latencyTargetMs,
+    withinTarget: Date.now() - requestedAt <= latencyTargetMs,
+    evidenceStatus: phase === 'first' ? 'not_applicable' : 'pending',
+    evidenceLatencyMs: 0,
+    evidenceInputTokens: 0,
+    evidenceOutputTokens: 0,
+    at: Date.now()
+  }
+  performanceMetrics.value.push(metric)
+  performanceMetrics.value = performanceMetrics.value.slice(-60)
+  return metric
+}
+
+function updatePerformanceMetric(metricId, updates) {
+  const index = performanceMetrics.value.findIndex((row) => row.metricId === metricId)
+  if (index < 0) return
+  performanceMetrics.value[index] = { ...performanceMetrics.value[index], ...updates }
+  performanceMetrics.value = performanceMetrics.value.slice()
+}
+
+async function runBackgroundEvidenceAnalysis({ teacherText, turnId, elicitingQuestion, metricId }) {
+  const startedAt = Date.now()
+  try {
+    const locked = session.value?.dialogueModelSelection || {}
+    const analysis = await analyzeDialogueEvidence({
+      runtimeCard: dialogueSession.value.runtimeCard,
+      teacherTurn: teacherText,
+      elicitingQuestion,
+      evidenceState: dialogueSession.value.evidenceState,
+      history: dialogueSession.value.history.filter((turn) => !(turn.role === 'agent' && turn.turnId === turnId))
+    }, {
+      expectedProvider: locked.provider || lastLLMProfile.value || agentHealth.value.provider,
+      expectedModel: locked.model || lastLLMModel.value || agentHealth.value.model
+    })
+    const committed = applyBackgroundEvidenceAnalysis(dialogueSession.value, analysis, { turnId, teacherTurn: teacherText })
+    updatePerformanceMetric(metricId, {
+      evidenceStatus: 'completed',
+      evidenceLatencyMs: Date.now() - startedAt,
+      evidenceAccepted: committed.accepted.length,
+      evidenceRejected: committed.rejected.length,
+      evidenceInputTokens: Number(analysis.trace?.usage?.input_tokens || 0),
+      evidenceOutputTokens: Number(analysis.trace?.usage?.output_tokens || 0)
+    })
+  } catch (error) {
+    updatePerformanceMetric(metricId, {
+      evidenceStatus: 'failed',
+      evidenceLatencyMs: Date.now() - startedAt,
+      evidenceError: error?.code || error?.message || 'background_evidence_failed'
+    })
+  }
+  persist(done.value)
+}
+
+async function acceptAgentOutcome(outcome, requestedAt, phase = 'next', recordPerformance = true) {
   if (_timeUpClosed) {
     if (dialogueSession.value) {
       dialogueSession.value.status = 'COMPLETED'
@@ -233,6 +311,7 @@ async function acceptAgentOutcome(outcome, requestedAt) {
   const trace = dialogueSession.value?.lastAgentResult?.trace || {}
   lastLLMProfile.value = trace.provider || lastLLMProfile.value
   lastLLMModel.value = trace.model || lastLLMModel.value
+  if (recordPerformance) addVisiblePerformanceMetric(requestedAt, phase)
   messages.value.push({
     role: 'ai',
     text: outcome.visibleText,
@@ -265,7 +344,7 @@ async function generateFirstQuestion() {
   // 刷新页面后可以恢复为 PAUSED 并重试同一请求。
   persist(false)
   const outcome = await pending
-  return acceptAgentOutcome(outcome, requestedAt)
+  return acceptAgentOutcome(outcome, requestedAt, 'first')
 }
 
 async function generateAfterTeacher(teacherText, preparedSession = null) {
@@ -279,11 +358,20 @@ async function generateAfterTeacher(teacherText, preparedSession = null) {
     }
   }
   _activeGeneration = new AbortController()
+  const previousResultId = modelSession.lastAgentResult?.resultId || ''
   const pending = submitTeacherTurn(modelSession, teacherText, providerFor(_activeGeneration))
   // 教师原话、turnSeq 和 pendingRequest 已同步写入领域会话，先持久化再等网络。
   persist(false)
   const outcome = await pending
-  return acceptAgentOutcome(outcome, requestedAt)
+  const modelGenerated = Boolean(modelSession.lastAgentResult?.resultId && modelSession.lastAgentResult.resultId !== previousResultId)
+  const accepted = await acceptAgentOutcome(outcome, requestedAt, 'next', modelGenerated)
+  if (accepted && modelGenerated && dialogueSession.value?.lastAgentResult?.trace?.requestId) {
+    const metric = performanceMetrics.value.at(-1)
+    const turnId = `turn-${modelSession.turnSeq}`
+    const elicitingQuestion = [...messages.value].reverse().find((message) => message.role === 'ai' && message.text !== outcome.visibleText)?.text || ''
+    void runBackgroundEvidenceAnalysis({ teacherText, turnId, elicitingQuestion, metricId: metric?.metricId })
+  }
+  return accepted
 }
 
 async function send() {
@@ -326,7 +414,7 @@ async function retryQuestion() {
     const pending = retryDialogue(modelSession, providerFor(_activeGeneration))
     persist(false)
     const outcome = await pending
-    await acceptAgentOutcome(outcome, requestedAt)
+    await acceptAgentOutcome(outcome, requestedAt, dialogueSession.value?.turnSeq ? 'next' : 'first')
   } finally {
     sending.value = false
     _activeGeneration = null
@@ -605,6 +693,7 @@ function persist(isDone) {
     llmProfile: lastLLMProfile.value,
     llmModel: lastLLMModel.value,
     generationFailures: generationFailures.value.slice(),
+    performanceMetrics: performanceMetrics.value.slice(),
     generationError: generationPaused.value ? generationError.value : '',
     simulationOnly: simulationOnly.value,
     mode: INTERVIEW_MODE,
@@ -832,6 +921,29 @@ onBeforeUnmount(() => {
       >{{ activeProviderMismatch ? '恢复本次访谈模型' : '选择真实模型' }}</button>
     </div>
 
+    <details v-if="latencySummary.total" class="latency-board">
+      <summary>
+        <span>本轮耗时</span>
+        <strong :class="latencySummary.latest?.withinTarget ? 'met' : 'missed'">{{ seconds(latencySummary.latest?.visibleLatencyMs) }}</strong>
+        <small>目标≤7秒 · 点击查看</small>
+      </summary>
+      <div class="latency-overview">
+        <span>平均可见 {{ seconds(latencySummary.averageMs) }}</span>
+        <span>达标 {{ latencySummary.withinTarget }}/{{ latencySummary.total }}</span>
+        <span>{{ latencySummary.latest?.model || latencySummary.latest?.provider }}</span>
+      </div>
+      <div class="latency-rows">
+        <div v-for="row in latencySummary.rows.slice(-6).reverse()" :key="row.metricId">
+          <span>{{ row.phase === 'first' ? '首问' : row.turnId }}</span>
+          <strong :class="row.withinTarget ? 'met' : 'missed'">{{ seconds(row.visibleLatencyMs) }}</strong>
+          <small>输入{{ row.inputTokens || 0 }} · 输出{{ row.outputTokens || 0 }}</small>
+          <small v-if="row.evidenceStatus === 'pending'">Evidence后台分析中</small>
+          <small v-else-if="row.evidenceStatus === 'completed'">Evidence {{ seconds(row.evidenceLatencyMs) }}（不阻塞）</small>
+          <small v-else-if="row.evidenceStatus === 'failed'" class="missed">Evidence待重试</small>
+        </div>
+      </div>
+    </details>
+
     <article class="interview-context">
       <details open>
         <summary>查看案例、四个做法与本人排序</summary>
@@ -982,6 +1094,17 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font: inherit;
 }
+.latency-board { margin: 8px 0 0; border: 1px solid #e5e9f2; border-radius: 12px; background: #fff; color: #475467; font-size: 12px; }
+.latency-board summary { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; list-style: none; }
+.latency-board summary::-webkit-details-marker { display: none; }
+.latency-board summary span { font-weight: 700; color: #344054; }
+.latency-board summary small { margin-left: auto; color: #98a2b3; }
+.latency-board .met { color: #067647; }
+.latency-board .missed { color: #b54708; }
+.latency-overview { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 12px 9px; border-bottom: 1px solid #eef0f4; }
+.latency-rows { padding: 5px 12px 9px; }
+.latency-rows > div { display: grid; grid-template-columns: 52px 58px 1fr auto; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px dashed #eef0f4; }
+.latency-rows > div:last-child { border-bottom: 0; }
 .demo-consent { border-color: #f2c078; background: #fffaf0; }
 .model-setup {
   align-items: stretch;
