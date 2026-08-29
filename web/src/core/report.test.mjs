@@ -22,9 +22,20 @@ function mockSession() {
         { id: 'Q4', task_card: { ability_focus: { interview_main_focus: '教师能否把个人发现转化为共同资源' } } }
       ]
     },
-    interview: {
-      Q1: { status: 'done', messages: [{ role: 'ai', text: '您会先看什么？' }, { role: 'teacher', text: '我会先看他们玩得开不开心，游戏是不是他们自己想出来的' }] },
-      Q5: { status: 'done', messages: [{ role: 'ai', text: '您怎么看？' }, { role: 'teacher', text: '我觉得游戏是孩子自己的活动，我主要是支持' }] }
+    comparisonInterview: {
+      Q1: {
+        status: 'done', mode: 'dialogue_agent_new_five_tables_evidence_state', simulationOnly: false,
+        messages: [{ role: 'ai', text: '您会先看什么？' }, { role: 'teacher', text: '我会先看他们玩得开不开心，游戏是不是他们自己想出来的' }],
+        dialogueSession: { evidenceState: { records: [{
+          evidenceId: 'e-1', evidenceClaimId: 'ECL-Q01-PLAY-FRAME', understandingId: 'UND-Q01-001',
+          relation: 'SUPPORT', span: '玩得开不开心', lifecycle: 'ACTIVE'
+        }] } }
+      },
+      Q5: {
+        status: 'done', mode: 'dialogue_agent_new_five_tables_evidence_state', simulationOnly: false,
+        messages: [{ role: 'ai', text: '您怎么看？' }, { role: 'teacher', text: '我觉得游戏是孩子自己的活动，我主要是支持' }],
+        dialogueSession: { evidenceState: { records: [] } }
+      }
     }
   }
 }
@@ -51,6 +62,33 @@ check('过程解释含作答题数与用时', () => {
 check('访谈证据回填引用已访谈情境(含教师原话)', () => {
   if (!r.evidence.length) throw new Error('无证据')
   if (!r.evidence.some((e) => e.itemId === 'Q1' && e.quote.includes('开不开心'))) throw new Error('缺少 Q1 教师原话证据')
+})
+check('没有 canonical Evidence 时明确标记未形成，不能把最后一句当证据', () => {
+  const q5 = r.evidence.find((e) => e.itemId === 'Q5')
+  if (!q5 || q5.evidenceStatus !== 'not_formed') throw new Error('Q5 未标记 not_formed')
+  if (q5.quote) throw new Error('Q5 错把 transcript 当 canonical Evidence')
+})
+check('simulationOnly 记录不会进入报告 Evidence', () => {
+  const simulated = mockSession()
+  simulated.comparisonInterview.Q1 = {
+    ...simulated.comparisonInterview.Q1,
+    simulationOnly: true
+  }
+  const simulationReport = buildReport(simulated)
+  const q1 = simulationReport.evidence.find((e) => e.itemId === 'Q1')
+  if (!q1 || q1.evidenceStatus !== 'not_formed' || q1.quote) throw new Error('演示数据进入正式报告')
+})
+check('旧版未标 simulationOnly 的 mock 记录也不会进入正式报告', () => {
+  const simulated = mockSession()
+  simulated.comparisonInterview.Q1 = {
+    ...simulated.comparisonInterview.Q1,
+    simulationOnly: false,
+    llmProfile: 'mock',
+    llmModel: 'mock-dialogue-v1'
+  }
+  const simulationReport = buildReport(simulated)
+  const q1 = simulationReport.evidence.find((e) => e.itemId === 'Q1')
+  if (!q1 || q1.evidenceStatus !== 'not_formed' || q1.quote) throw new Error('旧 mock 数据进入正式报告')
 })
 check('学习建议非空且非评判', () => {
   if (!r.suggestions.length) throw new Error('建议为空')

@@ -4,10 +4,15 @@ import { useRouter } from 'vue-router'
 import { ITEMS, QUESTIONS_VERSION } from '../generated/data.js'
 import { createSession, deleteSession, formatDate, getProfile, isProfileComplete, listSessions } from '../services/storage.js'
 import { requireWebLogin } from '../services/web-auth.js'
+import { isFormalComparisonInterviewRecord } from '../core/dialogue-agent/records.js'
 
 const router = useRouter()
 const records = ref([])
 const profile = ref(null)
+function formalInterviews(session) {
+  const records = { ...(session.interview || {}), ...(session.comparisonInterview || {}) }
+  return Object.values(records).filter(isFormalComparisonInterviewRecord)
+}
 
 function refresh() {
   profile.value = getProfile()
@@ -20,7 +25,7 @@ onActivated(refresh)
 const blockStart = computed(() => records.value.some((session) => {
   if (session.status === 'in_progress') return false
   const planned = session.selection?.final?.length || 3
-  const done = Object.values(session.interview || {}).filter((item) => item?.status === 'done').length
+  const done = formalInterviews(session).filter((item) => item?.status === 'done').length
   return done < planned
 }))
 
@@ -45,7 +50,7 @@ function remove(session) {
 
 function interviewProgress(session) {
   const planned = session.selection?.final?.length || 3
-  const done = Object.values(session.interview || {}).filter((item) => item?.status === 'done').length
+  const done = formalInterviews(session).filter((item) => item?.status === 'done').length
   return `${done}/${planned}`
 }
 </script>
@@ -54,6 +59,7 @@ function interviewProgress(session) {
   <section class="page home-page">
     <div class="hero">
       <div>
+        <span class="comparison-badge">本机研究比较版 · Dialogue Agent 主导</span>
         <p class="eyebrow">幼儿园教师专业能力发展</p>
         <h1>{{ profile?.name ? `${profile.name}老师，您好` : '游戏支持与引导能力测评' }}</h1>
         <p>通过 10 个真实教育情境，记录您的专业判断过程，并围绕三个情境开展 AI 证据访谈。</p>
@@ -108,3 +114,17 @@ function interviewProgress(session) {
     </div>
   </section>
 </template>
+
+<style scoped>
+.comparison-badge {
+  display: inline-flex;
+  margin-bottom: 16px;
+  padding: 7px 11px;
+  border: 1px solid #cdd7ff;
+  border-radius: 999px;
+  color: #2f4fb6;
+  background: rgba(238, 242, 255, .9);
+  font-size: 12px;
+  font-weight: 800;
+}
+</style>

@@ -1,4 +1,5 @@
 import { callGateway } from './web-gateway.js'
+import { isFormalComparisonInterviewRecord } from '../core/dialogue-agent/records.js'
 
 export const whoami = () => callGateway('whoami')
 
@@ -54,11 +55,17 @@ function byteLength(str) {
 }
 
 const DISCARD_LIMIT_BYTES = 950 * 1024 // 网关 1MB，前端在 0.95MB 就告警，避免硬 413
+export function formalComparisonTranscripts(session) {
+  const records = { ...(session.interview || {}), ...(session.comparisonInterview || {}) }
+  return Object.fromEntries(
+    Object.entries(records)
+      .filter(([, record]) => isFormalComparisonInterviewRecord(record))
+      .map(([key, value]) => [key, stripTranscriptForUpload(value)])
+  )
+}
 
 export function reportInterview(session) {
-  const transcripts = Object.fromEntries(
-    Object.entries(session.interview || {}).map(([k, v]) => [k, stripTranscriptForUpload(v)])
-  )
+  const transcripts = formalComparisonTranscripts(session)
   const payload = {
     sessionId: session.sessionId,
     studyMode: session.studyMode || 'full_assessment',

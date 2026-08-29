@@ -9,6 +9,7 @@
  * 说明：这是 v1 数据驱动画像；§9 的完整「三源融合 + 常模定位」属研究侧算法，不在本模块。
  */
 import { INDICATOR_MAP } from '../generated/data.js'
+import { isFormalComparisonInterviewRecord } from './dialogue-agent/records.js'
 
 export const TERTIARY_INDICATORS = ['A1', 'A2', 'A3', 'B1', 'B2', 'C1', 'C2']
 export const SECONDARY_INDICATORS = {
@@ -45,13 +46,25 @@ function itemTitle(itemId) {
   return t ? t[1] : itemId
 }
 
-function lastTeacherQuote(item) {
-  const msgs = (item && item.messages) || []
-  const t = msgs.filter((m) => m && m.role === 'teacher' && m.text).map((m) => String(m.text).trim())
-  if (!t.length) return ''
-  let q = t[t.length - 1].replace(/\s+/g, ' ').trim()
-  if (q.length > 40) q = q.slice(0, 40) + '……'
-  return q
+function formalInterviewRecords(session) {
+  const merged = { ...(session.interview || {}), ...(session.comparisonInterview || {}) }
+  return Object.fromEntries(Object.entries(merged).filter(([, record]) => isFormalComparisonInterviewRecord(record)))
+}
+
+function canonicalEvidence(item) {
+  const records = item?.dialogueSession?.evidenceState?.records || []
+  const active = records.filter((record) => (
+    record?.lifecycle === 'ACTIVE'
+    && ['SUPPORT', 'REVISE'].includes(record?.relation)
+    && typeof record?.span === 'string'
+    && record.span.trim()
+  ))
+  const spans = [...new Set(active.map((record) => record.span.trim()))]
+  return {
+    quote: spans.join('；'),
+    evidenceIds: active.map((record) => record.evidenceId).filter(Boolean),
+    evidenceClaimIds: [...new Set(active.map((record) => record.evidenceClaimId).filter(Boolean))]
+  }
 }
 
 /** 二级 → 其含有的三级指标 + 主键题目。 */
@@ -173,7 +186,7 @@ function processNarrative(s) {
 
 function interviewEvidence(s) {
   const selection = (s.selection && s.selection.final) || []
-  const interviews = s.interview || {}
+  const interviews = formalInterviewRecords(s)
   const out = []
   for (const f of selection) {
     if (!f || !f.id) continue
@@ -181,13 +194,16 @@ function interviewEvidence(s) {
     const tc = f.task_card || {}
     const af = tc.ability_focus || {}
     const item = interviews[itemId]
-    const quote = lastTeacherQuote(item)
+    const canonical = canonicalEvidence(item)
     const m = INDICATOR_MAP[itemId] || {}
     out.push({
       itemId: itemTitle(itemId),
       indicator: (m.primary && m.primary.tertiary) || '',
-      focus: af.interview_main_focus || af.ability_focus || '',
-      quote,
+      focus: f.interview_focus || af.interview_main_focus || af.ability_focus || '',
+      quote: canonical.quote,
+      evidenceIds: canonical.evidenceIds,
+      evidenceClaimIds: canonical.evidenceClaimIds,
+      evidenceStatus: canonical.evidenceIds.length ? 'formed' : 'not_formed',
       status: (item && item.status) || ''
     })
   }
@@ -256,7 +272,7 @@ export function buildReportText(report, meta) {
   if (report.process && report.process.text) { lines.push(''); lines.push('## 过程说明'); lines.push(report.process.text) }
   if (report.evidence && report.evidence.length) {
     lines.push(''); lines.push('## 访谈证据回填')
-    for (const e of report.evidence) lines.push(`- ${e.itemId}${e.indicator ? '（' + e.indicator + '）' : ''}：${e.quote || '（待补充）'}`)
+    for (const e of report.evidence) lines.push(`- ${e.itemId}${e.indicator ? '（' + e.indicator + '）' : ''}：${e.quote || '（尚未形成 canonical Evidence）'}`)
   }
   if (report.suggestions && report.suggestions.length) {
     lines.push(''); lines.push('## 学习建议')

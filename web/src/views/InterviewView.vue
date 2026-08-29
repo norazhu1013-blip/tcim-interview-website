@@ -2,183 +2,196 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ITEMS } from '../generated/data.js'
-import { kbSlice } from '../core/interview.js'
+import fiveTableRuntime from '../generated/tcim-new-five-tables.runtime.v0.1.json'
 import { computeProcess } from '../core/process.js'
-import { initTcisSession, processTeacherTurn, firstQuestion, isV2Enabled } from '../core/tcim/engine.js'
-import { isTcisMode } from '../core/tcim/mode.js'
+import {
+  createDialogueSession,
+  createRuntimeCardFromRuntimeData,
+  retryDialogue,
+  startDialogue,
+  submitTeacherTurn,
+  validateDialogueSessionForResume
+} from '../core/dialogue-agent/index.js'
+import {
+  COMPARISON_INTERVIEW_MODE as INTERVIEW_MODE,
+  isFormalComparisonInterviewRecord,
+  isSimulationInterviewRecord
+} from '../core/dialogue-agent/records.js'
 import { getProfile, getSession, saveSession } from '../services/storage.js'
-import { interviewNext, reportInterview, reportDraft } from '../services/api.js'
-import { registerSemanticProvider, cloudHealth } from '../services/semanticLLM.js'
+import { reportInterview, reportDraft } from '../services/api.js'
+import { getDialogueAgentHealth, runDialogueAgent } from '../services/dialogueAgent.js'
 
 const route = useRoute()
 const router = useRouter()
 const session = ref(getSession(route.params.sid))
 const item = ITEMS.find((entry) => entry.item_id === route.params.itemId)
-const selected = session.value?.selection?.final?.find((entry) => entry.id === route.params.itemId)
 const answer = session.value?.answers?.[route.params.itemId]
-const existing = session.value?.interview?.[route.params.itemId]
-const messages = ref(existing?.messages?.slice() || [])
+const storedInterview = session.value?.interview?.[route.params.itemId]
+// 正式 comparison、演示和旧访谈分区保存，任何一种都不会覆盖另外两种。
+const storedComparison = session.value?.comparisonInterview?.[route.params.itemId]
+const migratedComparison = isFormalComparisonInterviewRecord(storedInterview) ? storedInterview : null
+const formalExisting = isFormalComparisonInterviewRecord(storedComparison) ? storedComparison : migratedComparison
+const simulationExisting = session.value?.simulationInterview?.[route.params.itemId]
+  || (isSimulationInterviewRecord(storedComparison) ? storedComparison : null)
+  || (storedInterview?.mode === INTERVIEW_MODE && isSimulationInterviewRecord(storedInterview) ? storedInterview : null)
+const activeExisting = ref(formalExisting)
+const messages = ref(formalExisting?.messages?.slice() || [])
 const input = ref('')
 const sending = ref(false)
-const done = ref(existing?.status === 'done')
-const generationPaused = ref(Boolean(existing?.generationError))
-const generationError = ref(existing?.generationError || '')
-const startedAt = ref(existing?.startedAt || Date.now())
+const done = ref(formalExisting?.status === 'done')
+const generationPaused = ref(Boolean(formalExisting?.generationError || formalExisting?.dialogueSession?.pendingRequest))
+const generationError = ref(formalExisting?.generationError || (formalExisting?.dialogueSession?.pendingRequest ? 'generation_interrupted' : ''))
+const startedAt = ref(formalExisting?.startedAt || Date.now())
+const deadlineAt = ref(formalExisting?.deadlineAt || startedAt.value + 10 * 60 * 1000)
 const remaining = ref(10 * 60)
 const chatEnd = ref(null)
-const stage = ref(existing?.stage || 'S1_CONTEXT')
-const lastLLMProfile = ref(existing?.llmProfile || '')
-const lastLLMModel = ref(existing?.llmModel || '')
-const generationFailures = ref(Array.isArray(existing?.generationFailures) ? existing.generationFailures.slice() : [])
-const webLLMProfile = String(import.meta.env.VITE_INTERVIEW_LLM_PROFILE || '').trim()
-const tcimEnabled = isTcisMode()
-// 注册 A01 语义预筛 provider（幂等；缺网关/构建时不注入，回退离线空 Proposal）
-if (tcimEnabled) registerSemanticProvider()
-// TCIM 确定性会话：localStorage 恢复或新初始化
-const tcimSession = ref(existing?.tcimSession || null)
-let _lastDraftedTurn = -1
+const lastLLMProfile = ref(formalExisting?.llmProfile || '')
+const lastLLMModel = ref(formalExisting?.llmModel || '')
+const generationFailures = ref(Array.isArray(formalExisting?.generationFailures) ? formalExisting.generationFailures.slice() : [])
+const dialogueSession = ref(formalExisting?.dialogueSession || null)
+const agentHealth = ref({ checked: false, ok: false, provider: '', model: '', error: '' })
+const simulationOnly = ref(false)
+const demoAuthorized = ref(false)
+const demoRequired = ref(false)
+let _lastDraftSignature = ''
+let _draftQueue = Promise.resolve()
 let _timeUpClosed = false
+let _activeGeneration = null
 let timer = null
 
-const isReview = computed(() => existing?.status === 'done')
+const isReview = computed(() => activeExisting.value?.status === 'done')
 const timeText = computed(() => `${String(Math.floor(remaining.value / 60)).padStart(2, '0')}:${String(remaining.value % 60).padStart(2, '0')}`)
 
-function historyForApi() {
-  return messages.value.map((message) => ({
-    role: message.role === 'teacher' ? 'teacher' : 'ai',
-    text: message.text
-  }))
+function loadActiveRecord(record, asSimulation) {
+  activeExisting.value = record || null
+  messages.value = record?.messages?.slice() || []
+  done.value = record?.status === 'done'
+  startedAt.value = record?.startedAt || Date.now()
+  deadlineAt.value = record?.deadlineAt || startedAt.value + 10 * 60 * 1000
+  lastLLMProfile.value = record?.llmProfile || ''
+  lastLLMModel.value = record?.llmModel || ''
+  generationFailures.value = Array.isArray(record?.generationFailures) ? record.generationFailures.slice() : []
+  dialogueSession.value = record?.dialogueSession || null
+  simulationOnly.value = Boolean(asSimulation)
+  const interrupted = Boolean(dialogueSession.value?.pendingRequest && dialogueSession.value?.status === 'GENERATING')
+  if (interrupted) dialogueSession.value.status = 'PAUSED'
+  generationPaused.value = Boolean(record?.generationError || interrupted || dialogueSession.value?.status === 'PAUSED')
+  generationError.value = record?.generationError || (generationPaused.value ? 'generation_interrupted' : '')
 }
 
-/** TCIM 确定性模式：本地引擎生成下一问（不调用云端 LLM）。 */
-function tcimEnsureSession() {
-  if (!tcimSession.value) {
-    const proc = computeProcess(answer)
-    const profile = getProfile() || {}
-    // 前测完整资料进 TurnContext：分数/教龄/过程数据全量作 prior（只影响不确定性/优先级，不填等级）
-    const pretest = {
-      mean: session.value?.scores?.mean ?? null,
-      total: session.value?.scores?.total ?? null,
-      teachingYears: profile.teachingYears || '',
-      modificationCount: proc.modificationCount,
-      durationMs: proc.durationMs,
-      firstSwing: proc.firstSwing,
-      lastSwing: proc.lastSwing,
-      oscillation: proc.oscillation
-    }
-    tcimSession.value = initTcisSession(item.item_id, answer.final_ranking || [], [
-      proc.firstSwing.strong ? '首位强摇摆' : '',
-      proc.lastSwing.strong ? '末位强摇摆' : '',
-      proc.oscillation ? '排序路径振荡' : ''
-    ].filter(Boolean), pretest)
-  }
-  return tcimSession.value
-}
-
-/** TCIM 首问：教师尚未输入，只初始化并生成第一个问题。V0.2 走 A00→A03→A04；disabled 回退模板。 */
-async function tcimFirstQuestion() {
-  tcimEnsureSession()
-  const gen = firstQuestion(tcimSession.value)
-  return { ok: true, question: gen.question, done: gen.done, stage: 'S1_CONTEXT', nextStage: 'S1_CONTEXT', evidenceHint: [], target_slot: gen.target_slot }
-}
-
-/** TCIM 后续轮：传入教师最新原话。 */
-async function tcimNext(teacherText) {
-  tcimEnsureSession()
-  const out = await processTeacherTurn(tcimSession.value, teacherText)
-  return {
-    ok: true,
-    question: out.question,
-    done: out.done,
-    stage: 'S1_CONTEXT',
-    nextStage: 'S1_CONTEXT',
-    evidenceHint: (out.updates || []).map((u) => u.slot_id)
-  }
-}
-
-async function requestNext() {
-  if (tcimEnabled) {
-    const teacherTurns = messages.value.filter((m) => m.role === 'teacher' && m.text)
-    const latestTeacher = teacherTurns.length ? String(teacherTurns[teacherTurns.length - 1].text).trim() : ''
-    const next = latestTeacher ? await tcimNext(latestTeacher) : await tcimFirstQuestion()
-    if (!next.ok || (!next.question && !next.done)) {
-      generationPaused.value = true
-      generationError.value = next?.error || 'invalid_interview_response'
-      persist(false)
-      return false
-    }
-    generationPaused.value = false
-    generationError.value = ''
-    if (next.nextStage) stage.value = next.nextStage
-    if (next.question) messages.value.push({ role: 'ai', text: next.question, ts: Date.now() })
-    if (next.done) {
-      done.value = true
-      persist(true)
-    } else {
-      persist(false)
-    }
-    await nextTick()
-    chatEnd.value?.scrollIntoView({ behavior: 'smooth' })
-    return true
-  }
-  const requestedAt = Date.now()
+/** 新五表只提供专业地图和证据合同；它们不提供固定问句，也不决定路线。 */
+function ensureDialogueSession() {
   const process = computeProcess(answer)
   const profile = getProfile() || {}
-  const context = {
+  const runtimeCard = createRuntimeCardFromRuntimeData(fiveTableRuntime, {
     sessionId: session.value.sessionId,
     itemId: item.item_id,
-    teacherName: profile.name || '',
-    itemContext: { title: item.title, stem: item.stem, options: item.options },
-    teacherRanking: answer.final_ranking,
-    taskCard: selected?.task_card || null,
-    taskCardSeed: selected || null,
-    processTags: [
-      process.firstSwing.strong ? '首位强摇摆' : '',
-      process.lastSwing.strong ? '末位强摇摆' : '',
-      process.oscillation ? '排序路径振荡' : ''
-    ].filter(Boolean),
-    history: historyForApi(),
-    remainingMs: remaining.value * 1000,
-    kbSlice: kbSlice(item.item_id),
-    stage: stage.value,
-    llmProfile: webLLMProfile || undefined
+    teacherContext: {
+      finalRanking: answer.final_ranking || [],
+      firstRanking: answer.first_ranking || [],
+      scoreSummary: {
+        mean: session.value?.scores?.mean ?? null,
+        total: session.value?.scores?.total ?? null
+      },
+      processPrior: {
+        teachingYears: profile.teachingYears || '',
+        modificationCount: process.modificationCount,
+        durationMs: process.durationMs,
+        firstSwing: process.firstSwing,
+        lastSwing: process.lastSwing,
+        oscillation: process.oscillation
+      }
+    }
+  })
+  const restored = validateDialogueSessionForResume(dialogueSession.value, {
+    sessionId: session.value.sessionId,
+    itemId: runtimeCard.itemId,
+    datasetId: fiveTableRuntime.datasetId,
+    configFingerprint: fiveTableRuntime.configFingerprint,
+    runtimeSchemaVersion: fiveTableRuntime.schemaVersion
+  })
+  if (restored.ok) return dialogueSession.value
+  dialogueSession.value = createDialogueSession(runtimeCard)
+  return dialogueSession.value
+}
+
+function providerFor(controller) {
+  return (request) => runDialogueAgent(request, {
+    signal: controller.signal,
+    remainingMs: Math.max(0, deadlineAt.value - Date.now())
+  })
+}
+
+function recordGenerationFailure(error, requestedAt) {
+  generationPaused.value = true
+  generationError.value = error || 'invalid_dialogue_agent_response'
+  generationFailures.value.push({
+    at: Date.now(),
+    durationMs: Date.now() - requestedAt,
+    afterTeacherTurns: messages.value.filter((message) => message.role === 'teacher').length,
+    error: generationError.value
+  })
+  generationFailures.value = generationFailures.value.slice(-20)
+}
+
+async function acceptAgentOutcome(outcome, requestedAt) {
+  if (_timeUpClosed) {
+    if (dialogueSession.value) {
+      dialogueSession.value.status = 'COMPLETED'
+      dialogueSession.value.pendingRequest = null
+    }
+    return false
   }
-  let next
-  try {
-    next = await interviewNext(context)
-  } catch (error) {
-    next = { ok: false, error: error?.message || 'gateway_request_failed' }
-  }
-  if (!next?.ok || (!next.question && !next.done)) {
-    generationPaused.value = true
-    generationError.value = next?.error || 'invalid_interview_response'
-    generationFailures.value.push({
-      at: Date.now(),
-      durationMs: Date.now() - requestedAt,
-      stage: stage.value,
-      afterTeacherTurns: messages.value.filter((message) => message.role === 'teacher').length,
-      error: generationError.value
-    })
-    generationFailures.value = generationFailures.value.slice(-20)
+  if (done.value) return false
+  if (!outcome?.ok || !outcome.visibleText) {
+    recordGenerationFailure(outcome?.error || 'invalid_dialogue_agent_response', requestedAt)
     persist(false)
     return false
   }
-
   generationPaused.value = false
   generationError.value = ''
-  if (next.nextStage) stage.value = next.nextStage
-  if (next.llmProfile) lastLLMProfile.value = next.llmProfile
-  if (next.llmModel) lastLLMModel.value = next.llmModel
-  if (next.question) messages.value.push({ role: 'ai', text: next.question, ts: Date.now() })
-  if (next.done) {
+  const trace = dialogueSession.value?.lastAgentResult?.trace || {}
+  lastLLMProfile.value = trace.provider || lastLLMProfile.value
+  lastLLMModel.value = trace.model || lastLLMModel.value
+  messages.value.push({
+    role: 'ai',
+    text: outcome.visibleText,
+    ts: Date.now(),
+    generationSource: 'dialogue_agent',
+    direction: outcome.direction || null,
+    model: trace.model || ''
+  })
+  if (outcome.action === 'CLOSE' || outcome.status === 'completed') {
     done.value = true
-    persist(true)
-  } else {
-    persist(false)
+    clearInterval(timer)
   }
+  persist(done.value)
   await nextTick()
   chatEnd.value?.scrollIntoView({ behavior: 'smooth' })
   return true
+}
+
+async function generateFirstQuestion() {
+  const requestedAt = Date.now()
+  const modelSession = ensureDialogueSession()
+  _activeGeneration = new AbortController()
+  const pending = startDialogue(modelSession, providerFor(_activeGeneration))
+  // startDialogue 在首次 await 前已写入 GENERATING + pendingRequest；立即落盘，
+  // 刷新页面后可以恢复为 PAUSED 并重试同一请求。
+  persist(false)
+  const outcome = await pending
+  return acceptAgentOutcome(outcome, requestedAt)
+}
+
+async function generateAfterTeacher(teacherText) {
+  const requestedAt = Date.now()
+  const modelSession = ensureDialogueSession()
+  _activeGeneration = new AbortController()
+  const pending = submitTeacherTurn(modelSession, teacherText, providerFor(_activeGeneration))
+  // 教师原话、turnSeq 和 pendingRequest 已同步写入领域会话，先持久化再等网络。
+  persist(false)
+  const outcome = await pending
+  return acceptAgentOutcome(outcome, requestedAt)
 }
 
 async function send() {
@@ -187,11 +200,11 @@ async function send() {
   messages.value.push({ role: 'teacher', text, ts: Date.now() })
   input.value = ''
   sending.value = true
-  persist(false)
   try {
-    await requestNext()
+    await generateAfterTeacher(text)
   } finally {
     sending.value = false
+    _activeGeneration = null
   }
 }
 
@@ -199,9 +212,15 @@ async function retryQuestion() {
   if (sending.value || done.value) return
   sending.value = true
   try {
-    await requestNext()
+    const requestedAt = Date.now()
+    _activeGeneration = new AbortController()
+    const pending = retryDialogue(ensureDialogueSession(), providerFor(_activeGeneration))
+    persist(false)
+    const outcome = await pending
+    await acceptAgentOutcome(outcome, requestedAt)
   } finally {
     sending.value = false
+    _activeGeneration = null
   }
 }
 
@@ -218,13 +237,56 @@ function timeUpOnce() {
   if (_timeUpClosed || done.value || isReview.value) return
   _timeUpClosed = true
   clearInterval(timer)
+  _activeGeneration?.abort()
   remaining.value = 0
   const closing = '本情境的访谈时间已到，感谢您的认真分享。我们先到这里。'
   if (!messages.value.some((m) => m.role === 'ai' && m.text === closing)) {
     messages.value.push({ role: 'ai', text: closing, ts: Date.now(), generationSource: 'timeout' })
   }
+  if (dialogueSession.value) {
+    dialogueSession.value.status = 'COMPLETED'
+    dialogueSession.value.pendingRequest = null
+    dialogueSession.value.version += 1
+    dialogueSession.value.auditLog.push({
+      eventId: `dialogue-log-${dialogueSession.value.auditLog.length + 1}`,
+      type: 'TimeLimitReached',
+      at: Date.now(),
+      sessionVersion: dialogueSession.value.version
+    })
+  }
   done.value = true
+  clearInterval(timer)
   persist(true)
+}
+
+function refreshRemaining() {
+  remaining.value = Math.max(0, Math.ceil((deadlineAt.value - Date.now()) / 1000))
+  if (remaining.value <= 0) timeUpOnce()
+}
+
+function startDeadlineTimer() {
+  clearInterval(timer)
+  if (isReview.value || done.value || demoRequired.value) return
+  refreshRemaining()
+  if (remaining.value > 0) timer = setInterval(refreshRemaining, 1000)
+}
+
+async function startDemo() {
+  if (sending.value || !demoRequired.value || agentHealth.value.provider !== 'mock') return
+  loadActiveRecord(null, true)
+  demoRequired.value = false
+  demoAuthorized.value = true
+  _timeUpClosed = false
+  startedAt.value = Date.now()
+  deadlineAt.value = startedAt.value + 10 * 60 * 1000
+  startDeadlineTimer()
+  sending.value = true
+  try {
+    await generateFirstQuestion()
+  } finally {
+    sending.value = false
+    _activeGeneration = null
+  }
 }
 
 function endAfterError() {
@@ -232,49 +294,70 @@ function endAfterError() {
   messages.value.push({ role: 'ai', text: buildLocalClosing(), ts: Date.now() })
   generationPaused.value = false
   generationError.value = ''
+  if (dialogueSession.value) {
+    dialogueSession.value.status = 'COMPLETED'
+    dialogueSession.value.pendingRequest = null
+  }
   done.value = true
   persist(true)
 }
 
 function persist(isDone) {
-  session.value.interview ||= {}
-  session.value.interview[item.item_id] = {
+  const collection = simulationOnly.value ? 'simulationInterview' : 'comparisonInterview'
+  session.value[collection] ||= {}
+  session.value[collection][item.item_id] = {
     itemId: item.item_id,
     status: isDone ? 'done' : 'in_progress',
     startedAt: startedAt.value,
+    deadlineAt: deadlineAt.value,
     finishedAt: isDone ? Date.now() : null,
     messages: messages.value.slice(),
     teacherRanking: answer.final_ranking,
-    stage: stage.value,
+    stage: 'OPEN_DIALOGUE',
     llmProfile: lastLLMProfile.value,
     llmModel: lastLLMModel.value,
     generationFailures: generationFailures.value.slice(),
     generationError: generationPaused.value ? generationError.value : '',
-    mode: tcimEnabled ? 'tcim' : 'legacy',
-    tcimSession: tcimEnabled ? tcimSession.value : undefined
+    simulationOnly: simulationOnly.value,
+    mode: INTERVIEW_MODE,
+    architecture: 'Dialogue Agent主导＋新五表＋Evidence State',
+    runtimeDatasetId: fiveTableRuntime.datasetId,
+    runtimeConfigFingerprint: fiveTableRuntime.configFingerprint,
+    dialogueSession: dialogueSession.value
   }
   session.value = saveSession(session.value)
-  syncDraft(isDone)
-  if (isDone) reportCompletion()
+  if (!simulationOnly.value) {
+    syncDraft(isDone)
+    if (isDone) reportCompletion()
+  }
 }
 
 // 逐轮云端草稿（1.3）：教师每发一轮回答就按 sessionId+itemId+turnSeq 幂等 upsert，
 // 让服务端知道进行中的访谈；浏览器本地保存只作离线副本。失败不阻断访谈，仅记录。
-async function syncDraft(isDone) {
+function syncDraft(isDone) {
   const teacherTurns = messages.value.filter((m) => m.role === 'teacher').length
-  if (teacherTurns <= _lastDraftedTurn) return // 本轮无新教师回答，不重复同步
-  _lastDraftedTurn = teacherTurns
-  try {
-    await reportDraft({
+  const evidenceVersion = dialogueSession.value?.evidenceState?.version || 0
+  const signature = `${teacherTurns}:${messages.value.length}:${evidenceVersion}:${isDone ? 'done' : 'active'}`
+  const payload = {
       sessionId: session.value.sessionId,
       itemId: item.item_id,
       turnSeq: teacherTurns,
       status: isDone ? 'done' : 'in_progress',
-      messages: messages.value.map((m) => ({ role: m.role, text: m.text }))
-    })
-  } catch (e) {
-    console.warn('[interview] draft sync failed', e?.message || e)
+      messages: messages.value.map((m) => ({ role: m.role, text: m.text })),
+      architecture: INTERVIEW_MODE,
+      evidenceVersion,
+      runtimeConfigFingerprint: fiveTableRuntime.configFingerprint
   }
+  _draftQueue = _draftQueue.catch(() => {}).then(async () => {
+    if (signature === _lastDraftSignature) return
+    try {
+      const result = await reportDraft(payload)
+      if (result?.ok) _lastDraftSignature = signature
+    } catch (e) {
+      console.warn('[interview] draft sync failed', e?.message || e)
+    }
+  })
+  return _draftQueue
 }
 
 // 向云端上报整次访谈：await 校验服务端回执，把成功回执或失败原因写回会话，
@@ -297,7 +380,7 @@ async function reportCompletion() {
 }
 
 function leave() {
-  persist(done.value)
+  if ((!demoRequired.value || demoAuthorized.value) && (messages.value.length || dialogueSession.value)) persist(done.value)
   router.push(`/interviews/${session.value.sessionId}`)
 }
 
@@ -306,40 +389,70 @@ onMounted(async () => {
     router.replace('/')
     return
   }
-  const elapsed = Math.floor((Date.now() - startedAt.value) / 1000)
-  remaining.value = Math.max(0, 10 * 60 - elapsed)
-  timer = setInterval(() => {
-    remaining.value = Math.max(0, remaining.value - 1)
-    if (remaining.value <= 0) timeUpOnce()
-  }, 1000)
-  // 1.5：恢复旧会话且已超时 → 直接受控收束，不再生成新问
-  if (remaining.value <= 0) {
-    timeUpOnce()
+  try {
+    const health = await getDialogueAgentHealth()
+    agentHealth.value = {
+      checked: true,
+      ok: Boolean(health?.ok && health?.ready),
+      provider: health?.provider || '',
+      model: health?.model || '',
+      error: health?.ready === false ? 'API 密钥尚未配置' : ''
+    }
+  } catch (error) {
+    agentHealth.value = { checked: true, ok: false, provider: '', model: '', error: error?.code || '本机服务未启动' }
+  }
+
+  if (agentHealth.value.provider === 'mock') {
+    loadActiveRecord(simulationExisting, true)
+    demoAuthorized.value = Boolean(simulationExisting)
+    demoRequired.value = !simulationExisting
+  } else {
+    loadActiveRecord(formalExisting, false)
+  }
+
+  if (!agentHealth.value.ok) {
+    generationPaused.value = true
+    generationError.value = agentHealth.value.error || 'dialogue_agent_unavailable'
     return
   }
-  if (!messages.value.length && !isReview.value) {
+  if (demoRequired.value) return
+
+  startDeadlineTimer()
+  if (remaining.value <= 0 || done.value || isReview.value) return
+
+  if (!messages.value.length && !generationPaused.value) {
     sending.value = true
     try {
-      await requestNext()
+      await generateFirstQuestion()
     } finally {
       sending.value = false
+      _activeGeneration = null
     }
-  }
+  } else if (generationPaused.value) persist(false)
 })
-onBeforeUnmount(() => clearInterval(timer))
+onBeforeUnmount(() => {
+  clearInterval(timer)
+  _activeGeneration?.abort()
+})
 </script>
 
 <template>
   <section v-if="session && item" class="interview-live">
     <header class="interview-header">
       <button v-if="isReview || done" class="icon-button" @click="leave">←</button>
-      <div><strong>{{ item.title }}</strong><small>内容由 AI 生成，仅供参考</small></div>
-      <span :class="{ urgent: remaining < 60 }">{{ isReview ? '回看' : timeText }}</span>
+      <div><strong>{{ item.title }}</strong><small>Dialogue Agent 主导 · 新五表提供专业视野 · Evidence State 留存依据</small></div>
+      <span :class="{ urgent: remaining < 60 }">{{ isReview ? (simulationOnly ? '演示回看' : '回看') : timeText }}</span>
     </header>
 
-    <div class="cloud-health" :class="cloudHealth.ok ? 'ok' : 'down'">
-      <span v-if="cloudHealth.ok">云端连接正常</span>
-      <span v-else>云端服务暂不可用（{{ cloudHealth.lastError }}）· 访谈在本地继续，请稍后同步</span>
+    <div class="cloud-health" :class="agentHealth.provider === 'mock' ? 'demo' : (agentHealth.ok ? 'ok' : (agentHealth.checked ? 'down' : 'checking'))">
+      <span v-if="!agentHealth.checked">正在连接本机 Dialogue Agent…</span>
+      <span v-else-if="agentHealth.provider === 'mock'">
+        当前没有真实模型密钥，仅提供演示模式；演示记录不会进入正式比较统计或报告。
+      </span>
+      <span v-else-if="agentHealth.ok">
+        Dialogue Agent 已就绪 · {{ agentHealth.provider }}<template v-if="agentHealth.model"> / {{ agentHealth.model }}</template>
+      </span>
+      <span v-else>Dialogue Agent 暂不可用（{{ agentHealth.error || '本机服务未启动' }}）· 已输入内容仍会保存在本机</span>
     </div>
 
     <article class="interview-context">
@@ -364,7 +477,26 @@ onBeforeUnmount(() => clearInterval(timer))
       <div ref="chatEnd"></div>
     </div>
 
-    <div v-if="generationPaused && !done && !isReview" class="chat-recovery">
+    <div v-if="demoRequired && !done && !isReview" class="chat-recovery demo-consent">
+      <div>
+        <strong>是否进入本机演示？</strong>
+        <span>演示使用固定测试响应，只用于检查界面与保存流程，不代表真实 Dialogue Agent，也不会计入正式研究结果。</span>
+      </div>
+      <div class="chat-recovery-actions">
+        <button class="button secondary" :disabled="sending" @click="startDemo">进入演示</button>
+        <button class="button text" @click="leave">返回情境列表</button>
+      </div>
+    </div>
+    <div v-else-if="agentHealth.checked && !agentHealth.ok && !done && !isReview" class="chat-recovery">
+      <div>
+        <strong>Dialogue Agent 暂不可用</strong>
+        <span>尚未开始正式访谈，也不会生成本地替代问题。请启动服务后重新进入本情境。</span>
+      </div>
+      <div class="chat-recovery-actions">
+        <button class="button text" @click="leave">返回情境列表</button>
+      </div>
+    </div>
+    <div v-else-if="generationPaused && !done && !isReview" class="chat-recovery">
       <div>
         <strong>刚才的问题暂时没有生成成功</strong>
         <span>您的回答已经保存，可以重新生成；如果不想继续，也可以结束本情境。</span>
@@ -374,12 +506,12 @@ onBeforeUnmount(() => clearInterval(timer))
         <button class="button text" :disabled="sending" @click="endAfterError">结束本情境</button>
       </div>
     </div>
-    <div v-else-if="!done && !isReview" class="chat-input">
+    <div v-else-if="!done && !isReview && agentHealth.ok" class="chat-input">
       <textarea v-model="input" rows="2" maxlength="2000" placeholder="请输入您的回答…" @keydown.ctrl.enter="send"></textarea>
       <button class="button primary" :disabled="!input.trim() || sending" @click="send">发送</button>
     </div>
     <div v-else class="chat-complete">
-      <span>本情境访谈已完成</span>
+      <span>{{ simulationOnly ? '本情境演示已完成（不计入正式结果）' : '本情境访谈已完成' }}</span>
       <button class="button primary" @click="leave">返回情境列表</button>
     </div>
   </section>
@@ -393,5 +525,8 @@ onBeforeUnmount(() => clearInterval(timer))
   border-bottom: 1px solid #eef0f4;
 }
 .cloud-health.ok { color: #067647; background: #f1fbf4; }
+.cloud-health.demo { color: #8a4b08; background: #fff7e8; }
 .cloud-health.down { color: #b42318; background: #fdecea; }
+.cloud-health.checking { color: #475467; background: #f8fafc; }
+.demo-consent { border-color: #f2c078; background: #fffaf0; }
 </style>

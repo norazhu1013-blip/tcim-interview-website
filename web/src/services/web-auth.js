@@ -2,6 +2,18 @@ import { cloudbaseConfigured, getCloudAuth } from './cloudbase.js'
 import { createGatewaySession, getGatewaySession, clearGatewaySession } from './web-gateway.js'
 import { activateLocalAccount } from './storage.js'
 
+const localResearchMode = String(import.meta.env.VITE_LOCAL_RESEARCH_MODE || '').trim() === '1'
+const localResearchUid = 'tcim-local-research'
+
+function localResearchSession() {
+  activateLocalAccount(localResearchUid)
+  return {
+    ok: true,
+    local: true,
+    user: { uid: localResearchUid, identityType: 'web_account' }
+  }
+}
+
 function notifyAuthState(state) {
   window.dispatchEvent(new CustomEvent('gsyg:web-auth-changed', { detail: { state } }))
 }
@@ -51,6 +63,11 @@ async function getExistingAccountSession() {
 
 /** 仅恢复已经登录的正式账号；不会自动创建匿名身份。 */
 export async function ensureWebLogin() {
+  if (localResearchMode) {
+    const session = localResearchSession()
+    notifyAuthState('signed_in')
+    return session
+  }
   if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
 
   const gatewaySession = await getGatewaySession()
@@ -78,6 +95,7 @@ export async function ensureWebLogin() {
 }
 
 export async function signInWebUser(account, password) {
+  if (localResearchMode) return localResearchSession()
   if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
   const username = String(account || '').trim()
   if (!username || !password) return { ok: false, error: 'account_and_password_required' }
@@ -183,6 +201,7 @@ export async function completePasswordReset({ code, password }) {
 }
 
 export async function getWebLoginState() {
+  if (localResearchMode) return localResearchSession()
   if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
   return getGatewaySession()
 }
@@ -195,6 +214,10 @@ export async function requireWebLogin() {
 }
 
 export async function signOutWebUser() {
+  if (localResearchMode) {
+    notifyAuthState('signed_out')
+    return { ok: true, local: true }
+  }
   const gatewayResult = await clearGatewaySession()
   let cloudbaseSignedOut = true
   try {

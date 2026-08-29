@@ -147,6 +147,7 @@ function back() { router.back() }
         <span v-if="e.indicator" class="pill">{{ e.indicator }}</span>
         <p v-if="e.focus">{{ e.focus }}</p>
         <blockquote v-if="e.quote">「{{ e.quote }}」</blockquote>
+        <p v-else class="evidence-pending">尚未形成可回溯的 canonical Evidence。</p>
       </div>
       <p v-if="!report.evidence.length" class="tip">暂无已完成的访谈证据。</p>
     </div>
@@ -232,6 +233,7 @@ function back() { router.back() }
 .pill { display: inline-block; font-size: 11px; background: #eef2fb; color: #3f63d6; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
 .ev-row p { font-size: 13px; color: #4b5563; margin: 6px 0 0; }
 .ev-row blockquote { margin: 8px 0 0; padding-left: 10px; border-left: 3px solid #3f63d6; color: #374151; font-size: 13px; }
+.ev-row .evidence-pending { color: #8a4b08; }
 .sugg-list { margin: 0; padding-left: 18px; }
 .sugg-list li { margin: 8px 0; line-height: 1.6; color: #374151; }
 .tip { font-size: 12px; color: #98a1b3; margin: 8px 0 0; }
