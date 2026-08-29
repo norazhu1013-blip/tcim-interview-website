@@ -4,6 +4,7 @@ $tcimRoot = $PSScriptRoot
 $serverDir = Join-Path $tcimRoot 'local-dialogue-server'
 $serverScript = Join-Path $serverDir 'server.js'
 $webDir = Join-Path $tcimRoot 'web'
+$webServerScript = Join-Path $tcimRoot 'local-web-server.js'
 $runtimeDir = Join-Path $tcimRoot '.local-runtime'
 $bundledRoot = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies'
 
@@ -38,8 +39,12 @@ if (-not (Test-Path -LiteralPath $viteEntry -PathType Leaf)) {
   if ($LASTEXITCODE -ne 0) { throw '网页运行组件安装失败；请确认 web\pnpm-lock.yaml 与 package.json 一致。' }
 }
 
-& $nodeExe (Join-Path $webDir 'scripts\sync-data.mjs')
-if ($LASTEXITCODE -ne 0) { throw '题目与情境图片同步失败。' }
+$webIndex = Join-Path $webDir 'dist\index.html'
+if (-not (Test-Path -LiteralPath $webIndex -PathType Leaf)) {
+  Write-Host '尚无本机发布文件，正在生成生产构建……'
+  & $pnpmExe --dir $webDir run build:comparison
+  if ($LASTEXITCODE -ne 0) { throw '本机生产构建失败。' }
+}
 
 function Get-ListeningProcessId([int]$port) {
   $listener = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -71,7 +76,7 @@ if (-not (Test-DialogueService)) {
 $webPid = Get-ListeningProcessId 5173
 if (-not (Test-WebService)) {
   if ($webPid) { throw "端口 5173 已被其他程序占用（PID $webPid）。" }
-  $webProcess = Start-Process -FilePath $nodeExe -ArgumentList @($viteEntry, '--mode', 'comparison', '--host', '127.0.0.1', '--port', '5173') -WorkingDirectory $webDir -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtimeDir 'web.log') -RedirectStandardError (Join-Path $runtimeDir 'web-error.log') -PassThru
+  $webProcess = Start-Process -FilePath $nodeExe -ArgumentList @($webServerScript) -WorkingDirectory $tcimRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtimeDir 'web.log') -RedirectStandardError (Join-Path $runtimeDir 'web-error.log') -PassThru
   $webPid = $webProcess.Id
 }
 
@@ -90,12 +95,13 @@ $record = [ordered]@{
   serverPid = $serverPid
   webPid = $webPid
   serverScript = $serverScript
-  viteEntry = $viteEntry
+  webServerScript = $webServerScript
+  releaseMode = 'production-static'
   startedAt = (Get-Date).ToString('o')
   root = $tcimRoot
 }
 [System.IO.File]::WriteAllText((Join-Path $runtimeDir 'processes.json'), ($record | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
 
 if ($env:TCIM_NO_BROWSER -ne '1') { Start-Process 'http://127.0.0.1:5173' }
-Write-Host 'TCIM 本机比较版已启动：http://127.0.0.1:5173' -ForegroundColor Green
+Write-Host 'TCIM 本机发布版已启动：http://127.0.0.1:5173' -ForegroundColor Green
 Write-Host '进入访谈情境后可直接选择 Kimi 或 OpenAI；首次使用时在本机页面填写相应 API 密钥，无需重启。'

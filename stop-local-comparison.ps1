@@ -26,9 +26,10 @@ function Test-OwnsPort([int]$processId, [int]$port) {
 }
 
 $record = Get-Content -Raw -Encoding UTF8 -LiteralPath $pidFile | ConvertFrom-Json
+$webExpectedPath = if ($record.webServerScript) { [string]($record.webServerScript) } else { [string]($record.viteEntry) }
 $targets = @(
   [pscustomobject]@{ Role = 'server'; ProcessId = [int]($record.serverPid); Port = 8787; ExpectedPath = [string]($record.serverScript) },
-  [pscustomobject]@{ Role = 'web'; ProcessId = [int]($record.webPid); Port = 5173; ExpectedPath = [string]($record.viteEntry) }
+  [pscustomobject]@{ Role = 'web'; ProcessId = [int]($record.webPid); Port = 5173; ExpectedPath = $webExpectedPath }
 )
 $unverified = @()
 foreach ($target in $targets) {

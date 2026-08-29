@@ -364,3 +364,9 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **恢复边界**:旧 `Dialogue Session v2` 有实际消息/证据时不得静默新建 v3 后续接，页面保留旧内容但要求开始新测评；旧正式记录若只有 provider 而缺少具体 `llmModel`，同样不得继续形成可比较数据。
   - **并发边界**:页面用 Web Locks 对 `sessionId+itemId` 建立独占执行锁，同一情境误开第二标签页时第二页只读且不得持久化；模型配置另以 assessment session 独占锁串行创建，并在保存当前题前合并本机最新的模型锁和其他题记录。
   - **验证**:`local-dialogue-server` 30/30，web Dialogue Agent 26/26，web 全套 verify（含240排列对拍/新五表/报告）与 comparison build 通过；真实 Kimi/OpenAI 的访谈质量仍必须在配置有效密钥后用连续多轮 Fixture 单独验证。
+- **2026-08-30 本机生产发布与交付文档**:
+  - **生产发布链**:新增 `publish-local-comparison.ps1`、`发布本机版.cmd` 和 `local-web-server.js`。发布脚本先运行网页完整 `verify` 与 `build:comparison`，再把 `web/dist` 作为仅监听 `127.0.0.1:5173` 的生产静态网页提供；不再用 Vite 开发服务器冒充发布版。`.local-release/release.json` 记录构建时间、Git提交、新五表 dataset/schema/configFingerprint 与本机 URL。
+  - **启动/停止兼容**:`start-local-comparison.ps1` 优先启动生产静态服务，缺少 `dist` 时自动构建；进程记录增加 `releaseMode=production-static` 和 `webServerScript`。`stop-local-comparison.ps1` 同时兼容新静态服务与旧 Vite 记录，且继续只终止路径校验后的项目进程。
+  - **运行状态**:本机网页 `http://127.0.0.1:5173` 与 Dialogue Agent `http://127.0.0.1:8787` 均已启动并通过健康检查；Kimi K3 当前 configured/ready。验证结果更新为 local service 32/32、web Dialogue Agent 28/28、240 个题目×排列评分对拍、新五表负向夹具、报告与生产构建全部通过。
+  - **说明材料**:`交付文档/TCIM当前程序整体架构_实现机制与本机发布分析报告_V0.1.docx` 说明权力结构、逐轮实现、接口、Evidence→画像、延时/收尾、发布和限制；`交付文档/TCIM新五表三类数据警告_人工治理操作手册_V0.1.docx` 逐条列出 59 个父引用、21 条路由错配和 55 条无路径记录，并给出人工复核、重新编译、兼容检查和完成定义。两份文档已用 LibreOffice 逐页渲染检查。
+  - **五表治理边界**:当前三类 warning 仍不阻断 SIMULATION_ACTIVE 研究比较版；不得由编译器自动猜专业关系。建议先修 21 条 type/runtimeUse，再核对 59 条 parentCapabilityIds，最后处理 50 条 EvidenceAnchor pathRefs；5 条 RO0—RO4 来源政策应显式 `NOT_APPLICABLE`，不应强绑专业路径。

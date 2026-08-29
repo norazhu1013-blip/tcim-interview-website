@@ -4,6 +4,9 @@ Thumbs.db
 node_modules/
 web/dist/
 .local-runtime/
+.local-release/
+交付文档/_doc_assets/
+交付文档/_render*/
 ~$*
 .idea/
 project.private.config.json
