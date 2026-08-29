@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 
-const PROMPT_VERSION = 'tcim-dialogue-v2-five-tables-2026-08-29-r2';
+const PROMPT_VERSION = 'tcim-dialogue-v2-five-tables-2026-08-29-r3';
 
 const SYSTEM_PROMPT = [
   '你是 TCIM 幼儿园教师专业情境访谈中的 Dialogue Agent。',
@@ -15,11 +15,17 @@ const SYSTEM_PROMPT = [
   '4. 每次只问一个问题。优先承接教师最新原话中的新区别、理由、关切、行动或条件。',
   '5. 不把专业表或先验写成教师观点；working_hypotheses 始终是可撤销的内部工作假设。你可以提出表外的新开放线索或新假设，不需要把它们伪装成规范 Evidence。',
   '6. dialoguePolicies 中 AFFORDANCE 与 MONITOR 只提供建议，不能强制路线、逐项覆盖或自动停止；按当前表契约，只有 type=HARD_BOUNDARY 才是必须遵守的门控。',
+  '7. 在输出 ASK 前，必须与 previous_history 中近期问题比较：不得复问同一问句，也不得只替换“您刚才说”后的引语而保留相同的实质落点。若无新的高价值落点，应转向尚未澄清的区别或收束。',
   '',
   '【关系与认知负担】',
   '1. 让教师感到其具体处境和意思被认真理解、被尊重，并愿意继续展开；不要求每轮套用共情句。',
   '2. 可以先用零到一句准确承接教师原意，再提出一个简短问题；不得空泛夸奖、表演性共情、说教或替教师总结成其未表达的立场。',
   '3. 教师纠正你时先接受纠正并修订理解。出现连续短答、重复、疲劳或不愿继续时，应减轻问题负担、换成更具体的问法或收束。',
+  '',
+  '【多轮进展状态】',
+  'DialogueProgressState 只是已发生对话的可回溯工作记忆，不是能力结论，也不得替代 Evidence State。',
+  'questionLedger 列出已问问句、目标和回答状态；不要重复已问落点。openThreads 是可继续、暂缓或放弃的工作线索；优先承接 ACTIVE 线索中由教师新原话支持的部分，但不得机械续问。',
+  'coveredCues 表示已听到的原话线索，“谈过”不等于“已证实”。phase 表示当前对话阶段。stagnation.score 或 consecutiveSimilarGoals 升高时，必须换实质落点、降低认知负担，或在无新增价值时收束。',
   '',
   '【Evidence 提议】',
   'evidence_candidates 只写当前教师原话能够支持的规范 Evidence 候选。evidence_claim_id 与 understanding_id 必须来自同一条 capability evidencePolicy；不得编造 ID。',
@@ -45,6 +51,36 @@ function normalizeHistory(history, maxTurns) {
     }));
 }
 
+function compactProgressState(value) {
+  const state = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    schemaVersion: String(state.schemaVersion || ''),
+    itemId: String(state.itemId || ''),
+    version: Number(state.version || 0),
+    phase: String(state.phase || 'OPENING'),
+    questionLedger: (Array.isArray(state.questionLedger) ? state.questionLedger : []).slice(-12),
+    openThreads: (Array.isArray(state.openThreads) ? state.openThreads : []).slice(-12),
+    coveredCues: (Array.isArray(state.coveredCues) ? state.coveredCues : []).slice(-20),
+    stagnation: state.stagnation && typeof state.stagnation === 'object' && !Array.isArray(state.stagnation)
+      ? state.stagnation
+      : {}
+  };
+}
+
+function progressQuestions(progressState) {
+  return progressState.questionLedger
+    .filter((entry) => entry && entry.action === 'ASK' && typeof entry.questionText === 'string' && entry.questionText.trim())
+    .map((entry) => ({ role: 'assistant', text: entry.questionText.trim() }));
+}
+
+function uniqueRecentQuestions(history, progressState, limit = 5) {
+  const all = [
+    ...history.filter((turn) => turn.role === 'assistant' && /[?？]/.test(turn.text)).map((turn) => turn.text),
+    ...progressQuestions(progressState).map((turn) => turn.text)
+  ];
+  return [...new Set(all)].slice(-limit);
+}
+
 function buildPromptCacheKey(input) {
   const card = input.compiled_card || {};
   const identity = JSON.stringify({
@@ -59,6 +95,8 @@ function buildPrompts(input, options = {}) {
   const phase = input.phase === 'first' ? 'first' : 'next';
   const maxHistoryTurns = options.maxHistoryTurns || 40;
   const history = normalizeHistory(input.history, maxHistoryTurns);
+  const dialogueProgressState = compactProgressState(input.dialogue_progress_state);
+  const recentQuestions = uniqueRecentQuestions(history, dialogueProgressState, 5);
   const teacherTurn = phase === 'next' ? String(input.teacher_turn || '').trim() : '';
   const payload = {
     phase,
@@ -66,7 +104,9 @@ function buildPrompts(input, options = {}) {
     item_id: input.item_id || '',
     teacher_context: input.teacher_context || {},
     evidence_summary: input.evidence_summary || {},
+    dialogue_progress_state: dialogueProgressState,
     previous_history: history,
+    recent_assistant_questions: recentQuestions,
     current_teacher_turn: teacherTurn,
     runtime_limits: input.runtime_limits || {}
   };
@@ -81,8 +121,21 @@ function buildPrompts(input, options = {}) {
     phase,
     teacherTurn,
     history,
+    dialogueProgressState,
+    repetitionHistory: [
+      ...history,
+      ...progressQuestions(dialogueProgressState)
+    ],
     promptCacheKey: buildPromptCacheKey(input)
   };
 }
 
-module.exports = { PROMPT_VERSION, SYSTEM_PROMPT, buildPrompts, buildPromptCacheKey, normalizeHistory };
+module.exports = {
+  PROMPT_VERSION,
+  SYSTEM_PROMPT,
+  buildPrompts,
+  buildPromptCacheKey,
+  normalizeHistory,
+  compactProgressState,
+  uniqueRecentQuestions
+};

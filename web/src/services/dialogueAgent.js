@@ -1,6 +1,6 @@
 import { AGENT_RESULT_SCHEMA } from '../core/dialogue-agent/index.js'
 
-const baseUrl = String(import.meta.env.VITE_DIALOGUE_AGENT_API_BASE_URL || '').replace(/\/$/, '')
+const baseUrl = String(import.meta.env?.VITE_DIALOGUE_AGENT_API_BASE_URL || '').replace(/\/$/, '')
 
 function pick(value, keys) {
   const out = {}
@@ -16,6 +16,13 @@ function compactScenario(brief = {}) {
     scenarioId: brief.scenarioId,
     content: brief.content,
     professionalFocus: pick(brief.professionalFocus, ['content', 'relatedCapabilities', 'doNotAssume', 'sourceRef']),
+    // 排序字母只有在保留选项语义时才能构成可用先验。不将选项文本传给
+    // Dialogue Agent 会使 A/B/C/D 失去指代，导致首问退化为跨题通用问句。
+    pretestOptions: (brief.pretestOptions || []).map((row) => pick(row, [
+      'id', 'type', 'epistemicStatus', 'content', 'optionCode', 'assessmentRelation',
+      'applicability', 'plausibleInterpretation', 'alternativeExplanation', 'missingInformation',
+      'discriminatingObservation', 'relatedCapabilities', 'doNotAssume', 'sourceRef'
+    ])),
     contextFacts: (brief.contextFacts || []).map((row) => pick(row, [
       'id', 'epistemicStatus', 'content', 'plausibleInterpretation', 'alternativeExplanation',
       'missingInformation', 'discriminatingObservation', 'relatedCapabilities', 'doNotAssume', 'sourceRef'
@@ -94,6 +101,35 @@ function compactEvidenceState(state = {}) {
   }
 }
 
+/**
+ * DialogueProgressState 是已发生对话的工作记忆，不是新的专业判分层。只传输最近、
+ * 与选择下一问直接相关的字段，避免把完整审计对象每轮重复发给模型。
+ */
+export function compactDialogueProgressState(state = {}) {
+  return {
+    schemaVersion: state.schemaVersion || '',
+    itemId: state.itemId || '',
+    version: Number(state.version || 0),
+    phase: state.phase || 'OPENING',
+    questionLedger: (state.questionLedger || []).slice(-12).map((entry) => pick(entry, [
+      'questionId', 'turnId', 'action', 'questionText', 'goalLabel', 'rationale', 'openThreadId',
+      'phase', 'answerStatus', 'answerTurnId', 'answerExcerpt', 'understanding', 'workingHypotheses'
+    ])),
+    openThreads: (state.openThreads || []).slice(-12).map((thread) => pick(thread, [
+      'openThreadId', 'statement', 'rationale', 'status', 'originTurnId', 'lastTouchedTurnId',
+      'touchCount', 'consultedPolicyIds', 'hypothesisIds', 'lastTeacherTurnId'
+    ])),
+    coveredCues: (state.coveredCues || []).slice(-20).map((cue) => pick(cue, [
+      'cueId', 'sourceTurnId', 'span', 'meaning', 'confidence', 'sourceKind', 'openThreadId',
+      'hypothesisIds', 'formalEvidenceIds'
+    ])),
+    stagnation: pick(state.stagnation, [
+      'score', 'consecutiveSimilarGoals', 'repeatedQuestionCount', 'lastQuestionSemanticKey',
+      'lastProgressTurnId', 'reasonCodes'
+    ])
+  }
+}
+
 function previousHistory(request) {
   const history = (request.history || []).map((turn) => ({
     role: turn.role === 'teacher' ? 'teacher' : 'assistant',
@@ -145,6 +181,7 @@ function mapAgentResult(response) {
       promptVersion: String(response.prompt_version || 'unknown'),
       requestId: String(response.request_id || ''),
       providerRequestId: String(response.provider_request_id || ''),
+      generationAttempts: Number(response.trace?.generation_attempts || 1),
       latencyMs: Number(response.latency_ms || 0),
       usage: response.usage || null
     }
@@ -180,9 +217,12 @@ export async function runDialogueAgent(request, options = {}) {
     phase: first ? 'first' : 'next',
     session_id: request.runtimeCard.sessionId,
     item_id: request.runtimeCard.itemId,
+    ...(options.expectedProvider ? { expected_provider: String(options.expectedProvider) } : {}),
+    ...(options.expectedModel ? { expected_model: String(options.expectedModel) } : {}),
     teacher_turn: first ? '' : request.teacherTurn,
     compiled_card: compactRuntimeCard(request.runtimeCard),
     evidence_summary: compactEvidenceState(request.evidenceState),
+    dialogue_progress_state: compactDialogueProgressState(request.dialogueProgressState),
     history: previousHistory(request),
     runtime_limits: {
       remaining_ms: Number(options.remainingMs || 0),

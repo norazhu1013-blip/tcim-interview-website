@@ -14,6 +14,8 @@ import {
   validateHardBoundaries,
   validateRuntimeCard
 } from './index.js'
+import { compactDialogueProgressState, compactRuntimeCard } from '../../services/dialogueAgent.js'
+import { resolveLocalModelConfigBaseUrl } from '../../services/modelConfig.js'
 
 const runtimeData = JSON.parse(readFileSync(
   new URL('../../generated/tcim-new-five-tables.runtime.v0.1.json', import.meta.url),
@@ -65,6 +67,13 @@ function claim(session, ids) {
 const tests = []
 function test(name, fn) { tests.push({ name, fn }) }
 
+test('模型密钥配置地址在浏览器发请求前强制限定为回环地址', () => {
+  assert.equal(resolveLocalModelConfigBaseUrl('http://127.0.0.1:8787/'), 'http://127.0.0.1:8787')
+  assert.equal(resolveLocalModelConfigBaseUrl('https://localhost:8787'), 'https://localhost:8787')
+  assert.throws(() => resolveLocalModelConfigBaseUrl('https://example.com/tcim'), /只允许连接本机/)
+  assert.throws(() => resolveLocalModelConfigBaseUrl('http://localhost.evil.example:8787'), /只允许连接本机/)
+})
+
 test('runtime-data adapter 将 Q1 与 Q01 映射到同一新版运行卡', () => {
   assert.equal(normalizeQuestionId('Q1'), 'Q01')
   assert.equal(normalizeQuestionId('Q01'), 'Q01')
@@ -77,6 +86,26 @@ test('runtime-data adapter 将 Q1 与 Q01 映射到同一新版运行卡', () =>
   assert.ok(shortId.evidencePolicies.some((policy) => policy.evidenceClaimId === PLAY.evidenceClaimId))
   assert.ok(shortId.dialoguePolicies.some((policy) => policy.type === 'AFFORDANCE'))
   assert.ok(shortId.synthesisPolicies.length > 0)
+})
+
+test('发给 Dialogue Agent 的紧凑运行卡保留四个选项的字母与语义', () => {
+  const compact = compactRuntimeCard(runtimeCard('Q1'))
+  assert.equal(compact.scenarioBrief.pretestOptions.length, 4)
+  assert.deepEqual(compact.scenarioBrief.pretestOptions.map((option) => option.optionCode), ['A', 'B', 'C', 'D'])
+  assert.ok(compact.scenarioBrief.pretestOptions.every((option) => option.content && option.assessmentRelation === 'PRIOR_ONLY'))
+  assert.equal(compact.rankingPrior.finalRanking.join(''), 'ACBD')
+})
+
+test('发给 Dialogue Agent 的进展状态保留提问账本、开放线索、已覆盖线索和停滞度', async () => {
+  const session = createDialogueSession(runtimeCard('Q1'))
+  await startDialogue(session, async () => agentResult())
+  const compact = compactDialogueProgressState(session.dialogueProgressState)
+  assert.equal(compact.phase, 'OPENING')
+  assert.equal(compact.questionLedger.length, 1)
+  assert.equal(compact.questionLedger[0].questionText, '在这个情境里，您最先想判断什么？')
+  assert.equal(compact.openThreads[0].openThreadId, 'teacher-meaning-entry')
+  assert.ok(Array.isArray(compact.coveredCues))
+  assert.equal(Number(compact.stagnation.score), 0)
 })
 
 test('运行卡和 Dialogue Agent 返回契约可验证', () => {

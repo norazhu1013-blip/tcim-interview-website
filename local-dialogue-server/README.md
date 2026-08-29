@@ -11,7 +11,7 @@
 
 ## 快速启动
 
-最简单的方式是在项目根目录双击 `启动本机比较版.cmd`。服务启动时会自动读取本目录的 `.env`，已经存在的进程环境变量优先；`.env` 已被 Git 忽略。
+最简单的方式是在项目根目录双击 `启动本机比较版.cmd`。服务启动时会自动读取本目录的 `.env`，已经存在的进程环境变量优先；`.env` 已被 Git 忽略。服务启动后也可在本机网页中选择 Kimi、OpenAI 或模拟模式；选择会立即生效，不需要重启服务。
 
 也可以在 PowerShell 中进入本目录，然后选择一种 provider。
 
@@ -35,7 +35,7 @@ node server.js
 
 为防止密钥被误发，正常运行只接受官方 HTTPS 地址：OpenAI 为 `api.openai.com`，Kimi 为 `api.moonshot.cn`。只有注入 mock fetch 或连接 `localhost`/回环地址上的测试替身时，才可临时设置 `TCIM_DIALOGUE_ALLOW_UNSAFE_PROVIDER_URLS=1`；该开关也不会放行局域网或公网第三方地址，研究运行不得开启。
 
-为兼容第一版部署，`MOONSHOT_API_KEY` 也可作为 `KIMI_API_KEY` 的别名；两者都设置时优先使用 `KIMI_API_KEY`。仓库不含现成密钥，本地使用者需要在服务进程环境中设置一次，且不要写入源码或提交到 Git。
+为兼容第一版部署，`MOONSHOT_API_KEY` 也可作为 `KIMI_API_KEY` 的别名；两者都设置时优先使用 `KIMI_API_KEY`。仓库不含现成密钥。本机网页填写的密钥只会经回环接口写入本目录下被 Git 忽略的 `.env`，不会进入源码、运行数据、接口响应或服务日志。
 
 ### OpenAI
 
@@ -48,9 +48,9 @@ node server.js
 
 OpenAI provider 使用 Responses API、严格 JSON Schema，并固定发送 `store: false`。实现依据 [OpenAI Responses API](https://developers.openai.com/api/reference/resources/responses/methods/create) 和 [gpt-5.6-sol 模型说明](https://developers.openai.com/api/docs/models/gpt-5.6-sol)。
 
-若未设置 `TCIM_DIALOGUE_PROVIDER`，服务按以下优先级自动选择：存在 `KIMI_API_KEY` 或 `MOONSHOT_API_KEY` 时用 Kimi；否则存在 `OPENAI_API_KEY` 时用 OpenAI；都没有时用 mock。网页遇到 mock 时不会自动开始访谈，必须由使用者明确进入演示；演示记录标为 `simulationOnly` 并从正式统计、上报和报告中过滤。密钥只从服务进程环境读取，不接收浏览器传入的密钥，也不会写入本地数据文件。
+若未设置 `TCIM_DIALOGUE_PROVIDER`，服务按以下优先级自动选择：存在 `KIMI_API_KEY` 或 `MOONSHOT_API_KEY` 时用 Kimi；否则存在 `OPENAI_API_KEY` 时用 OpenAI；都没有时用 mock。网页遇到 mock 时不会自动开始访谈，必须由使用者明确进入演示；演示记录标为 `simulationOnly` 并从正式统计、上报和报告中过滤。密钥只由服务端使用；除本机模型设置页通过受限配置接口保存外，其他浏览器请求不能传入密钥，密钥也不会写入运行数据。
 
-默认监听 `http://127.0.0.1:8787`。可复制 `.env.example` 了解全部环境变量；密钥只由本机服务读取，不会返回给网页或写入运行数据。
+默认监听 `http://127.0.0.1:8787`。可复制 `.env.example` 了解全部环境变量；密钥只由本机服务读取和保存，接口只向网页返回“是否已配置”的布尔状态，不会返回密钥本身或写入运行数据。
 
 ## Dialogue Agent 协议
 
@@ -59,7 +59,26 @@ OpenAI provider 使用 Responses API、严格 JSON Schema，并固定发送 `sto
 - `POST /v1/dialogue/first`：强制首问；
 - `POST /v1/dialogue/next`：强制后续轮；
 - `POST /v1/dialogue/turn`：由请求体的 `phase` 指定 `first` 或 `next`；
+- `GET /v1/model-config`：读取当前 provider、模型、就绪状态及两类密钥是否已配置；
+- `POST /v1/model-config`：本机选择 `kimi`、`openai` 或 `mock`，可选提交当前 provider 的 `api_key`；保存后立即热切换；
 - `GET /health`：查看 provider、模型、就绪状态和超时配置。
+
+模型配置接口固定返回：
+
+```json
+{
+  "ok": true,
+  "provider": "mock",
+  "model": "mock-dialogue-v1",
+  "ready": true,
+  "configured": { "kimi": false, "openai": false },
+  "restart_required": false
+}
+```
+
+`POST` 请求体为 `{ "provider": "kimi|openai|mock", "api_key": "可选" }`。Kimi/OpenAI 不填写 `api_key` 会沿用已保存的密钥；填写时长度必须为 1–512 个字符、不能全为空白，也不能含换行或 NUL 字节。mock 不接受密钥。接口与其他本地端点共用回环来源和 CORS 安全门，只接受来自 `localhost`、`127.0.0.1` 或 `[::1]` 的页面。密钥不会出现在响应中。`.env` 通过同目录临时文件原子替换；在 Windows 上会显式移除继承权限，只允许当前用户、SYSTEM 和 Administrators 访问。
+
+切换发生时，已经开始的一轮仍使用该轮启动时的 provider，下一轮才使用新选择，避免单轮请求中途换模型。正式访谈每轮还会携带 `expected_provider` 和 `expected_model` 会话锁；若另一标签页已切换全局模型，服务分别返回 HTTP 409 `provider_mismatch` 或 `model_mismatch`，不会静默混用模型继续保存正式数据。
 
 首问示例：
 
@@ -128,7 +147,7 @@ OpenAI provider 使用 Responses API、严格 JSON Schema，并固定发送 `sto
   "request_id": "...",
   "provider": "kimi",
   "model": "kimi-k3",
-  "prompt_version": "tcim-dialogue-v2-five-tables-2026-08-29-r2",
+  "prompt_version": "tcim-dialogue-v2-five-tables-2026-08-29-r3",
   "action": "ASK",
   "visible_text": "您提到会先观察，哪些具体表现会改变您的做法？",
   "direction": {
@@ -207,7 +226,7 @@ OpenAI provider 使用 Responses API、严格 JSON Schema，并固定发送 `sto
 node --test test/*.test.js
 ```
 
-测试覆盖 OpenAI Responses 请求映射、Kimi Chat Completions 请求映射、provider 自动选择、严格统一输出校验、超时中止、本地 CORS、持久化、草稿/访谈幂等保护，以及原顾问算法的 `selectFinal` 端到端调用。测试使用注入的 mock `fetch`/provider，不会访问外网，也不需要真实密钥。
+测试覆盖 OpenAI Responses 请求映射、Kimi Chat Completions 请求映射、provider 自动选择与热切换快照、模型配置接口的本地安全门和密钥不回传、`.env` 持久化/重启恢复、严格统一输出校验、超时中止、本地 CORS、草稿/访谈幂等保护，以及原顾问算法的 `selectFinal` 端到端调用。测试使用注入的 mock `fetch`/provider，不会访问外网，也不需要真实密钥。
 
 ## 主要环境变量
 

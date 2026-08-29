@@ -193,22 +193,90 @@ function createKimiProvider(options = {}) {
   };
 }
 
+const MOCK_QUESTION_STAGES = Object.freeze([
+  Object.freeze([
+    '在这个情境里，哪一个现场细节最影响您对四种做法的排序？',
+    '面对这个情境，您形成排序时最先权衡的是什么？',
+    '如果回到当时现场，您会先观察什么再决定怎么做？',
+    '在这四种做法中，哪一点最能说明您当时的优先考虑？',
+    '看到这个情境，您最想先弄清哪一个关键情况？'
+  ]),
+  Object.freeze([
+    '结合您刚才的回答，哪一个可观察到的表现最能支持这个判断？',
+    '您刚才说的考虑里，哪个现场线索会让您更确定这样处理？',
+    '从您提到的情况中，您会用哪个具体迹象来判断是否需要介入？',
+    '要把您刚才的想法落到现场，您会特别留意哪个细节？',
+    '您的这个判断最需要哪一条现场信息来确认？'
+  ]),
+  Object.freeze([
+    '如果这个关键条件发生变化，您的做法会怎么调整？',
+    '什么新情况出现时，您会改变刚才的处理方向？',
+    '如果幼儿的反应与您预想不同，您会如何重新判断？',
+    '假如现场多了一个相反的线索，您会怎样修正原来的做法？',
+    '在哪一种条件下，您会把另一种做法放到更靠前的位置？'
+  ]),
+  Object.freeze([
+    '回看整个情境，您最希望先帮助幼儿获得什么？',
+    '综合刚才的考虑，您最想优先保留幼儿的哪种可能性？',
+    '在安全、游戏继续和同伴需要之间，您最终会以什么作为行动依据？',
+    '如果要向同事说明这个决定，您会用哪一条理由来概括？',
+    '经过这几轮梳理，您认为这个情境最需要守住的是什么？'
+  ])
+]);
+
+function mockItemSeed(itemId) {
+  const text = String(itemId || 'Q0');
+  const numeric = Number((text.match(/\d+/) || [0])[0]);
+  if (numeric) return numeric - 1;
+  return Array.from(text).reduce((sum, char) => sum + char.codePointAt(0), 0);
+}
+
+function exactTeacherQuote(value, maxChars = 80) {
+  return Array.from(String(value || '').trim()).slice(0, maxChars).join('');
+}
+
 function createBuiltInMockProvider() {
   return {
     id: 'mock',
     model: 'mock-dialogue-v1',
     ready: true,
-    async generate({ phase }) {
+    async generate({ phase, itemId, history, teacherTurn, dialogueProgressState }) {
       const first = phase === 'first';
+      const priorAssistantQuestions = (Array.isArray(history) ? history : [])
+        .filter((turn) => turn && ['assistant', 'ai', 'agent'].includes(turn.role) && /[?？]/.test(String(turn.text || turn.content || '')))
+        .length;
+      const ledgerQuestions = (Array.isArray(dialogueProgressState && dialogueProgressState.questionLedger)
+        ? dialogueProgressState.questionLedger
+        : []).filter((entry) => entry && entry.action === 'ASK').length;
+      const stage = first ? 0 : Math.max(1, priorAssistantQuestions, ledgerQuestions);
+      const shouldClose = stage >= MOCK_QUESTION_STAGES.length;
+      const itemSeed = mockItemSeed(itemId);
+      const choices = shouldClose ? null : MOCK_QUESTION_STAGES[stage];
+      const visibleText = shouldClose
+        ? '谢谢您把判断依据和条件变化说得很清楚，本情境访谈先到这里。'
+        : choices[(itemSeed + stage) % choices.length];
+      const teacherQuote = first ? '' : exactTeacherQuote(teacherTurn);
       return {
         output: {
-          action: 'ASK',
-          visible_text: first ? '看到这个情境时，您最先注意到的是什么？' : '您刚才提到这个考虑，什么情况下您的做法会有所不同？',
-          direction: { label: first ? '开放情境表征' : '承接教师新线索', open_thread_id: first ? 'open-first-impression' : 'open-condition-change', rationale: 'mock provider 的确定性测试方向', consulted_policy_ids: [] },
+          action: shouldClose ? 'CLOSE' : 'ASK',
+          visible_text: visibleText,
+          direction: {
+            label: shouldClose ? '有界收束' : `演示探询第 ${stage + 1} 轮`,
+            open_thread_id: `mock:${String(itemId || 'unknown')}:turn-${stage}`,
+            rationale: 'mock provider 按题目与轮次选择确定性演示方向',
+            consulted_policy_ids: []
+          },
           evidence_candidates: [],
-          completion_recommendation: { recommended: false, reason: '仍可继续了解教师的情境判断' },
+          completion_recommendation: {
+            recommended: shouldClose,
+            reason: shouldClose ? '演示已达到有界轮次' : '仍可继续了解教师的情境判断'
+          },
           boundary: { kind: 'NONE', policy_id: '' },
-          understanding: { teacher_quote: '', meaning: first ? '尚未获得教师回答' : '教师提出了一个需要继续澄清的考虑', confidence: first ? 'LOW' : 'MEDIUM' },
+          understanding: {
+            teacher_quote: teacherQuote,
+            meaning: first ? '尚未获得教师回答' : '当前演示轮已承接教师本轮原话',
+            confidence: first ? 'LOW' : 'MEDIUM'
+          },
           working_hypotheses: []
         },
         usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },

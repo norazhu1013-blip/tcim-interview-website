@@ -90,6 +90,159 @@ const BOUNDARY_KEYS = new Set(['kind', 'policy_id']);
 const UNDERSTANDING_KEYS = new Set(['teacher_quote', 'meaning', 'confidence']);
 const HYPOTHESIS_KEYS = new Set(['hypothesis_id', 'statement', 'status', 'confidence', 'source_refs']);
 const VISIBLE_LEAK_RE = /得分|分数|标准答案|专家排序|能力等级|题目入选原因|R\s*\/\s*P\s*\/\s*G|P-?IVI|\b(?:ECL|UND)-/i;
+const DUPLICATE_QUESTION_ERROR = 'duplicate_question';
+
+/**
+ * 去掉不改变问题落点的承接壳和常见语气词。这不做语义判分，只为中文问句的
+ * 稳健去重提供一个可解释、可测试的字面核心。
+ */
+function stripQuestionShell(value) {
+  let text = String(value || '').normalize('NFKC').trim();
+  const shells = [
+    /^(?:谢谢(?:您|你)?[^,，。；;!?！？]{0,30}[,，。；;]\s*)/u,
+    /^(?:您|你)?(?:刚才|前面)(?:提到|说到|谈到|说过|强调|讲到|说)[\s\S]{0,80}?[,，。；;]\s*/u,
+    /^(?:听起来|我听到|我理解到|也就是说)[\s\S]{0,80}?[,，。；;]\s*/u
+  ];
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const shell of shells) text = text.replace(shell, '');
+  }
+  return text;
+}
+
+function normalizeQuestionForComparison(value) {
+  return stripQuestionShell(value)
+    .toLowerCase()
+    .replace(/(?:那么|那|所以|接下来|还想再了解|想再了解)/gu, '')
+    .replace(/(?:能不能|能否|可不可以|可以|请)(?:您|你)?/gu, '')
+    .replace(/(?:您|你)(?:觉得|会|能)?/gu, '')
+    .replace(/(?:这一点|这个方面|这个考虑|这件事)/gu, '')
+    .replace(/(?:为何)/gu, '为什么')
+    .replace(/(?:如何|怎样)/gu, '怎么')
+    .replace(/(?:不一样|有所不同)/gu, '不同')
+    .replace(/(?:处理方式|回应方式)/gu, '做法')
+    .replace(/(?:特别看重|最看重|重视)/gu, '看重')
+    .replace(/[\p{P}\p{S}\s]+/gu, '');
+}
+
+function bigrams(value) {
+  const chars = Array.from(value);
+  if (chars.length < 2) return chars.length ? [chars[0]] : [];
+  return chars.slice(0, -1).map((char, index) => char + chars[index + 1]);
+}
+
+function diceSimilarity(left, right) {
+  if (!left || !right) return 0;
+  if (left === right) return 1;
+  const a = bigrams(left);
+  const b = bigrams(right);
+  const counts = new Map();
+  for (const token of a) counts.set(token, (counts.get(token) || 0) + 1);
+  let overlap = 0;
+  for (const token of b) {
+    const count = counts.get(token) || 0;
+    if (!count) continue;
+    overlap += 1;
+    counts.set(token, count - 1);
+  }
+  return (2 * overlap) / (a.length + b.length);
+}
+
+const QUESTION_MOVES = Object.freeze([
+  ['REPAIR', /(?:没理解|意思是|澄清|重新说|换个说法|理解得对)/u],
+  ['CONDITION_CHANGE', /(?:如果|假如|什么|哪些|哪种).{0,12}(?:情况|条件|时候|变化|不同)|(?:反过来|相反|预想不同|修正|调整|改变).{0,8}(?:做法|处理|判断|回应|方向)?/u],
+  ['REASON_BASIS', /(?:为什么|原因|理由|依据|考虑|看重|重视|出于什么)/u],
+  ['OBSERVATION_CUE', /(?:观察|注意|留意|细节|线索|迹象|表现|信息).{0,10}(?:判断|确认|支持|介入)?/u],
+  ['PRIORITY_TRADEOFF', /(?:最先|首先|优先|排序|权衡|更靠前|取舍)/u],
+  ['OUTCOME_GOAL', /(?:希望|获得|带来|影响|结果|最想帮助|解决什么)/u],
+  ['ACTION_RESPONSE', /(?:怎么|如何|怎样).{0,8}(?:做|处理|介入|回应|支持|引导|调整|判断)/u],
+  ['CONCRETE_EXAMPLE', /(?:具体例子|举个例子|实际发生|某一次)/u]
+]);
+
+function questionMove(value) {
+  const text = stripQuestionShell(value).normalize('NFKC');
+  const matched = QUESTION_MOVES.find(([, pattern]) => pattern.test(text));
+  return matched ? matched[0] : 'OTHER';
+}
+
+function questionAnchor(value, move) {
+  let text = normalizeQuestionForComparison(value);
+  const common = /(?:幼儿|孩子|教师|情境|现场|刚才|原来|这个|那个|做法|处理|方向|判断|回应|问题|方面|一个|哪一个|什么|怎么|为什么)/gu;
+  text = text.replace(common, '');
+  if (move === 'CONDITION_CHANGE') text = text.replace(/(?:如果|假如|情况|条件|时候|出现|发生|变化|不同|相反|改变|调整|修正|重新|关键|新|时)/gu, '');
+  else if (move === 'REASON_BASIS') text = text.replace(/(?:原因|理由|依据|考虑|看重|重视|出于)/gu, '');
+  else if (move === 'OBSERVATION_CUE') text = text.replace(/(?:观察|注意|留意|细节|线索|迹象|表现|信息|确认|支持)/gu, '');
+  else if (move === 'PRIORITY_TRADEOFF') text = text.replace(/(?:最先|首先|优先|排序|权衡|更靠前|取舍)/gu, '');
+  else if (move === 'OUTCOME_GOAL') text = text.replace(/(?:希望|获得|带来|影响|结果|帮助|解决)/gu, '');
+  else if (move === 'ACTION_RESPONSE') text = text.replace(/(?:做|处理|介入|回应|支持|引导|调整)/gu, '');
+  return text.replace(/(?:的|地|得|会|要|想|能|可能|应该|可以)/gu, '');
+}
+
+function hasConflictingConcreteMarker(left, right) {
+  const a = normalizeQuestionForComparison(left);
+  const b = normalizeQuestionForComparison(right);
+  const markers = [
+    /[a-d]/gu,
+    /介入|等待|观察|支持|引导|询问|制止|阻止|撤离|加入|退出|提醒|示范/gu
+  ];
+  for (const pattern of markers) {
+    const leftSet = new Set(a.match(pattern) || []);
+    const rightSet = new Set(b.match(pattern) || []);
+    if (!leftSet.size || !rightSet.size) continue;
+    const overlap = [...leftSet].some((marker) => rightSet.has(marker));
+    if (!overlap) return true;
+  }
+  return false;
+}
+
+function moveSimilarity(left, right) {
+  const leftMove = questionMove(left);
+  const rightMove = questionMove(right);
+  if (leftMove === 'OTHER' || leftMove !== rightMove) return 0;
+  const leftAnchor = questionAnchor(left, leftMove);
+  const rightAnchor = questionAnchor(right, rightMove);
+  // 相同认知动作不等于相同问题。选项、行动对象不同，必须保留为有效的新追问。
+  if (hasConflictingConcreteMarker(left, right)) return 0;
+  // 落点类型相同且两边都没有足以区分的具体对象，就是“换皮复问”。
+  if (leftAnchor.length <= 3 && rightAnchor.length <= 3) {
+    if (!leftAnchor && !rightAnchor) return 0.9;
+    if (leftAnchor === rightAnchor) return 0.9;
+    return diceSimilarity(leftAnchor, rightAnchor) >= 0.67 ? 0.82 : 0;
+  }
+  if (!leftAnchor || !rightAnchor) return 0.82;
+  const anchorScore = diceSimilarity(leftAnchor, rightAnchor);
+  return anchorScore >= 0.5 ? Math.max(0.82, anchorScore) : 0;
+}
+
+function questionSimilarity(left, right) {
+  const a = normalizeQuestionForComparison(left);
+  const b = normalizeQuestionForComparison(right);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length > b.length ? a : b;
+  if (shorter.length >= 8 && longer.includes(shorter) && shorter.length / longer.length >= 0.78) return 0.95;
+  return Math.max(diceSimilarity(a, b), moveSimilarity(left, right));
+}
+
+function recentAssistantQuestions(history, limit = 5) {
+  return (Array.isArray(history) ? history : [])
+    .filter((turn) => turn && ['assistant', 'ai', 'agent'].includes(turn.role))
+    .map((turn) => String(turn.text || turn.content || '').trim())
+    .filter((text) => /[?？]/.test(text))
+    .slice(-limit);
+}
+
+function findNearDuplicateQuestion(candidate, history, options = {}) {
+  const threshold = Number.isFinite(options.threshold) ? options.threshold : 0.78;
+  const questions = recentAssistantQuestions(history, options.limit || 5);
+  for (let index = questions.length - 1; index >= 0; index -= 1) {
+    const score = questionSimilarity(candidate, questions[index]);
+    if (score >= threshold) {
+      return { matched: questions[index], score, normalized: normalizeQuestionForComparison(candidate) };
+    }
+  }
+  return null;
+}
 
 function isPlainObject(value) { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }
 
@@ -197,6 +350,7 @@ function validateDialogueOutput(value, context = {}) {
   const teacherTurn = String(context.teacherTurn || '');
   const quote = value.understanding && String(value.understanding.teacher_quote || '');
   if (context.phase === 'first' && quote) errors.push('output.understanding.teacher_quote must be empty on the first turn');
+  if (context.phase === 'next' && !quote.trim()) errors.push('output.understanding.teacher_quote must contain a non-empty exact quote on a follow-up turn');
   if (context.phase === 'next' && quote && !teacherTurn.includes(quote)) errors.push('output.understanding.teacher_quote must quote the current teacher turn exactly');
   if (context.phase === 'first' && value.evidence_candidates && value.evidence_candidates.length) errors.push('output.evidence_candidates must be empty on the first turn');
 
@@ -204,9 +358,28 @@ function validateDialogueOutput(value, context = {}) {
   if (!visibleText) errors.push('output.visible_text must be non-empty');
   if (value.action === 'ASK' && (visibleText.match(/[?？]/g) || []).length !== 1) errors.push('output.visible_text must contain exactly one question mark when action=ASK');
   if (value.action === 'CLOSE' && /[?？]/.test(visibleText)) errors.push('output.visible_text must not ask a question when action=CLOSE');
+  if (value.action === 'ASK') {
+    const duplicate = findNearDuplicateQuestion(visibleText, context.history);
+    if (duplicate) errors.push(`${DUPLICATE_QUESTION_ERROR}: output.visible_text is too similar to a recent assistant question (${duplicate.score.toFixed(2)})`);
+  }
   if (visibleText.length > (context.maxQuestionChars || 140)) errors.push('output.visible_text is too long');
   if (VISIBLE_LEAK_RE.test(visibleText)) errors.push('teacher-visible text exposes protected internal information');
   return { ok: errors.length === 0, errors };
 }
 
-module.exports = { DIALOGUE_RESPONSE_SCHEMA, validateDialogueOutput, collectEvidencePolicyIndex, collectDialoguePolicyIndex, RESPONSE_ORIGINS, EVIDENCE_RELATIONS, EVIDENCE_STATUSES };
+module.exports = {
+  DIALOGUE_RESPONSE_SCHEMA,
+  DUPLICATE_QUESTION_ERROR,
+  validateDialogueOutput,
+  collectEvidencePolicyIndex,
+  collectDialoguePolicyIndex,
+  normalizeQuestionForComparison,
+  questionMove,
+  questionAnchor,
+  questionSimilarity,
+  recentAssistantQuestions,
+  findNearDuplicateQuestion,
+  RESPONSE_ORIGINS,
+  EVIDENCE_RELATIONS,
+  EVIDENCE_STATUSES
+};

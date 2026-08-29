@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createOpenAIProvider, createKimiProvider, selectProvider } = require('../src/providers');
+const { createOpenAIProvider, createKimiProvider, createBuiltInMockProvider, selectProvider } = require('../src/providers');
 const { DIALOGUE_RESPONSE_SCHEMA } = require('../src/schema');
 const { validOutput } = require('./fixtures');
 
@@ -57,6 +57,36 @@ test('auto provider preference is Kimi, then OpenAI, then mock', () => {
   assert.equal(selectProvider({ env: { MOONSHOT_API_KEY: 'legacy-k', OPENAI_API_KEY: 'o' } }).id, 'kimi');
   assert.equal(selectProvider({ env: { OPENAI_API_KEY: 'o' } }).id, 'openai');
   assert.equal(selectProvider({ env: {} }).id, 'mock');
+});
+
+test('built-in mock varies by item and turn, quotes the current answer, and closes after bounded rounds', async () => {
+  const provider = createBuiltInMockProvider();
+  const q1First = await provider.generate({ phase: 'first', itemId: 'Q1', history: [], teacherTurn: '' });
+  const q2First = await provider.generate({ phase: 'first', itemId: 'Q2', history: [], teacherTurn: '' });
+  assert.equal(q1First.output.action, 'ASK');
+  assert.notEqual(q1First.output.visible_text, q2First.output.visible_text);
+
+  const history = [];
+  const visibleQuestions = [];
+  for (let stage = 0; stage < 4; stage += 1) {
+    const teacherTurn = stage ? `第${stage}轮教师原话` : '';
+    const result = await provider.generate({
+      phase: stage ? 'next' : 'first',
+      itemId: 'Q4',
+      history,
+      teacherTurn
+    });
+    assert.equal(result.output.action, 'ASK');
+    if (stage) assert.equal(result.output.understanding.teacher_quote, teacherTurn);
+    visibleQuestions.push(result.output.visible_text);
+    history.push({ role: 'assistant', text: result.output.visible_text });
+  }
+  assert.equal(new Set(visibleQuestions).size, 4);
+
+  const closing = await provider.generate({ phase: 'next', itemId: 'Q4', history, teacherTurn: '最后一轮原话' });
+  assert.equal(closing.output.action, 'CLOSE');
+  assert.equal(closing.output.completion_recommendation.recommended, true);
+  assert.doesNotMatch(closing.output.visible_text, /[?？]/);
 });
 
 test('provider keys cannot be sent to non-official or plaintext URLs without an explicit test override', () => {

@@ -96,6 +96,6 @@ $record = [ordered]@{
 }
 [System.IO.File]::WriteAllText((Join-Path $runtimeDir 'processes.json'), ($record | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
 
-Start-Process 'http://127.0.0.1:5173'
+if ($env:TCIM_NO_BROWSER -ne '1') { Start-Process 'http://127.0.0.1:5173' }
 Write-Host 'TCIM 本机比较版已启动：http://127.0.0.1:5173' -ForegroundColor Green
-Write-Host '如需真实模型，请双击“配置大模型.cmd”，配置后重新启动。'
+Write-Host '进入访谈情境后可直接选择 Kimi 或 OpenAI；首次使用时在本机页面填写相应 API 密钥，无需重启。'

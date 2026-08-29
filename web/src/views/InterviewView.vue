@@ -20,6 +20,7 @@ import {
 import { getProfile, getSession, saveSession } from '../services/storage.js'
 import { reportInterview, reportDraft } from '../services/api.js'
 import { getDialogueAgentHealth, runDialogueAgent } from '../services/dialogueAgent.js'
+import { configureDialogueModel, getDialogueModelConfig } from '../services/modelConfig.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -53,14 +54,46 @@ const agentHealth = ref({ checked: false, ok: false, provider: '', model: '', er
 const simulationOnly = ref(false)
 const demoAuthorized = ref(false)
 const demoRequired = ref(false)
+const modelSelectionRequired = ref(false)
+const modelConfig = ref({ checked: false, provider: 'mock', model: '', ready: false, configured: { kimi: false, openai: false } })
+const selectedModelProvider = ref('kimi')
+const modelApiKey = ref('')
+const configuringModel = ref(false)
+const modelConfigError = ref('')
+const concurrentTabBlocked = ref(false)
 let _lastDraftSignature = ''
 let _draftQueue = Promise.resolve()
 let _timeUpClosed = false
 let _activeGeneration = null
+let _releaseInterviewExecutionLock = null
+let _interviewExecutionLockTask = null
 let timer = null
 
 const isReview = computed(() => activeExisting.value?.status === 'done')
 const timeText = computed(() => `${String(Math.floor(remaining.value / 60)).padStart(2, '0')}:${String(remaining.value % 60).padStart(2, '0')}`)
+const selectedProviderConfigured = computed(() => Boolean(modelConfig.value.configured?.[selectedModelProvider.value]))
+const selectedProviderName = computed(() => selectedModelProvider.value === 'openai' ? 'OpenAI' : 'Kimi K3')
+const lockedModelSelection = computed(() => session.value?.dialogueModelSelection || null)
+const activeProviderMismatch = computed(() => Boolean(
+  !simulationOnly.value
+  && !done.value
+  && lockedModelSelection.value?.provider
+  && agentHealth.value.provider
+  && (
+    lockedModelSelection.value.provider !== agentHealth.value.provider
+    || (
+      lockedModelSelection.value.model
+      && agentHealth.value.model
+      && lockedModelSelection.value.model !== agentHealth.value.model
+    )
+  )
+))
+const pausedForModelMismatch = computed(() => /provider_mismatch|model_mismatch/i.test(String(generationError.value || '')))
+const pausedForConcurrentTab = computed(() => generationError.value === 'concurrent_interview_tab')
+const pausedForSessionUpgrade = computed(() => [
+  'dialogue_session_upgrade_required',
+  'dialogue_model_provenance_missing'
+].includes(generationError.value))
 
 function loadActiveRecord(record, asSimulation) {
   activeExisting.value = record || null
@@ -77,6 +110,30 @@ function loadActiveRecord(record, asSimulation) {
   if (interrupted) dialogueSession.value.status = 'PAUSED'
   generationPaused.value = Boolean(record?.generationError || interrupted || dialogueSession.value?.status === 'PAUSED')
   generationError.value = record?.generationError || (generationPaused.value ? 'generation_interrupted' : '')
+}
+
+/** 同一 sessionId+itemId 只允许一个标签页执行，避免相同 turnSeq 互相覆盖。 */
+function claimInterviewExecutionLock() {
+  if (!globalThis.navigator?.locks?.request) return Promise.resolve(false)
+  return new Promise((resolve) => {
+    let resolved = false
+    _interviewExecutionLockTask = navigator.locks.request(
+      `tcim-interview:${session.value.sessionId}:${item.item_id}`,
+      { mode: 'exclusive', ifAvailable: true },
+      async (lock) => {
+        if (!lock) {
+          resolved = true
+          resolve(false)
+          return
+        }
+        resolved = true
+        resolve(true)
+        await new Promise((release) => { _releaseInterviewExecutionLock = release })
+      }
+    ).catch(() => {
+      if (!resolved) resolve(false)
+    })
+  })
 }
 
 /** 新五表只提供专业地图和证据合同；它们不提供固定问句，也不决定路线。 */
@@ -111,14 +168,31 @@ function ensureDialogueSession() {
     runtimeSchemaVersion: fiveTableRuntime.schemaVersion
   })
   if (restored.ok) return dialogueSession.value
+  const hasPriorDialogue = Boolean(
+    messages.value.length
+    || dialogueSession.value?.history?.length
+    || dialogueSession.value?.evidenceState?.records?.length
+    || dialogueSession.value?.version > 0
+  )
+  if (hasPriorDialogue) {
+    const error = new Error('dialogue_session_upgrade_required')
+    error.code = 'dialogue_session_upgrade_required'
+    error.details = restored.errors
+    throw error
+  }
   dialogueSession.value = createDialogueSession(runtimeCard)
   return dialogueSession.value
 }
 
 function providerFor(controller) {
+  const locked = session.value?.dialogueModelSelection || {}
+  const expectedProvider = simulationOnly.value ? 'mock' : (locked.provider || lastLLMProfile.value || agentHealth.value.provider)
+  const expectedModel = simulationOnly.value ? 'mock-dialogue-v1' : (locked.model || lastLLMModel.value || agentHealth.value.model)
   return (request) => runDialogueAgent(request, {
     signal: controller.signal,
-    remainingMs: Math.max(0, deadlineAt.value - Date.now())
+    remainingMs: Math.max(0, deadlineAt.value - Date.now()),
+    expectedProvider,
+    expectedModel
   })
 }
 
@@ -132,6 +206,12 @@ function recordGenerationFailure(error, requestedAt) {
     error: generationError.value
   })
   generationFailures.value = generationFailures.value.slice(-20)
+}
+
+function pauseForLocalSessionError(error, requestedAt) {
+  recordGenerationFailure(error?.code || error?.message || 'dialogue_session_invalid', requestedAt)
+  persist(false)
+  return false
 }
 
 async function acceptAgentOutcome(outcome, requestedAt) {
@@ -173,7 +253,12 @@ async function acceptAgentOutcome(outcome, requestedAt) {
 
 async function generateFirstQuestion() {
   const requestedAt = Date.now()
-  const modelSession = ensureDialogueSession()
+  let modelSession
+  try {
+    modelSession = ensureDialogueSession()
+  } catch (error) {
+    return pauseForLocalSessionError(error, requestedAt)
+  }
   _activeGeneration = new AbortController()
   const pending = startDialogue(modelSession, providerFor(_activeGeneration))
   // startDialogue 在首次 await 前已写入 GENERATING + pendingRequest；立即落盘，
@@ -183,9 +268,16 @@ async function generateFirstQuestion() {
   return acceptAgentOutcome(outcome, requestedAt)
 }
 
-async function generateAfterTeacher(teacherText) {
+async function generateAfterTeacher(teacherText, preparedSession = null) {
   const requestedAt = Date.now()
-  const modelSession = ensureDialogueSession()
+  let modelSession = preparedSession
+  if (!modelSession) {
+    try {
+      modelSession = ensureDialogueSession()
+    } catch (error) {
+      return pauseForLocalSessionError(error, requestedAt)
+    }
+  }
   _activeGeneration = new AbortController()
   const pending = submitTeacherTurn(modelSession, teacherText, providerFor(_activeGeneration))
   // 教师原话、turnSeq 和 pendingRequest 已同步写入领域会话，先持久化再等网络。
@@ -197,11 +289,21 @@ async function generateAfterTeacher(teacherText) {
 async function send() {
   const text = input.value.trim()
   if (!text || sending.value || done.value || generationPaused.value) return
+  const requestedAt = Date.now()
+  let modelSession
+  try {
+    // 先确认旧会话能安全恢复，再把教师原话加入可见记录；避免出现“页面已保存、
+    // 领域会话却没有接住”的悬空教师回答。
+    modelSession = ensureDialogueSession()
+  } catch (error) {
+    pauseForLocalSessionError(error, requestedAt)
+    return
+  }
   messages.value.push({ role: 'teacher', text, ts: Date.now() })
   input.value = ''
   sending.value = true
   try {
-    await generateAfterTeacher(text)
+    await generateAfterTeacher(text, modelSession)
   } finally {
     sending.value = false
     _activeGeneration = null
@@ -213,8 +315,15 @@ async function retryQuestion() {
   sending.value = true
   try {
     const requestedAt = Date.now()
+    let modelSession
+    try {
+      modelSession = ensureDialogueSession()
+    } catch (error) {
+      pauseForLocalSessionError(error, requestedAt)
+      return
+    }
     _activeGeneration = new AbortController()
-    const pending = retryDialogue(ensureDialogueSession(), providerFor(_activeGeneration))
+    const pending = retryDialogue(modelSession, providerFor(_activeGeneration))
     persist(false)
     const outcome = await pending
     await acceptAgentOutcome(outcome, requestedAt)
@@ -271,11 +380,171 @@ function startDeadlineTimer() {
   if (remaining.value > 0) timer = setInterval(refreshRemaining, 1000)
 }
 
+function applyModelConfig(payload = {}) {
+  const configured = {
+    kimi: Boolean(payload.configured?.kimi),
+    openai: Boolean(payload.configured?.openai)
+  }
+  modelConfig.value = {
+    checked: true,
+    provider: payload.provider || 'mock',
+    model: payload.model || '',
+    ready: Boolean(payload.ready),
+    configured
+  }
+  if (payload.provider === 'kimi' || payload.provider === 'openai') {
+    selectedModelProvider.value = payload.provider
+  } else if (configured.kimi) {
+    selectedModelProvider.value = 'kimi'
+  } else if (configured.openai) {
+    selectedModelProvider.value = 'openai'
+  }
+}
+
+function openRealModelSelection() {
+  modelConfigError.value = ''
+  if (['kimi', 'openai'].includes(lockedModelSelection.value?.provider)) {
+    selectedModelProvider.value = lockedModelSelection.value.provider
+  }
+  modelSelectionRequired.value = true
+}
+
+function refreshAssessmentLockFromStorage() {
+  const latest = getSession(session.value?.sessionId)
+  const latestLock = latest?.dialogueModelSelection
+  if (latestLock?.provider) {
+    session.value = { ...session.value, dialogueModelSelection: latestLock }
+    return latestLock
+  }
+  return lockedModelSelection.value
+}
+
+async function withAssessmentConfigLock(task) {
+  if (!globalThis.navigator?.locks?.request) {
+    throw new Error('当前浏览器不支持安全的测评会话锁。请只保留一个本机比较版页面，或使用最新版 Microsoft Edge。')
+  }
+  return navigator.locks.request(`tcim-dialogue-model:${session.value.sessionId}`, { mode: 'exclusive' }, task)
+}
+
+function preflightLoadedDialogue() {
+  if (done.value || isReview.value || (!messages.value.length && !dialogueSession.value)) return true
+  try {
+    ensureDialogueSession()
+    return true
+  } catch (error) {
+    pauseForLocalSessionError(error, Date.now())
+    return false
+  }
+}
+
+async function resumeFormalAfterModelConfiguration() {
+  if (!preflightLoadedDialogue()) return
+  startDeadlineTimer()
+  if (done.value || remaining.value <= 0 || isReview.value) return
+
+  if (generationPaused.value && pausedForModelMismatch.value) {
+    if (dialogueSession.value?.pendingRequest) {
+      await retryQuestion()
+      return
+    }
+    generationPaused.value = false
+    generationError.value = ''
+    persist(false)
+  }
+
+  if (!messages.value.length && !generationPaused.value) {
+    sending.value = true
+    try {
+      await generateFirstQuestion()
+    } finally {
+      sending.value = false
+      _activeGeneration = null
+    }
+  }
+}
+
+async function configureRealModel() {
+  if (configuringModel.value || sending.value) return
+  const provider = selectedModelProvider.value
+  const apiKey = modelApiKey.value.trim()
+
+  configuringModel.value = true
+  modelConfigError.value = ''
+  try {
+    await withAssessmentConfigLock(async () => {
+      const sessionLock = refreshAssessmentLockFromStorage()
+      const preserveActiveFormal = Boolean(!simulationOnly.value && messages.value.length)
+      if (sessionLock?.provider && !sessionLock.model) {
+        throw new Error('这次旧测评只记录了模型服务商，没有记录具体模型，不能作为可比较数据继续；请返回并开始一次新测评。')
+      }
+      if (sessionLock?.provider && provider !== sessionLock.provider) {
+        throw new Error(`本次测评已锁定 ${sessionLock.provider}，三道正式访谈不能中途换模型；如需比较另一模型，请新建一次测评。`)
+      }
+      if (!apiKey && !modelConfig.value.configured?.[provider]) {
+        throw new Error(`请先填写 ${selectedProviderName.value} API 密钥。`)
+      }
+
+      const configured = await configureDialogueModel({ provider, apiKey })
+      applyModelConfig(configured)
+      if (!configured.ready || configured.provider !== provider) throw new Error('模型没有成功启用')
+      agentHealth.value = {
+        checked: true,
+        ok: true,
+        provider: configured.provider,
+        model: configured.model || '',
+        error: ''
+      }
+      if (sessionLock?.model && configured.model !== sessionLock.model) {
+        throw new Error(`本次测评已锁定模型 ${sessionLock.model}，本机当前模型为 ${configured.model || '未知'}，不能中途替换。`)
+      }
+
+      if (!sessionLock?.provider) {
+        const modelSelection = {
+          provider: configured.provider,
+          model: configured.model || '',
+          selectedAt: Date.now(),
+          scope: 'assessment_session'
+        }
+        session.value.dialogueModelSelection = modelSelection
+        session.value = saveMergedSession({ dialogueModelSelection: modelSelection })
+      }
+
+      demoRequired.value = false
+      demoAuthorized.value = false
+      modelSelectionRequired.value = false
+
+      if (preserveActiveFormal) {
+        await resumeFormalAfterModelConfiguration()
+        return
+      }
+
+      clearInterval(timer)
+      _activeGeneration?.abort()
+      loadActiveRecord(formalExisting, false)
+      _timeUpClosed = false
+      if (!formalExisting) {
+        startedAt.value = Date.now()
+        deadlineAt.value = startedAt.value + 10 * 60 * 1000
+        generationPaused.value = false
+        generationError.value = ''
+      }
+      await resumeFormalAfterModelConfiguration()
+    })
+  } catch (error) {
+    modelConfigError.value = error?.message || '模型设置没有保存成功，请检查密钥后重试。'
+  } finally {
+    // 密钥不在浏览器里保留；服务端也不会把它返回给页面。
+    modelApiKey.value = ''
+    configuringModel.value = false
+  }
+}
+
 async function startDemo() {
   if (sending.value || !demoRequired.value || agentHealth.value.provider !== 'mock') return
   loadActiveRecord(null, true)
   demoRequired.value = false
   demoAuthorized.value = true
+  modelSelectionRequired.value = false
   _timeUpClosed = false
   startedAt.value = Date.now()
   deadlineAt.value = startedAt.value + 10 * 60 * 1000
@@ -302,10 +571,29 @@ function endAfterError() {
   persist(true)
 }
 
+/**
+ * 保存当前题时先合并本机最新会话：另一标签页刚写入的模型锁和其他题记录优先保留，
+ * 当前题的这一条记录最后覆盖。模型选择本身只在 Web Locks 独占区内创建。
+ */
+function saveMergedSession(overrides = {}) {
+  const latest = getSession(session.value.sessionId) || {}
+  const merged = { ...session.value, ...latest, ...overrides }
+  for (const key of ['answers', 'interview', 'comparisonInterview', 'simulationInterview']) {
+    merged[key] = {
+      ...(session.value?.[key] || {}),
+      ...(latest?.[key] || {}),
+      ...(overrides?.[key] || {})
+    }
+  }
+  merged.dialogueModelSelection = latest.dialogueModelSelection
+    || overrides.dialogueModelSelection
+    || session.value.dialogueModelSelection
+  return saveSession(merged)
+}
+
 function persist(isDone) {
   const collection = simulationOnly.value ? 'simulationInterview' : 'comparisonInterview'
-  session.value[collection] ||= {}
-  session.value[collection][item.item_id] = {
+  const record = {
     itemId: item.item_id,
     status: isDone ? 'done' : 'in_progress',
     startedAt: startedAt.value,
@@ -325,7 +613,9 @@ function persist(isDone) {
     runtimeConfigFingerprint: fiveTableRuntime.configFingerprint,
     dialogueSession: dialogueSession.value
   }
-  session.value = saveSession(session.value)
+  session.value[collection] ||= {}
+  session.value[collection][item.item_id] = record
+  session.value = saveMergedSession({ [collection]: { [item.item_id]: record } })
   if (!simulationOnly.value) {
     syncDraft(isDone)
     if (isDone) reportCompletion()
@@ -376,11 +666,16 @@ async function reportCompletion() {
   } catch (e) {
     session.value.reportError = e?.message || 'report_failed'
   }
-  session.value = saveSession(session.value)
+  session.value = saveMergedSession({
+    reportRevision: session.value.reportRevision,
+    reportPayloadBytes: session.value.reportPayloadBytes,
+    reportReceipt: session.value.reportReceipt,
+    reportError: session.value.reportError
+  })
 }
 
 function leave() {
-  if ((!demoRequired.value || demoAuthorized.value) && (messages.value.length || dialogueSession.value)) persist(done.value)
+  if (!concurrentTabBlocked.value && (!demoRequired.value || demoAuthorized.value) && (messages.value.length || dialogueSession.value)) persist(done.value)
   router.push(`/interviews/${session.value.sessionId}`)
 }
 
@@ -389,8 +684,19 @@ onMounted(async () => {
     router.replace('/')
     return
   }
-  try {
-    const health = await getDialogueAgentHealth()
+  if (!(await claimInterviewExecutionLock())) {
+    concurrentTabBlocked.value = true
+    generationPaused.value = true
+    generationError.value = 'concurrent_interview_tab'
+    agentHealth.value = { checked: true, ok: false, provider: '', model: '', error: '本情境已在另一个页面打开' }
+    return
+  }
+  const [healthResult, configResult] = await Promise.allSettled([
+    getDialogueAgentHealth(),
+    getDialogueModelConfig()
+  ])
+  if (healthResult.status === 'fulfilled') {
+    const health = healthResult.value
     agentHealth.value = {
       checked: true,
       ok: Boolean(health?.ok && health?.ready),
@@ -398,16 +704,50 @@ onMounted(async () => {
       model: health?.model || '',
       error: health?.ready === false ? 'API 密钥尚未配置' : ''
     }
-  } catch (error) {
+  } else {
+    const error = healthResult.reason
     agentHealth.value = { checked: true, ok: false, provider: '', model: '', error: error?.code || '本机服务未启动' }
   }
+
+  if (configResult.status === 'fulfilled') {
+    applyModelConfig(configResult.value)
+  } else {
+    const activeProvider = agentHealth.value.provider
+    applyModelConfig({
+      provider: activeProvider || 'mock',
+      model: agentHealth.value.model,
+      ready: agentHealth.value.ok,
+      configured: {
+        kimi: activeProvider === 'kimi' && agentHealth.value.ok,
+        openai: activeProvider === 'openai' && agentHealth.value.ok
+      }
+    })
+  }
+  let lockedProvider = String(session.value?.dialogueModelSelection?.provider || '')
+  if (!lockedProvider && ['kimi', 'openai'].includes(formalExisting?.llmProfile)) {
+    const migratedModelSelection = {
+      provider: formalExisting.llmProfile,
+      model: formalExisting.llmModel || '',
+      selectedAt: formalExisting.startedAt || Date.now(),
+      scope: 'assessment_session',
+      migratedFromFormalRecord: true
+    }
+    session.value.dialogueModelSelection = migratedModelSelection
+    session.value = saveMergedSession({ dialogueModelSelection: migratedModelSelection })
+    lockedProvider = formalExisting.llmProfile
+  }
+  if (lockedProvider === 'kimi' || lockedProvider === 'openai') selectedModelProvider.value = lockedProvider
 
   if (agentHealth.value.provider === 'mock') {
     loadActiveRecord(simulationExisting, true)
     demoAuthorized.value = Boolean(simulationExisting)
     demoRequired.value = !simulationExisting
+    modelSelectionRequired.value = !simulationExisting
   } else {
     loadActiveRecord(formalExisting, false)
+    demoRequired.value = false
+    const modelSelectionMatches = lockedProvider === agentHealth.value.provider && agentHealth.value.ok
+    modelSelectionRequired.value = !formalExisting && !modelSelectionMatches
   }
 
   if (!agentHealth.value.ok) {
@@ -415,7 +755,31 @@ onMounted(async () => {
     generationError.value = agentHealth.value.error || 'dialogue_agent_unavailable'
     return
   }
-  if (demoRequired.value) return
+  if (!simulationOnly.value && !done.value && !isReview.value && lockedProvider && !lockedModelSelection.value?.model) {
+    modelSelectionRequired.value = false
+    generationPaused.value = true
+    generationError.value = 'dialogue_model_provenance_missing'
+    return
+  }
+  if (demoRequired.value || modelSelectionRequired.value) return
+
+  if (!done.value && !isReview.value && (messages.value.length || dialogueSession.value)) {
+    try {
+      ensureDialogueSession()
+    } catch (error) {
+      pauseForLocalSessionError(error, Date.now())
+      return
+    }
+  }
+
+  if (activeProviderMismatch.value) {
+    generationPaused.value = true
+    generationError.value = lockedModelSelection.value?.model !== agentHealth.value.model
+      ? 'model_mismatch'
+      : 'provider_mismatch'
+    persist(false)
+    return
+  }
 
   startDeadlineTimer()
   if (remaining.value <= 0 || done.value || isReview.value) return
@@ -433,6 +797,9 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   clearInterval(timer)
   _activeGeneration?.abort()
+  _releaseInterviewExecutionLock?.()
+  _releaseInterviewExecutionLock = null
+  _interviewExecutionLockTask = null
 })
 </script>
 
@@ -445,14 +812,24 @@ onBeforeUnmount(() => {
     </header>
 
     <div class="cloud-health" :class="agentHealth.provider === 'mock' ? 'demo' : (agentHealth.ok ? 'ok' : (agentHealth.checked ? 'down' : 'checking'))">
-      <span v-if="!agentHealth.checked">正在连接本机 Dialogue Agent…</span>
+      <span v-if="pausedForConcurrentTab">本情境已在另一个页面打开；当前页面不会读写访谈记录。</span>
+      <span v-else-if="!agentHealth.checked">正在连接本机 Dialogue Agent…</span>
       <span v-else-if="agentHealth.provider === 'mock'">
-        当前没有真实模型密钥，仅提供演示模式；演示记录不会进入正式比较统计或报告。
+        当前运行的是固定工程演示，不是真实 AI；它只能检查页面与保存流程，不能用来评价提问质量。
+      </span>
+      <span v-else-if="activeProviderMismatch">
+        本次测评已锁定 {{ lockedModelSelection.provider }}<template v-if="lockedModelSelection.model"> / {{ lockedModelSelection.model }}</template>，但本机当前是 {{ agentHealth.provider }}<template v-if="agentHealth.model"> / {{ agentHealth.model }}</template>；系统不会混用模型。
       </span>
       <span v-else-if="agentHealth.ok">
         Dialogue Agent 已就绪 · {{ agentHealth.provider }}<template v-if="agentHealth.model"> / {{ agentHealth.model }}</template>
       </span>
       <span v-else>Dialogue Agent 暂不可用（{{ agentHealth.error || '本机服务未启动' }}）· 已输入内容仍会保存在本机</span>
+      <button
+        v-if="agentHealth.checked && (activeProviderMismatch || agentHealth.provider === 'mock' || simulationOnly || (!messages.length && !sending))"
+        class="health-action"
+        type="button"
+        @click="openRealModelSelection"
+      >{{ activeProviderMismatch ? '恢复本次访谈模型' : '选择真实模型' }}</button>
     </div>
 
     <article class="interview-context">
@@ -477,13 +854,75 @@ onBeforeUnmount(() => {
       <div ref="chatEnd"></div>
     </div>
 
-    <div v-if="demoRequired && !done && !isReview" class="chat-recovery demo-consent">
+    <div v-if="modelSelectionRequired" class="chat-recovery model-setup">
+      <div class="model-setup-heading">
+        <strong>先选择真正参与访谈的 AI</strong>
+        <span>为了保证研究结果可比较，本次测评的三道正式访谈将统一使用本次选定的模型。</span>
+      </div>
+      <div class="provider-choices" role="group" aria-label="选择AI模型">
+        <button
+          type="button"
+          :class="{ selected: selectedModelProvider === 'kimi' }"
+          :disabled="lockedModelSelection?.provider && lockedModelSelection.provider !== 'kimi'"
+          :aria-pressed="selectedModelProvider === 'kimi'"
+          @click="selectedModelProvider = 'kimi'; modelConfigError = ''"
+        >
+          <strong>Kimi K3</strong>
+          <small>{{ modelConfig.configured?.kimi ? '本机已保存' : '需要 API 密钥' }}</small>
+        </button>
+        <button
+          type="button"
+          :class="{ selected: selectedModelProvider === 'openai' }"
+          :disabled="lockedModelSelection?.provider && lockedModelSelection.provider !== 'openai'"
+          :aria-pressed="selectedModelProvider === 'openai'"
+          @click="selectedModelProvider = 'openai'; modelConfigError = ''"
+        >
+          <strong>OpenAI</strong>
+          <small>{{ modelConfig.configured?.openai ? '本机已保存' : '需要 API 密钥' }}</small>
+        </button>
+      </div>
+      <label class="model-key-field">
+        <span>{{ selectedProviderConfigured ? 'API 密钥（已配置；留空可直接使用，填写则替换）' : `${selectedProviderName} API 密钥` }}</span>
+        <input
+          v-model="modelApiKey"
+          type="password"
+          autocomplete="new-password"
+          spellcheck="false"
+          :placeholder="selectedProviderConfigured ? '本机已有密钥' : '仅发送到本机服务，不保存到浏览器本地存储或 Git'"
+          @keydown.enter.prevent="configureRealModel"
+        />
+      </label>
+      <p class="model-key-note">密钥不会保存在浏览器本地存储、测评业务数据或 Git 中；密钥是否有效会在生成第一问时由模型服务验证。</p>
+      <p v-if="modelConfigError" class="model-config-error">{{ modelConfigError }}</p>
+      <div class="chat-recovery-actions">
+        <button class="button primary" :disabled="configuringModel || sending" @click="configureRealModel">
+          {{ configuringModel ? '正在启用…' : `使用 ${selectedProviderName} 开始正式访谈` }}
+        </button>
+        <button
+          v-if="agentHealth.provider === 'mock' && demoRequired"
+          class="button secondary"
+          :disabled="configuringModel || sending"
+          @click="startDemo"
+        >仅进入固定演示</button>
+        <button class="button text" :disabled="configuringModel" @click="leave">返回情境列表</button>
+      </div>
+    </div>
+    <div v-else-if="demoRequired && !done && !isReview" class="chat-recovery demo-consent">
       <div>
         <strong>是否进入本机演示？</strong>
         <span>演示使用固定测试响应，只用于检查界面与保存流程，不代表真实 Dialogue Agent，也不会计入正式研究结果。</span>
       </div>
       <div class="chat-recovery-actions">
         <button class="button secondary" :disabled="sending" @click="startDemo">进入演示</button>
+        <button class="button text" @click="leave">返回情境列表</button>
+      </div>
+    </div>
+    <div v-else-if="pausedForConcurrentTab && !done && !isReview" class="chat-recovery">
+      <div>
+        <strong>请回到已经打开的那个页面继续</strong>
+        <span>同一情境不能在两个页面同时访谈，否则两边的回答会互相覆盖。本页已自动进入只读保护。</span>
+      </div>
+      <div class="chat-recovery-actions">
         <button class="button text" @click="leave">返回情境列表</button>
       </div>
     </div>
@@ -498,12 +937,14 @@ onBeforeUnmount(() => {
     </div>
     <div v-else-if="generationPaused && !done && !isReview" class="chat-recovery">
       <div>
-        <strong>刚才的问题暂时没有生成成功</strong>
-        <span>您的回答已经保存，可以重新生成；如果不想继续，也可以结束本情境。</span>
+        <strong>{{ pausedForSessionUpgrade ? '这是旧版测试会话，不能安全续接' : (pausedForModelMismatch ? '本次访谈的模型被其他页面切换了' : '刚才的问题暂时没有生成成功') }}</strong>
+        <span>{{ pausedForSessionUpgrade ? '旧对话仍保留供查看。为避免丢失历史和证据，本版不会把它接到一个新会话；请返回情境列表，并用一次新的测评开始正式比较。' : (pausedForModelMismatch ? '您的回答已经保存。请恢复本次测评锁定的模型后继续，系统不会混用两个模型。' : '您的回答已经保存，可以重新生成；如果不想继续，也可以结束本情境。') }}</span>
       </div>
       <div class="chat-recovery-actions">
-        <button class="button secondary" :disabled="sending" @click="retryQuestion">重新生成</button>
-        <button class="button text" :disabled="sending" @click="endAfterError">结束本情境</button>
+        <button v-if="pausedForSessionUpgrade" class="button secondary" :disabled="sending" @click="leave">返回情境列表</button>
+        <button v-else-if="pausedForModelMismatch" class="button secondary" :disabled="sending" @click="openRealModelSelection">恢复锁定模型</button>
+        <button v-else class="button secondary" :disabled="sending" @click="retryQuestion">重新生成</button>
+        <button v-if="!pausedForSessionUpgrade" class="button text" :disabled="sending" @click="endAfterError">结束本情境</button>
       </div>
     </div>
     <div v-else-if="!done && !isReview && agentHealth.ok" class="chat-input">
@@ -512,7 +953,10 @@ onBeforeUnmount(() => {
     </div>
     <div v-else class="chat-complete">
       <span>{{ simulationOnly ? '本情境演示已完成（不计入正式结果）' : '本情境访谈已完成' }}</span>
-      <button class="button primary" @click="leave">返回情境列表</button>
+      <div class="chat-recovery-actions">
+        <button v-if="simulationOnly" class="button primary" @click="openRealModelSelection">使用真实模型重新访谈</button>
+        <button :class="['button', simulationOnly ? 'secondary' : 'primary']" @click="leave">返回情境列表</button>
+      </div>
     </div>
   </section>
 </template>
@@ -528,5 +972,46 @@ onBeforeUnmount(() => {
 .cloud-health.demo { color: #8a4b08; background: #fff7e8; }
 .cloud-health.down { color: #b42318; background: #fdecea; }
 .cloud-health.checking { color: #475467; background: #f8fafc; }
+.health-action {
+  margin-left: 10px;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
 .demo-consent { border-color: #f2c078; background: #fffaf0; }
+.model-setup {
+  align-items: stretch;
+  flex-direction: column;
+  border-color: #b7c5f6;
+  background: rgba(250, 252, 255, .98);
+}
+.model-setup-heading strong, .model-setup-heading span { display: block; }
+.model-setup-heading span { margin-top: 3px; color: #667085; font-size: 13px; }
+.provider-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.provider-choices button {
+  border: 1px solid #d7dce7;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #344054;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.provider-choices button.selected { border-color: #3f63d6; box-shadow: 0 0 0 2px rgba(63, 99, 214, .12); color: #243f9d; }
+.provider-choices button:disabled { opacity: .48; cursor: not-allowed; }
+.provider-choices strong, .provider-choices small { display: block; }
+.provider-choices small { margin-top: 2px; color: #667085; }
+.model-key-field span { display: block; margin-bottom: 5px; color: #475467; font-size: 13px; }
+.model-key-field input { width: 100%; border: 1px solid #d7dce7; border-radius: 10px; padding: 10px 12px; outline: none; }
+.model-key-field input:focus { border-color: #3f63d6; box-shadow: 0 0 0 3px rgba(63, 99, 214, .1); }
+.model-key-note { margin: -2px 0 0; color: #667085; font-size: 12px; }
+.model-config-error { margin: 0; color: #b42318; font-size: 13px; }
+@media (max-width: 620px) {
+  .provider-choices { grid-template-columns: 1fr; }
+  .model-setup .chat-recovery-actions { flex-direction: column; }
+}
 </style>
