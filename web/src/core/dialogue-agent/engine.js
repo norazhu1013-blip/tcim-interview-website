@@ -8,8 +8,15 @@ import {
 } from './contracts.js'
 import { initializeEvidenceState, commitEvidenceCandidates } from './evidence.js'
 import { isExplicitExit, safeExitResult, validateHardBoundaries } from './boundaries.js'
+import {
+  archiveAgentResult,
+  archiveTeacherTurn,
+  closeDialogueProgress,
+  initializeDialogueProgressState,
+  validateDialogueProgressState
+} from './progress.js'
 
-export const DIALOGUE_SESSION_SCHEMA = 'dialogue-agent.session/v2'
+export const DIALOGUE_SESSION_SCHEMA = 'dialogue-agent.session/v3'
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value))
@@ -79,6 +86,11 @@ export function validateDialogueSessionForResume(session, expected = {}) {
       errors.push('evidence_record_policy_fingerprint_mismatch')
     }
   }
+  const progress = validateDialogueProgressState(session.dialogueProgressState, {
+    itemId: session.itemId,
+    history: session.history
+  })
+  if (!progress.ok) errors.push(...progress.errors)
   return { ok: errors.length === 0, errors: [...new Set(errors)] }
 }
 
@@ -116,6 +128,7 @@ export function createDialogueSession(runtimeCard, options = {}) {
     turnSeq: 0,
     runtimeCard: clone(runtimeCard),
     evidenceState: initializeEvidenceState(runtimeCard),
+    dialogueProgressState: initializeDialogueProgressState(runtimeCard),
     history: [],
     auditLog: [],
     pendingRequest: null,
@@ -145,6 +158,7 @@ function nextRequest(session, kind, teacherTurn, options = {}) {
       completion: 'ADVISORY'
     },
     evidenceState: clone(session.evidenceState),
+    dialogueProgressState: clone(session.dialogueProgressState),
     history: clone(session.history)
   }
 }
@@ -218,6 +232,17 @@ async function execute(session, request, provider, options = {}) {
     { now }
   )
   session.evidenceState = evidence.state
+  session.dialogueProgressState = archiveAgentResult(
+    session.dialogueProgressState,
+    result,
+    {
+      kind: request.kind,
+      turnId: request.turnId,
+      teacherTurn: request.teacherTurn,
+      acceptedEvidence: evidence.accepted
+    },
+    { now }
+  )
   session.lastAgentResult = clone(result)
   session.pendingRequest = null
   session.history.push({
@@ -225,6 +250,7 @@ async function execute(session, request, provider, options = {}) {
     text: result.visibleText,
     action: result.action,
     resultId: result.resultId,
+    turnId: request.turnId,
     direction: clone(result.direction),
     at: now()
   })
@@ -268,16 +294,26 @@ export async function submitTeacherTurn(session, teacherTurn, provider, options 
   const text = String(teacherTurn || '').trim()
   if (!text) throw new Error('teacher_turn_empty')
   const now = options.now || defaultNow
+  const explicitExit = isExplicitExit(text)
   session.turnSeq += 1
   session.history.push({ role: 'teacher', text, turnId: `turn-${session.turnSeq}`, at: now() })
+  session.dialogueProgressState = archiveTeacherTurn(session.dialogueProgressState, {
+    turnId: `turn-${session.turnSeq}`,
+    teacherTurn: text,
+    declined: explicitExit
+  }, { now })
   session.version += 1
   audit(session, 'TeacherTurnSaved', { turnId: `turn-${session.turnSeq}`, exactText: text }, now)
 
-  if (isExplicitExit(text)) {
+  if (explicitExit) {
     const handled = safeExitResult(`turn-${session.turnSeq}`)
     session.history.push({ role: 'agent', text: handled.visibleText, action: 'CLOSE', resultId: 'hard-boundary-exit', at: now() })
     session.status = 'COMPLETED'
     session.pendingRequest = null
+    session.dialogueProgressState = closeDialogueProgress(session.dialogueProgressState, {
+      turnId: handled.turnId,
+      explicitExit: true
+    }, { now })
     session.version += 1
     audit(session, 'HardBoundaryHandled', { turnId: handled.turnId, kind: 'EXIT', action: 'CLOSE' }, now)
     return handled

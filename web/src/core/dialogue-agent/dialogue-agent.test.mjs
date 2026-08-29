@@ -110,6 +110,10 @@ test('恢复会话必须匹配 schema、dataset、fingerprint、session 与 item
     assert.equal(checked.ok, false, field)
     assert.ok(checked.errors.includes(error), field)
   }
+
+  const missingProgress = structuredClone(session)
+  delete missingProgress.dialogueProgressState
+  assert.ok(validateDialogueSessionForResume(missingProgress, expected).errors.includes('dialogue_progress_state_not_object'))
 })
 
 test('首问由 Dialogue Agent 生成并保留方向审计', async () => {
@@ -124,6 +128,74 @@ test('首问由 Dialogue Agent 生成并保留方向审计', async () => {
   assert.equal(out.question, '您看到这个情境时，最先在意的是什么？')
   assert.equal(session.status, 'ACTIVE')
   assert.equal(session.evidenceState.records.length, 0)
+  assert.equal(session.dialogueProgressState.phase, 'OPENING')
+  assert.equal(session.dialogueProgressState.questionLedger.length, 1)
+  assert.equal(session.dialogueProgressState.questionLedger[0].goalLabel, '先理解教师自己的判断起点')
+  assert.equal(session.dialogueProgressState.openThreads[0].openThreadId, 'teacher-meaning-entry')
+})
+
+test('每轮 request 都携带已持久化的 DialogueProgressState', async () => {
+  const session = createDialogueSession(runtimeCard())
+  await startDialogue(session, async (request) => {
+    assert.equal(request.dialogueProgressState.schemaVersion, 'dialogue-agent.progress-state/v1')
+    assert.equal(request.dialogueProgressState.questionLedger.length, 0)
+    return agentResult()
+  })
+  await submitTeacherTurn(session, '我会先看孩子是不是在形成自己的玩法。', async (request) => {
+    assert.equal(request.dialogueProgressState.questionLedger.length, 1)
+    assert.equal(request.dialogueProgressState.questionLedger[0].answerStatus, 'RECEIVED')
+    assert.equal(request.dialogueProgressState.questionLedger[0].answerTurnId, 'turn-1')
+    return agentResult({ visibleText: '这种玩法出现什么变化时，您会调整回应？' })
+  })
+})
+
+test('教师原话理解、工作假设和方向切换会进入进展账本但不改 Evidence', async () => {
+  const session = createDialogueSession(runtimeCard())
+  await startDialogue(session, async () => agentResult())
+  await submitTeacherTurn(session, '我会先看地面是否湿滑，再看孩子有没有协商。', async () => agentResult({
+    visibleText: '如果风险很低，孩子的协商会怎样影响您的介入时机？',
+    direction: {
+      label: '比较风险条件与儿童协商',
+      openThreadId: 'risk-and-negotiation',
+      rationale: '沿教师提出的两个条件继续深化',
+      consultedPolicyIds: ['DP-Q01-CONDITION-COMPARE']
+    },
+    understanding: {
+      teacher_quote: '地面是否湿滑',
+      meaning: '教师先检查可观察的安全条件',
+      confidence: 'HIGH'
+    },
+    workingHypotheses: [{
+      hypothesis_id: 'hyp-risk-priority',
+      statement: '教师可能把风险阈值作为介入前提',
+      status: 'ACTIVE',
+      confidence: 0.72,
+      source_refs: ['turn-1']
+    }]
+  }))
+
+  const progress = session.dialogueProgressState
+  assert.equal(progress.phase, 'DEEPENING')
+  assert.equal(progress.coveredCues.length, 1)
+  assert.equal(progress.coveredCues[0].span, '地面是否湿滑')
+  assert.equal(progress.coveredCues[0].formalEvidenceIds.length, 0)
+  assert.equal(progress.openThreads.find((thread) => thread.openThreadId === 'teacher-meaning-entry').status, 'DEFERRED')
+  assert.equal(progress.openThreads.find((thread) => thread.openThreadId === 'risk-and-negotiation').status, 'ACTIVE')
+  assert.equal(progress.questionLedger.at(-1).workingHypotheses[0].hypothesisId, 'hyp-risk-priority')
+  assert.equal(session.evidenceState.records.length, 0)
+})
+
+test('同一问题或同一线程目标无新增线索时累积 stagnation', async () => {
+  const session = createDialogueSession(runtimeCard())
+  await startDialogue(session, async () => agentResult())
+  await submitTeacherTurn(session, '我还没想好。', async () => agentResult())
+  await submitTeacherTurn(session, '还是没想好。', async () => agentResult())
+
+  const stagnation = session.dialogueProgressState.stagnation
+  assert.equal(stagnation.repeatedQuestionCount, 2)
+  assert.equal(stagnation.consecutiveSimilarGoals, 2)
+  assert.equal(stagnation.score, 2)
+  assert.ok(stagnation.reasonCodes.includes('exact_question_repeat'))
 })
 
 test('Evidence 只提交映射合法且精确回指教师原话的 span', async () => {
