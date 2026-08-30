@@ -88,7 +88,8 @@ export function compactRuntimeCard(runtimeCard, context = {}) {
     ])),
     evidencePolicies: evidencePolicies.map((row) => pick(row, [
       'understandingId', 'evidenceClaimId', 'claimTemplate', 'applicability',
-      'counterevidence', 'alternativeExplanation'
+      'counterevidence', 'alternativeExplanation', 'pathRefs', 'pathRelationMode',
+      'pathMatchRule', 'pathRelationReason'
     ])),
     dialoguePolicies: [...hardBoundaries, ...advisoryPolicies].map((row) => row?.type === 'HARD_BOUNDARY'
       ? pick(row, ['policyId', 'type', 'name', 'triggerConditions', 'prohibitedActions', 'safetyGateRequired'])
@@ -116,6 +117,7 @@ export function compactEvidenceRuntimeCard(runtimeCard, context = {}) {
     professionalLenses: [],
     evidencePolicies: policies.map((row) => pick(row, [
       'recordId', 'understandingId', 'evidenceClaimId', 'claimType', 'capabilityRefs',
+      'pathRefs', 'pathRelationMode', 'pathMatchRule', 'pathRelationReason',
       'claimTemplate', 'applicability', 'supportAnchors', 'allowedResponseOrigins',
       'independenceRequirement', 'teacherConfirmationRequired', 'sourceSpanRequired', 'minEvidenceLevel',
       'counterevidence', 'pseudoEvidence', 'alternativeExplanation', 'discriminatingObservation',

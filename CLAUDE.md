@@ -374,3 +374,9 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **自然承接**:前台提示词取消每轮固定“复述/核实—再提问”。`teacher_quote` 与内部理解只作后台审计；普通轮次直接提出接得上的自然追问，只有教师明确纠正、关键歧义或误解会改变方向时才短暂修复。问句质量 trace 增加机械复述开头诊断，但不把它设为新的硬模板门控。
   - **整体问题窗口**:`interview-timing.js` 在剩余 150s 至前台生成保护线 105s 之间、且每题尚未触发时发送 `question_mode=INTEGRATIVE_SYNTHESIS`。程序只调度时机；Dialogue Agent 综合整段历史、情境目标与教师原话，自主生成一个贴近情境、非诱导、非多问合一的最后新问题。状态和原问句写入 `integrativeQuestion` 与审计日志；教师回答后用 `INTEGRATIVE_QUESTION_ANSWERED` 保存最后一轮并结束，后台 Evidence 分析继续完成。失败重试通过 `runtimeDirectives` 保留该模式，不会降回普通问句。
   - **验证**:local service 36/36、web Dialogue Agent 29/29、240 排列对拍、新五表运行时/负向夹具和报告检查通过。
+- **2026-08-30 新五表V0.2两轮数据治理**:
+  - **唯一活动源**:`config/new-five-tables/source/`只保留五个V0.2工作簿；V0.1工作簿与runtime移至`config/new-five-tables/archive/v0.1/`，运行端只导入`web/src/generated/tcim-new-five-tables.runtime.v0.2.json`。
+  - **第一轮**:归一59个父级能力引用；对齐21条`policy_type/runtime_use`；表3新增`path_relation_mode/path_match_rule/path_relation_reason`，50条能力证据采用`ALTERNATIVE_PATHS + ANY_OF`，5条RO0—RO4来源政策采用`NOT_APPLICABLE + NONE`。
+  - **共同原则**:同一能力A/B/C（或A/B）为可替代实现；教师满足任一路径的证据锚点即可，不要求全部路径，未出现某一路径不得直接判能力不足。该语义进入Excel字典/枚举、运行时、紧凑提示和确定性验证器。
+  - **第二轮**:扩大到487条记录的版本/来源/唯一ID、Ontology图、证据—能力—路径三方语义、对话/综合引用、源哈希/指纹与十题完整性。发现Q06五条路径组按编号机械错配，已按命题和能力重映射；T3-Q10-004补全C07/C08环境配置引用。最终9组检查0错误0警告，指纹`35f1c6ddaa4780b72fdf5ff5b989befbefe9361681b3478ed415757c0774a606`。
+  - **工程门禁**:`tools/compile-new-five-runtime-v02.mjs`重新编译，`tools/audit-new-five-v02.mjs`执行二轮跨表审计；`verify-new-five-runtime.mjs`将父引用、路径关系与运行路由从警告升级为阻断错误；负向Fixture由10类扩展为14类。

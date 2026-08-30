@@ -26,7 +26,7 @@ import { compactDialogueProgressState, compactRuntimeCard } from '../../services
 import { resolveLocalModelConfigBaseUrl } from '../../services/modelConfig.js'
 
 const runtimeData = JSON.parse(readFileSync(
-  new URL('../../generated/tcim-new-five-tables.runtime.v0.1.json', import.meta.url),
+  new URL('../../generated/tcim-new-five-tables.runtime.v0.2.json', import.meta.url),
   'utf8'
 ))
 
@@ -102,6 +102,14 @@ test('发给 Dialogue Agent 的紧凑运行卡保留四个选项的字母与语�
   assert.deepEqual(compact.scenarioBrief.pretestOptions.map((option) => option.optionCode), ['A', 'B', 'C', 'D'])
   assert.ok(compact.scenarioBrief.pretestOptions.every((option) => option.content && option.assessmentRelation === 'PRIOR_ONLY'))
   assert.equal(compact.rankingPrior.finalRanking.join(''), 'ACBD')
+})
+
+test('紧凑运行卡保留可替代路径ANY_OF语义，不把多路径误读为全部必需', () => {
+  const compact = compactRuntimeCard(runtimeCard('Q08'), { teacherTurn: '我会先看孩子卡在哪里，再决定给多大帮助。' })
+  assert.ok(compact.evidencePolicies.length > 0)
+  assert.ok(compact.evidencePolicies.every((policy) => policy.pathRelationMode === 'ALTERNATIVE_PATHS'))
+  assert.ok(compact.evidencePolicies.every((policy) => policy.pathMatchRule === 'ANY_OF'))
+  assert.ok(compact.evidencePolicies.every((policy) => policy.pathRefs.length >= 2))
 })
 
 test('发给 Dialogue Agent 的进展状态保留提问账本、开放线索、已覆盖线索和停滞度', async () => {

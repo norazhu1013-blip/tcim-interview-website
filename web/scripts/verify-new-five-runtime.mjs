@@ -2,8 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const EXPECTED_SCHEMA_VERSION = '0.1.0'
-export const EXPECTED_DATASET_ID = 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.1'
+export const EXPECTED_SCHEMA_VERSION = '0.2.0'
+export const EXPECTED_DATASET_ID = 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.2'
 export const EXPECTED_QUESTION_IDS = Object.freeze(
   Array.from({ length: 10 }, (_, index) => 'Q' + String(index + 1).padStart(2, '0'))
 )
@@ -272,54 +272,70 @@ function validateEvidenceReferences(synthesisEntries, claimIds, errors) {
   }
 }
 
-function collectWarnings(data, lensEntries, evidenceEntries, dialogueEntries, warnings) {
+function validateGovernanceRelations(lensEntries, evidenceEntries, dialogueEntries, errors) {
   const capabilityIds = new Set(
     lensEntries.map((entry) => entry.value?.capabilityId).filter(isNonEmptyString)
   )
-  const unresolvedParents = []
   for (const entry of lensEntries) {
     const parents = Array.isArray(entry.value?.parentCapabilityIds) ? entry.value.parentCapabilityIds : []
     for (const parent of parents) {
-      if (!capabilityIds.has(parent)) unresolvedParents.push({ parent, location: entry.location })
+      if (!capabilityIds.has(parent)) {
+        addIssue(errors, 'unresolved_parent_capability', entry.location + '.parentCapabilityIds', '未解析 parentCapabilityId：' + String(parent))
+      }
     }
   }
-  if (unresolvedParents.length > 0) {
-    const examples = unresolvedParents.slice(0, 3).map((item) => item.parent).join(', ')
-    addIssue(
-      warnings,
-      'unresolved_parent_labels',
-      '$.global/professionalLenses',
-      unresolvedParents.length + ' 个 parentCapabilityIds 未解析；仅警告。示例：' + examples
-    )
+
+  const pathIdsByQuestion = new Map()
+  for (const entry of lensEntries) {
+    const pathId = entry.value?.pathId
+    if (!isNonEmptyString(pathId)) continue
+    if (!pathIdsByQuestion.has(entry.questionId)) pathIdsByQuestion.set(entry.questionId, new Set())
+    pathIdsByQuestion.get(entry.questionId).add(pathId)
   }
 
-  const withoutPathRefs = evidenceEntries.filter((entry) =>
-    !Array.isArray(entry.value?.pathRefs) || entry.value.pathRefs.length === 0
-  )
-  if (withoutPathRefs.length > 0) {
-    addIssue(
-      warnings,
-      'path_refs_not_compiled',
-      '$.global/questions.evidencePolicies',
-      withoutPathRefs.length + ' 条证据政策没有编译 pathRefs；按已知源数据缺口仅警告'
-    )
+  for (const entry of evidenceEntries) {
+    const policy = entry.value || {}
+    const pathRefs = arrayField(policy, 'pathRefs', entry.location, errors)
+    const isOrigin = policy.claimType === 'ORIGIN_POLICY' || policy.runtimeUse === 'ORIGIN_POLICY'
+    if (isOrigin) {
+      if (policy.pathRelationMode !== 'NOT_APPLICABLE') {
+        addIssue(errors, 'origin_path_mode_invalid', entry.location + '.pathRelationMode', 'ORIGIN_POLICY 必须为 NOT_APPLICABLE')
+      }
+      if (policy.pathMatchRule !== 'NONE') {
+        addIssue(errors, 'origin_path_rule_invalid', entry.location + '.pathMatchRule', 'ORIGIN_POLICY 必须为 NONE')
+      }
+      if (pathRefs.length !== 0) {
+        addIssue(errors, 'origin_path_refs_forbidden', entry.location + '.pathRefs', 'ORIGIN_POLICY 不得绑定专业路径')
+      }
+      continue
+    }
+
+    if (policy.pathRelationMode !== 'ALTERNATIVE_PATHS') {
+      addIssue(errors, 'evidence_path_mode_invalid', entry.location + '.pathRelationMode', '能力证据必须声明 ALTERNATIVE_PATHS')
+    }
+    if (policy.pathMatchRule !== 'ANY_OF') {
+      addIssue(errors, 'evidence_path_rule_invalid', entry.location + '.pathMatchRule', '可替代路径必须使用 ANY_OF，不能按全部满足解释')
+    }
+    if (pathRefs.length < 2 || pathRefs.length > 3) {
+      addIssue(errors, 'evidence_path_count_invalid', entry.location + '.pathRefs', '能力证据必须绑定2—3条可替代路径')
+    }
+    const allowed = new Set([
+      ...(pathIdsByQuestion.get('ALL') || []),
+      ...(pathIdsByQuestion.get(entry.questionId) || [])
+    ])
+    for (const pathRef of pathRefs) {
+      if (!allowed.has(pathRef)) {
+        addIssue(errors, 'unresolved_evidence_path', entry.location + '.pathRefs', '未解析或跨题 pathId：' + String(pathRef))
+      }
+    }
   }
 
-  const runtimeMismatches = dialogueEntries.filter((entry) => {
+  for (const entry of dialogueEntries) {
     const expected = DIALOGUE_RUNTIME_BY_TYPE[entry.value?.type]
-    return expected && entry.value?.runtimeUse !== expected
-  })
-  if (runtimeMismatches.length > 0) {
-    const examples = runtimeMismatches.slice(0, 3).map((entry) => entry.value?.policyId).join(', ')
-    addIssue(
-      warnings,
-      'dialogue_runtime_use_mismatch',
-      '$.global/questions.dialoguePolicies',
-      runtimeMismatches.length + ' 条 type/runtimeUse 不匹配；按已知源数据问题仅警告。示例：' + examples
-    )
+    if (expected && entry.value?.runtimeUse !== expected) {
+      addIssue(errors, 'dialogue_runtime_use_mismatch', entry.location + '.runtimeUse', 'type=' + entry.value?.type + ' 时必须为 ' + expected)
+    }
   }
-
-  void data
 }
 
 export function validateNewFiveRuntime(data) {
@@ -402,7 +418,7 @@ export function validateNewFiveRuntime(data) {
   validateEvidenceReferences(synthesisEntries, claimIds, errors)
   const hardBoundaryCount = validateHardBoundaries(dialogueEntries, errors)
   validatePretest(questions, errors)
-  collectWarnings(data, lensEntries, evidenceEntries, dialogueEntries, warnings)
+  validateGovernanceRelations(lensEntries, evidenceEntries, dialogueEntries, errors)
 
   return {
     ok: errors.length === 0,
@@ -448,7 +464,7 @@ const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === path.re
 if (isDirectRun) {
   const runtimeFile = path.resolve(
     path.dirname(currentFile),
-    '../src/generated/tcim-new-five-tables.runtime.v0.1.json'
+    '../src/generated/tcim-new-five-tables.runtime.v0.2.json'
   )
   const result = verifyRuntimeFile(runtimeFile)
 

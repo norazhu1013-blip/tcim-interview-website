@@ -96,6 +96,16 @@ export function validateRuntimeCard(card) {
     add(errors, nonEmpty(policy.evidenceClaimId), `evidencePolicies[${index}].evidenceClaimId 不能为空`)
     add(errors, nonEmpty(policy.understandingId), `evidencePolicies[${index}].understandingId 不能为空`)
     const isOriginPolicy = policy.claimType === 'ORIGIN_POLICY' || policy.runtimeUse === 'ORIGIN_POLICY'
+    add(errors, Array.isArray(policy.pathRefs), `evidencePolicies[${index}].pathRefs 必须是数组`)
+    if (isOriginPolicy) {
+      add(errors, policy.pathRelationMode === 'NOT_APPLICABLE', `evidencePolicies[${index}] 来源政策必须为 NOT_APPLICABLE`)
+      add(errors, policy.pathMatchRule === 'NONE', `evidencePolicies[${index}] 来源政策必须为 NONE`)
+      add(errors, Array.isArray(policy.pathRefs) && policy.pathRefs.length === 0, `evidencePolicies[${index}] 来源政策不得绑定路径`)
+    } else {
+      add(errors, policy.pathRelationMode === 'ALTERNATIVE_PATHS', `evidencePolicies[${index}] 能力证据必须为 ALTERNATIVE_PATHS`)
+      add(errors, policy.pathMatchRule === 'ANY_OF', `evidencePolicies[${index}] 多路径必须按 ANY_OF 解释`)
+      add(errors, Array.isArray(policy.pathRefs) && policy.pathRefs.length >= 2, `evidencePolicies[${index}] 至少需要两条可替代路径`)
+    }
     if (!isOriginPolicy && nonEmpty(policy.evidenceClaimId) && nonEmpty(policy.understandingId)) {
       keys.push(evidenceKey(policy.evidenceClaimId, policy.understandingId))
     }

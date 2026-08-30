@@ -19,7 +19,7 @@ from docx.shared import Inches, Pt, RGBColor
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "交付文档"
 ASSETS = OUT / "_doc_assets"
-RUNTIME_PATH = ROOT / "web" / "src" / "generated" / "tcim-new-five-tables.runtime.v0.1.json"
+RUNTIME_PATH = ROOT / "config" / "new-five-tables" / "archive" / "v0.1" / "tcim-new-five-tables.runtime.v0.1.json"
 TODAY = "2026年8月30日"
 VERSION = "V0.1（本机研究比较版）"
 

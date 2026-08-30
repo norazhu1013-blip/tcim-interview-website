@@ -30,7 +30,7 @@ Write-Host 'Building the local production web release...'
 if ($LASTEXITCODE -ne 0) { throw 'Local production build failed.' }
 
 New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
-$runtime = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $webDir 'src\generated\tcim-new-five-tables.runtime.v0.1.json') | ConvertFrom-Json
+$runtime = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $webDir 'src\generated\tcim-new-five-tables.runtime.v0.2.json') | ConvertFrom-Json
 $commit = (& git -C $tcimRoot rev-parse --short HEAD 2>$null)
 if (-not $commit) { $commit = 'unavailable' }
 $manifest = [ordered]@{
