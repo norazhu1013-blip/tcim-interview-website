@@ -507,10 +507,18 @@ test('synthesis 完成建议不等于强制结束', async () => {
 
 test('Agent 失败时暂停并允许重试，不生成本地专业问句', async () => {
   const session = createDialogueSession(runtimeCard())
-  const failed = await startDialogue(session, async () => { throw new Error('model_timeout') })
+  const failed = await startDialogue(session, async () => {
+    throw Object.assign(
+      new Error('provider output failed validation: duplicate_question'),
+      { code: 'invalid_provider_output' }
+    )
+  })
   assert.equal(failed.status, 'paused')
   assert.equal(failed.retryable, true)
   assert.equal(failed.question, null)
+  assert.equal(failed.error, 'invalid_provider_output')
+  assert.match(failed.errorDetails, /duplicate_question/)
+  assert.ok(session.auditLog.some((event) => event.type === 'DialoguePaused' && /duplicate_question/.test(event.details)))
   assert.equal(session.history.length, 0)
 
   const retried = await retryDialogue(session, async () => agentResult({ visibleText: '您会从哪些现场线索开始判断？' }))

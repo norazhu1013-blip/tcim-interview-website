@@ -169,6 +169,12 @@ function nextRequest(session, kind, teacherTurn, options = {}) {
   }
 }
 
+function safeErrorDetails(error) {
+  return String(error?.details || error?.message || '')
+    .replace(/(?:sk|sk-kimi)-[A-Za-z0-9_-]{12,}/gu, '[REDACTED]')
+    .slice(0, 600)
+}
+
 function pause(session, request, error, now) {
   // 页面可能在 provider 返回前因倒计时或教师退出而完成。迟到的 abort/error
   // 只能被丢弃，不能把不可逆的 COMPLETED 状态重新降为 PAUSED。
@@ -187,7 +193,13 @@ function pause(session, request, error, now) {
   session.pendingRequest = clone(request)
   session.version += 1
   const code = error?.code || error?.message || String(error || 'agent_unavailable')
-  audit(session, 'DialoguePaused', { requestId: request.requestId, turnId: request.turnId, reason: code }, now)
+  const details = safeErrorDetails(error)
+  audit(session, 'DialoguePaused', {
+    requestId: request.requestId,
+    turnId: request.turnId,
+    reason: code,
+    ...(details ? { details } : {})
+  }, now)
   return {
     ok: false,
     status: 'paused',
@@ -196,7 +208,8 @@ function pause(session, request, error, now) {
     question: null,
     visibleText: null,
     teacherNotice: '刚才的问题暂时没有生成成功，您的回答已经保存。请重试。',
-    error: code
+    error: code,
+    errorDetails: details
   }
 }
 
@@ -213,7 +226,10 @@ async function execute(session, request, provider, options = {}) {
   try {
     result = await provider(clone(request))
   } catch (error) {
-    return pause(session, request, { code: error?.code || error?.message || 'agent_provider_failed' }, now)
+    return pause(session, request, {
+      code: error?.code || error?.message || 'agent_provider_failed',
+      details: safeErrorDetails(error)
+    }, now)
   }
 
   if (session.status === 'COMPLETED') return pause(session, request, { code: 'late_agent_result_discarded' }, now)

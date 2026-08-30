@@ -128,6 +128,7 @@ const LEADING_QUESTION_ERROR = 'leading_confirmation_question';
 const FORMULAIC_RESTATEMENT_ERROR = 'formulaic_restatement_before_question';
 const LEADING_CONFIRMATION_RE = /(您|你)(是不是也|是否也|同意|也认为|也觉得).{0,30}[?？]|(这样|这么做|我说的).{0,16}(对吗|好吗|是吗)[?？]|(正确做法|更好的做法|应该就是).{0,30}[?？]/i;
 const FORMULAIC_RESTATEMENT_OPENING_RE = /^(?:(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到))|(?:明白|好的|嗯|原来如此)[，,]\s*您|您(?:一下就|选择|希望|说要|会看|觉得|从|认为|想把|要先|是根据))/u;
+const RELATIONAL_MICROCUE_OPENING_RE = /^(?:(?:嗯|明白|确实|这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在|不容易|可以理解)|[^?？。；]{0,18}(?:确实|不容易|不好拿捏|需要拿捏))/u;
 
 function formulaicRestatementPrefix(value) {
   const text = String(value || '').trim();
@@ -161,6 +162,66 @@ function normalizeNaturalQuestionOutput(value, context = {}) {
   };
 }
 
+function exactTeacherQuote(teacherTurn, attemptedQuote = '') {
+  const source = String(teacherTurn || '').trim();
+  const attempted = String(attemptedQuote || '').trim();
+  if (!source) return '';
+  if (attempted && source.includes(attempted)) return attempted;
+  const candidates = source.match(/[^。！？；;，,\n]{4,48}/gu) || [];
+  if (!candidates.length) return source.slice(0, 48).trim();
+  if (!attempted) return candidates[0].trim();
+  const attemptedChars = new Set(Array.from(attempted.replace(/\s+/gu, '')));
+  return candidates
+    .map((candidate, index) => ({
+      candidate: candidate.trim(),
+      index,
+      score: Array.from(new Set(Array.from(candidate.replace(/\s+/gu, ''))))
+        .filter((char) => attemptedChars.has(char)).length
+    }))
+    .sort((left, right) => right.score - left.score || left.index - right.index)[0].candidate;
+}
+
+/**
+ * teacher_quote 是后台可追溯锚点，不需要把逐字截取这一机械任务交给模型。
+ * 模型若返回空串或近义改写，程序从本轮教师原话中选择一个短的逐字片段；
+ * 这只修复审计字段，不改模型面向教师的问句，也不生成专业证据。
+ */
+function normalizeDialogueGrounding(value, context = {}) {
+  if (!value || typeof value !== 'object') return { value, adjusted: false, originalQuote: '', repairedQuote: '' };
+  const phase = context.phase;
+  const teacherTurn = String(context.teacherTurn || '');
+  const nested = value.understanding && typeof value.understanding === 'object';
+  const originalQuote = String(nested ? value.understanding.teacher_quote || '' : value.teacher_quote || '');
+  const repairedQuote = phase === 'first' ? '' : exactTeacherQuote(teacherTurn, originalQuote);
+  if (originalQuote === repairedQuote) return { value, adjusted: false, originalQuote, repairedQuote };
+  if (nested) {
+    return {
+      value: { ...value, understanding: { ...value.understanding, teacher_quote: repairedQuote } },
+      adjusted: true,
+      originalQuote,
+      repairedQuote
+    };
+  }
+  return {
+    value: { ...value, teacher_quote: repairedQuote },
+    adjusted: true,
+    originalQuote,
+    repairedQuote
+  };
+}
+
+function relationalMicrocuePrefix(value) {
+  const text = String(value || '').trim();
+  const questionIndex = text.search(/[?？]/u);
+  if (questionIndex < 0) return '';
+  const beforeQuestion = text.slice(0, questionIndex);
+  const boundary = beforeQuestion.search(/[。！!；;，,]/u);
+  if (boundary < 0) return '';
+  const prefix = beforeQuestion.slice(0, boundary).trim();
+  if (!prefix || prefix.length > 24 || !RELATIONAL_MICROCUE_OPENING_RE.test(prefix)) return '';
+  return prefix;
+}
+
 /**
  * 去掉不改变问题落点的承接壳和常见语气词。这不做语义判分，只为中文问句的
  * 稳健去重提供一个可解释、可测试的字面核心。
@@ -170,7 +231,8 @@ function stripQuestionShell(value) {
   const shells = [
     /^(?:谢谢(?:您|你)?[^,，。；;!?！？]{0,30}[,，。；;]\s*)/u,
     /^(?:您|你)?(?:刚才|前面)(?:提到|说到|谈到|说过|强调|讲到|说)[\s\S]{0,80}?[,，。；;]\s*/u,
-    /^(?:听起来|我听到|我理解到|也就是说)[\s\S]{0,80}?[,，。；;]\s*/u
+    /^(?:听起来|我听到|我理解到|也就是说)[\s\S]{0,80}?[,，。；;]\s*/u,
+    /^(?:(?:嗯|明白|确实|不容易|可以理解)|(?:这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在)[^,，。；;!?！？]{0,24}|[^,，。；;!?！？]{0,18}(?:确实|不容易|不好拿捏|需要拿捏)[^,，。；;!?！？]{0,12})[,，。；;]\s*/u
   ];
   for (let pass = 0; pass < 2; pass += 1) {
     for (const shell of shells) text = text.replace(shell, '');
@@ -454,7 +516,9 @@ function assessQuestionQuality(value, context = {}) {
     visibleChars: text.length,
     matchedTeacherQuote: quote,
     duplicateScore: duplicate ? Number(duplicate.score.toFixed(3)) : 0,
-    formulaicRestatementOpening: Boolean(formulaicRestatementPrefix(text))
+    formulaicRestatementOpening: Boolean(formulaicRestatementPrefix(text)),
+    relationalMicrocueObserved: Boolean(relationalMicrocuePrefix(text)),
+    relationalCuePrefix: relationalMicrocuePrefix(text)
   };
   return { ...signals, passed: signals.oneQuestion && signals.concise && signals.nonLeading && signals.novel && signals.contingentOnTeacherTurn };
 }
@@ -525,6 +589,9 @@ module.exports = {
   FORMULAIC_RESTATEMENT_ERROR,
   formulaicRestatementPrefix,
   normalizeNaturalQuestionOutput,
+  exactTeacherQuote,
+  normalizeDialogueGrounding,
+  relationalMicrocuePrefix,
   validateDialogueOutput,
   assessQuestionQuality,
   validateEvidenceAnalysisOutput,

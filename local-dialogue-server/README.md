@@ -186,6 +186,10 @@ OpenAI provider 使用 Responses API、严格 JSON Schema，并固定发送 `sto
 
 模型结果即使通过上游的严格 schema，服务仍会再次执行统一验证，包括：字段不多不少、`evidence_claim_id`/`understanding_id` 必须成对存在于能力类 `evidencePolicies`、ORIGIN_POLICY 不得冒充能力证据、`response_origin` 必须是对应策略允许的 RO0–RO4、`relation` 与 `proposed_status` 必须使用固定枚举、每条 `spans` 必须逐字引用本轮教师原话、首问不得生成 Evidence，以及 `ASK`/`CLOSE` 协议。
 
+前台使用“微关系回应”而不是固定共情模板：教师表达困难、取舍、重要关切或纠正时，模型可以在问题前给一句很短的具体承接；最近两轮已经出现时会冷却。关系承接不得空泛夸奖、判断能力、虚构情绪或详细复述教师原话。`trace`记录请求的关系动作和实际是否出现微关系回应，便于真实教师评价。
+
+模型返回空的或非逐字`teacher_quote`时，服务从当前教师原话中确定性补一个短审计片段；该修复不改变可见问句，也不生成Evidence。其余不合格候选最多自动恢复两次，仍失败才暂停；内部错误原因会保留，但不会向教师展示技术细节。
+
 为兼容最初的独立服务调用方，HTTP 响应还附带派生别名：`next_question = visible_text`（仅 ASK）、`evidence_proposals = evidence_candidates`、`done = action === CLOSE`、`closing = visible_text`（仅 CLOSE）。模型自身只生成上面的 v2 字段，网页核心可直接使用 `action`、`visible_text`、`direction`、`evidence_candidates`、`completion_recommendation` 和 `boundary`。
 
 五表中的 `AFFORDANCE` 和 `MONITOR` 只作为建议：模型可以追随教师新出现的高价值线索，也可以形成表外开放线索和可撤销假设。只有 `HARD_BOUNDARY` 会门控模型行为；表项覆盖情况本身不能强制追问或自动结束。

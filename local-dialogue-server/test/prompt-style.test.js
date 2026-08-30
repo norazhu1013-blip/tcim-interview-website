@@ -21,7 +21,24 @@ test('ordinary follow-up defaults to natural continuation rather than visible re
 test('explicit teacher correction allows a brief repair without making repair the default', () => {
   const style = frontstageResponseStyle('不是，我的意思是先等一等再决定。', []);
   assert.equal(style.mode, 'REPAIR_IF_NEEDED');
+  assert.equal(style.relational_move, 'REPAIR');
   assert.equal(style.internal_quote_is_not_visible_script, true);
+});
+
+test('a substantive tension invites one brief relational microcue', () => {
+  const style = frontstageResponseStyle('不能伤害幼儿游戏的兴趣，但是教育也要有秩序。', []);
+  assert.equal(style.relational_move, 'VALIDATE_COMPLEXITY');
+  assert.equal(style.relational_cue_budget, 1);
+  assert.match(style.relational_guidance, /取舍不容易/);
+});
+
+test('relational microcues have a cooldown and do not become a new template', () => {
+  const style = frontstageResponseStyle('我还会继续观察孩子之间怎样协商。', [
+    { role: 'assistant', text: '这个场面确实不好拿捏。那一刻您会先做什么？' }
+  ]);
+  assert.equal(style.recent_relational_cue_count, 1);
+  assert.equal(style.relational_move, 'NONE');
+  assert.equal(style.relational_cue_budget, 0);
 });
 
 test('recent formulaic restatement is exposed as a variation warning to the model', () => {

@@ -2,16 +2,21 @@
 
 const crypto = require('crypto');
 
-const PROMPT_VERSION = 'tcim-dialogue-v3-low-latency-2026-08-30-r3-natural-direct-integrative';
+const PROMPT_VERSION = 'tcim-dialogue-v3-low-latency-2026-08-30-r4.1-relational-microcue-resilient';
 
 const EXPLICIT_REPAIR_RE = /(?:不是.{0,8}(?:意思|说)|我的意思是|我说的是|你没理解|没听懂|理解错|误解|换个说法|重新说|不是这样)/u;
 const FORMULAIC_RESTATEMENT_RE = /^(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到))/u;
+const RELATIONAL_CUE_RE = /^(?:(?:嗯|明白|确实|这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在|不容易|可以理解)|[^?？。；]{0,18}(?:确实|不容易|不好拿捏|需要拿捏))/u;
+const COMPLEXITY_RE = /(?:难|纠结|担心|顾虑|不确定|拿不准|矛盾|两难|但是|不过|既要|又要|同时|取舍|权衡|冲突)/u;
 
 const FAST_SYSTEM_PROMPT = [
   '你是 TCIM 幼儿园教师专业访谈的前台 Dialogue Agent。目标是开放理解教师的游戏支持与引导能力，并自然提出下一问。',
   '五表运行卡是专业地图和边界，不是标准答案或必问清单。由你决定如何理解、承接、转向或收束。',
   '默认直接、自然地接着教师刚才的内容问下去，不采用每轮“先复述/核实—再提问”的固定格式。ASK 必须且只能有一个问号，visible_text 不超过140字。',
   '能直接问就直接问。避免“您希望……。您怎么判断……？”“您选择……。接下来……”这类先把教师原话改写一遍、再提问的两句式。可偶尔使用“嗯”“明白”等极短承接，但不得每轮重复。',
+  '面对成年专业教师，采用同行式、尊重、克制而有人情味的口吻，不幼态化、不治疗化、不居高临下。关系回应只肯定其思考、观察、取舍或经验被听见，不判定答案正确或能力优秀。',
+  'frontstage_response_style.relational_move 不为 NONE 时，可在问题前生成零到一句4—20字的微关系回应，例如承认情境难拿捏、尊重其关切或肯定其正在权衡；随后仍只问一个问题。不要空泛使用“非常好、很专业、太棒了”，不要虚构教师情绪。',
+  '关系承接已经点出某个关切或取舍后，紧随其后的问题不要再次换词重复同一内容；直接问更具体的行动、观察、条件或理由。',
   'teacher_quote 与内部理解字段用于后台审计，不要求也不应默认复制到 visible_text。让教师感到被理解，主要靠问题确实接得上，而不是把教师的话换一种说法再说一遍。',
   '只有教师明确纠正你、原话确有两种关键理解，或误解会显著改变后续方向时，才用一句很短的理解修复；普通轮次不要习惯性以“我理解/听起来/也就是说/您的意思是/您说或您刚才说”开头。',
   '优先跟随教师最新原话中的新区别、理由、观察、行动或条件；不得复问同一问句，也不要重复近期问题的实质落点。无新价值时可以 CLOSE。',
@@ -112,10 +117,18 @@ function uniqueRecentQuestions(history, progressState, limit = 5) {
 
 function frontstageResponseStyle(teacherTurn, history) {
   const explicitRepair = EXPLICIT_REPAIR_RE.test(teacherTurn);
-  const recentFormulaicRestatements = history
+  const recentAssistantTurns = history
     .filter((turn) => turn.role === 'assistant')
-    .slice(-3)
+    .slice(-3);
+  const recentFormulaicRestatements = recentAssistantTurns
     .filter((turn) => FORMULAIC_RESTATEMENT_RE.test(turn.text.trim())).length;
+  const recentRelationalCues = recentAssistantTurns
+    .slice(-2)
+    .filter((turn) => RELATIONAL_CUE_RE.test(turn.text.trim())).length;
+  let relationalMove = 'NONE';
+  if (explicitRepair) relationalMove = 'REPAIR';
+  else if (recentRelationalCues === 0 && COMPLEXITY_RE.test(teacherTurn)) relationalMove = 'VALIDATE_COMPLEXITY';
+  else if (recentRelationalCues === 0 && String(teacherTurn || '').trim().length >= 12) relationalMove = 'ACKNOWLEDGE_PERSPECTIVE';
   return {
     mode: explicitRepair ? 'REPAIR_IF_NEEDED' : 'NATURAL_CONTINUE',
     default_visible_move: explicitRepair
@@ -124,7 +137,19 @@ function frontstageResponseStyle(teacherTurn, history) {
     internal_quote_is_not_visible_script: true,
     avoid_formulaic_openings: ['我理解', '听起来', '也就是说', '您的意思是', '您说', '您刚才说'],
     recent_formulaic_restatement_count: recentFormulaicRestatements,
-    avoid_repeating_restatement_style: recentFormulaicRestatements > 0
+    avoid_repeating_restatement_style: recentFormulaicRestatements > 0,
+    relational_move: relationalMove,
+    relational_cue_budget: relationalMove === 'NONE' ? 0 : 1,
+    relational_cue_max_chars: 20,
+    recent_relational_cue_count: recentRelationalCues,
+    relational_guidance: relationalMove === 'REPAIR'
+      ? '简短接受教师纠正，不辩解，然后继续'
+      : relationalMove === 'VALIDATE_COMPLEXITY'
+        ? '承认情境或取舍不容易，但不判断教师答案正确'
+        : relationalMove === 'ACKNOWLEDGE_PERSPECTIVE'
+          ? '具体承接教师重视的考虑、观察或自主判断，不空泛表扬'
+          : '直接自然追问，不额外添加客套话',
+    prohibited_relational_moves: ['空泛夸奖', '能力判定', '虚构情绪', '连续多句安慰', '详细复述教师原话', '关系句和问题重复同一内容']
   };
 }
 
@@ -169,7 +194,7 @@ function buildPrompts(input, options = {}) {
     ? '这是首问。先用题目、教师排序与编译卡形成内部理解，选择最能打开教师真实判断的一处进入；不要声称教师已说过任何话。'
     : questionMode === 'INTEGRATIVE_SYNTHESIS'
       ? '这是本题最后一个新问题。综合完整可见历史、教师自己的具体证据、尚未澄清的关键区别与情境目标，优先选择一个能显示其整体判断、条件权衡、边界意识或调整依据的问题。用教师当前的语言自然地直接问，不先展示总结，不多问合一，不拔高成抽象理论，不暗示标准答案。教师回答后程序将收尾。'
-      : '这是后续轮。先在内部准确理解当前教师原话，再结合历史、Evidence 摘要和编译卡决定是深化、转向、必要的澄清还是结束。默认直接自然追问，不把内部理解写成每轮固定的复述核实。';
+      : '这是后续轮。先在内部准确理解当前教师原话，再结合历史、Evidence 摘要和编译卡决定是深化、转向、必要的澄清还是结束。默认直接自然追问，不把内部理解写成每轮固定的复述核实。若 frontstage_response_style.relational_move 不是 NONE，可先用一句很短、具体而克制的关系承接，再问一个问题；若为 NONE 就直接问。';
 
   return {
     system: `${FAST_SYSTEM_PROMPT}\n\n【本题轻量运行卡】\n${JSON.stringify(input.compiled_card)}`,

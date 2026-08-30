@@ -5,13 +5,11 @@ const { buildPrompts, buildEvidencePrompts, PROMPT_VERSION } = require('./prompt
 const {
   FAST_DIALOGUE_RESPONSE_SCHEMA,
   EVIDENCE_ANALYSIS_SCHEMA,
-  DUPLICATE_QUESTION_ERROR,
-  LEADING_QUESTION_ERROR,
-  FORMULAIC_RESTATEMENT_ERROR,
   recentAssistantQuestions,
   validateDialogueOutput,
   validateEvidenceAnalysisOutput,
   normalizeFastDialogueOutput,
+  normalizeDialogueGrounding,
   normalizeNaturalQuestionOutput,
   assessQuestionQuality,
   collectDialoguePolicyIndex
@@ -70,22 +68,13 @@ function validateProviderLock(input, provider) {
   }
 }
 
-function hasCorrectableQuestionError(validation) {
-  return Boolean(validation && Array.isArray(validation.errors)
-    && validation.errors.some((error) => (
-      String(error).startsWith(`${DUPLICATE_QUESTION_ERROR}:`)
-      || String(error).startsWith(`${LEADING_QUESTION_ERROR}:`)
-      || String(error).startsWith(`${FORMULAIC_RESTATEMENT_ERROR}:`)
-    )));
-}
-
-function questionCorrectionUser(originalUser, rejectedOutput, history, validation) {
+function questionCorrectionUser(originalUser, rejectedOutput, history, validation, generationAttempt = 1) {
   const rejectedQuestion = String(rejectedOutput && rejectedOutput.visible_text || '').trim();
   const recentQuestions = recentAssistantQuestions(history, 5);
   return [
     originalUser,
     '',
-    '【程序质检退回：复问、诱导或模式化复述】',
+    `【程序质检退回：第${generationAttempt}个候选未通过】`,
     `上一候选问句：${JSON.stringify(rejectedQuestion)}`,
     `近期已问问句：${JSON.stringify(recentQuestions)}`,
     `退回原因：${JSON.stringify(validation?.errors || [])}`,
@@ -94,7 +83,9 @@ function questionCorrectionUser(originalUser, rejectedOutput, history, validatio
     '2. 承接当前教师原话中的另一个具体区别，转向不同的证据缺口，或在无新增价值时 CLOSE；',
     '3. 不得提供专业答案后请教师同意，不得把AI观点塞进问句；',
     '4. action=ASK 时仍只能有一个问题。',
-    '5. 不要先改写教师刚才的意思再提问；能直接问就直接问。'
+    '5. 不要先改写教师刚才的意思再提问；能直接问就直接问。',
+    '6. 可以有一句很短的关系承接，但不能只靠更换“明白/确实”等开头掩盖同一个问题。',
+    generationAttempt >= 2 ? '7. 这是最后一次自动恢复；若没有新的安全问题，请 action=CLOSE，用简短、温和、无问号的陈述收束。' : ''
   ].join('\n');
 }
 
@@ -229,9 +220,9 @@ function createDialogueAgent(options = {}) {
         let generated;
         let validated;
         let userPrompt = prompts.user;
-        // 复问属于可定位的输出质量错误：服务端自动给模型一次带具体退回原因的
-        // 纠偏机会。最多一次，防止上游确定性复读时在服务端形成无界循环。
-        for (let generationAttempt = 1; generationAttempt <= 2; generationAttempt += 1) {
+        // 可见问句或结构化字段未通过时，给模型有界的自动恢复机会。第三个候选
+        // 仍失败才暂停，避免一次偶发格式偏差中断整场，同时防止无界重试。
+        for (let generationAttempt = 1; generationAttempt <= 3; generationAttempt += 1) {
           generated = await provider.generate({
             system: prompts.system,
             user: userPrompt,
@@ -253,6 +244,16 @@ function createDialogueAgent(options = {}) {
           generated.output = normalizeFastDialogueOutput(generated.output, prompts.phase);
           // trace只记录最终候选的可见文本调整，不把被拒绝尝试混入。
           styleAdjustments.length = 0;
+          const grounded = normalizeDialogueGrounding(generated.output, {
+            phase: prompts.phase,
+            teacherTurn: prompts.teacherTurn
+          });
+          generated.output = grounded.value;
+          if (grounded.adjusted) styleAdjustments.push({
+            type: 'REPAIRED_TEACHER_QUOTE',
+            source: 'current_teacher_turn',
+            original_was_empty: !String(grounded.originalQuote || '').trim()
+          });
           const naturalized = normalizeNaturalQuestionOutput(generated.output, {
             phase: prompts.phase,
             allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED'
@@ -274,8 +275,8 @@ function createDialogueAgent(options = {}) {
             allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED'
           });
           if (validated.ok) break;
-          if (generationAttempt === 1 && hasCorrectableQuestionError(validated)) {
-            userPrompt = questionCorrectionUser(prompts.user, generated.output, prompts.repetitionHistory, validated);
+          if (generationAttempt < 3) {
+            userPrompt = questionCorrectionUser(prompts.user, generated.output, prompts.repetitionHistory, validated, generationAttempt);
             continue;
           }
           break;
@@ -326,6 +327,9 @@ function createDialogueAgent(options = {}) {
             prompt_version: PROMPT_VERSION,
             prompt_cache_key: prompts.promptCacheKey,
             question_mode: prompts.questionMode,
+            relationship_move_requested: prompts.responseStyle?.relational_move || 'NONE',
+            relational_microcue_observed: Boolean(qualitySignals.relationalMicrocueObserved),
+            relational_cue_prefix: qualitySignals.relationalCuePrefix || '',
             generation_attempts: attempts.length,
             visible_style_adjusted: styleAdjustments.length > 0,
             style_adjustments: styleAdjustments,

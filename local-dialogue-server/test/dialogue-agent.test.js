@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { InputError, createDialogueAgent } = require('../src/dialogue-agent');
 const { ProviderError } = require('../src/providers');
 const { PROMPT_VERSION } = require('../src/prompts');
-const { questionSimilarity, formulaicRestatementPrefix } = require('../src/schema');
+const { questionSimilarity, formulaicRestatementPrefix, relationalMicrocuePrefix } = require('../src/schema');
 const { validOutput, compiledCard } = require('./fixtures');
 
 test('foreground question and background evidence use separate compact model calls', async () => {
@@ -38,7 +38,7 @@ test('foreground question and background evidence use separate compact model cal
   const foreground = await agent.run({ phase: 'first', compiled_card: compiledCard(), history: [], evidence_summary: {} });
   const background = await agent.analyzeEvidence({
     compiled_card: compiledCard(),
-    teacher_turn: '我会先观察幼儿的反应。',
+    teacher_turn: '我会先观察幼儿的表情和同伴反应。',
     history: [{ role: 'assistant', text: foreground.visible_text }],
     evidence_summary: {}
   });
@@ -170,17 +170,17 @@ test('observed r1 restatement patterns are recognized while a direct question is
   assert.equal(formulaicRestatementPrefix('您会看到什么变化，才决定从等待转为靠近？'), null);
 });
 
-test('follow-up understanding must include a non-empty exact quote from the current teacher turn', async () => {
+test('follow-up audit quote is deterministically repaired from the current teacher turn', async () => {
   const provider = {
     id: 'mock', model: 'test', ready: true,
     generate: async () => ({ output: validOutput() })
   };
-  await assert.rejects(
-    createDialogueAgent({ provider }).run({
-      phase: 'next', compiled_card: compiledCard(), teacher_turn: '我会先观察幼儿的反应。'
-    }),
-    (error) => error instanceof ProviderError && /non-empty exact quote/.test(error.message)
-  );
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(), teacher_turn: '我会先观察幼儿的反应。'
+  });
+  assert.equal(result.understanding.teacher_quote, '我会先观察幼儿的反应');
+  assert.equal(result.trace.style_adjustments[0].type, 'REPAIRED_TEACHER_QUOTE');
+  assert.equal(result.trace.question_quality.contingentOnTeacherTurn, true);
 });
 
 test('Chinese duplicate gate catches paraphrased generic moves but preserves different concrete anchors', () => {
@@ -194,6 +194,14 @@ test('Chinese duplicate gate catches paraphrased generic moves but preserves dif
   ) < 0.78);
   assert.ok(questionSimilarity('为什么先介入？', '为什么先等待？') < 0.78);
   assert.ok(questionSimilarity('为什么把A放第一位？', '为什么把B放第一位？') < 0.78);
+  assert.equal(
+    relationalMicrocuePrefix('兴趣和秩序确实要同时顾及，这个度不好拿捏。在现场您会先做什么？'),
+    '兴趣和秩序确实要同时顾及'
+  );
+  assert.equal(
+    questionSimilarity('兴趣和秩序确实要同时顾及，这个度不好拿捏。在现场您会先做什么？', '在现场您会先做什么？'),
+    1
+  );
 });
 
 test('near-duplicate question is rejected once and automatically regenerated with a different substantive move', async () => {
@@ -230,7 +238,7 @@ test('near-duplicate question is rejected once and automatically regenerated wit
     history: [{ role: 'assistant', text: '您刚才提到孩子很开心，您为什么会特别看重这个方面？' }]
   });
   assert.equal(calls, 2);
-  assert.match(correctionPrompt, /程序质检退回：复问、诱导或模式化复述/);
+  assert.match(correctionPrompt, /程序质检退回：第1个候选未通过/);
   assert.equal(result.visible_text, '如果幼儿转身去找同伴，您会怎样调整做法？');
   assert.equal(result.trace.generation_attempts, 2);
   assert.deepEqual(result.usage, { input_tokens: 22, output_tokens: 9, total_tokens: 31 });
@@ -263,7 +271,7 @@ test('leading confirmation question is rejected and regenerated as an open evide
   assert.equal(result.trace.question_quality.passed, true);
 });
 
-test('duplicate correction is bounded to one regeneration attempt', async () => {
+test('duplicate correction is bounded to two regeneration attempts', async () => {
   let calls = 0;
   const provider = {
     id: 'mock', model: 'test', ready: true,
@@ -284,7 +292,34 @@ test('duplicate correction is bounded to one regeneration attempt', async () => 
     }),
     (error) => error instanceof ProviderError && error.code === 'invalid_provider_output' && /duplicate_question/.test(error.message)
   );
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
+});
+
+test('third candidate can recover a turn that would previously pause the interview', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: calls < 3
+          ? '您刚才说孩子很投入，为什么会特别看重这一点？'
+          : '这个场面确实需要拿捏。您会看到什么变化，才决定从等待转为靠近？',
+        understanding: { teacher_quote: '我会先观察', meaning: '教师会先观察', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next',
+    compiled_card: compiledCard(),
+    teacher_turn: '我会先观察幼儿的表情和同伴反应。',
+    history: [{ role: 'assistant', text: '您刚才提到孩子很开心，您为什么会特别看重这个方面？' }]
+  });
+  assert.equal(calls, 3);
+  assert.equal(result.visible_text, '这个场面确实需要拿捏。您会看到什么变化，才决定从等待转为靠近？');
+  assert.equal(result.trace.relationship_move_requested, 'ACKNOWLEDGE_PERSPECTIVE');
+  assert.equal(result.trace.relational_microcue_observed, true);
+  assert.equal(result.trace.question_quality.relationalCuePrefix, '这个场面确实需要拿捏');
 });
 
 test('built-in mock completes an end-to-end bounded dialogue without repeating accepted questions', async () => {

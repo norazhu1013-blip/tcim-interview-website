@@ -251,20 +251,25 @@ function markIntegrativeQuestionAsked(modelSession, outcome, remainingMs) {
   })
 }
 
-function recordGenerationFailure(error, requestedAt) {
+function recordGenerationFailure(error, requestedAt, details = '') {
   generationPaused.value = true
   generationError.value = error || 'invalid_dialogue_agent_response'
   generationFailures.value.push({
     at: Date.now(),
     durationMs: Date.now() - requestedAt,
     afterTeacherTurns: messages.value.filter((message) => message.role === 'teacher').length,
-    error: generationError.value
+    error: generationError.value,
+    details: String(details || '').slice(0, 600)
   })
   generationFailures.value = generationFailures.value.slice(-20)
 }
 
 function pauseForLocalSessionError(error, requestedAt) {
-  recordGenerationFailure(error?.code || error?.message || 'dialogue_session_invalid', requestedAt)
+  recordGenerationFailure(
+    error?.code || error?.message || 'dialogue_session_invalid',
+    requestedAt,
+    error?.message || error?.details || ''
+  )
   persist(false)
   return false
 }
@@ -284,6 +289,9 @@ function addVisiblePerformanceMetric(requestedAt, phase) {
     totalTokens: Number(trace.usage?.total_tokens || 0),
     questionQuality: trace.questionQuality || null,
     questionMode: trace.questionMode || 'NORMAL',
+    relationshipMoveRequested: trace.relationshipMoveRequested || 'NONE',
+    relationalMicrocueObserved: Boolean(trace.relationalMicrocueObserved),
+    relationalCuePrefix: trace.relationalCuePrefix || '',
     generationAttempts: Number(trace.generationAttempts || 1),
     visibleStyleAdjusted: Boolean(trace.visibleStyleAdjusted),
     remainingMsAtRequest: Math.max(0, deadlineAt.value - requestedAt),
@@ -350,7 +358,11 @@ async function acceptAgentOutcome(outcome, requestedAt, phase = 'next', recordPe
   }
   if (done.value) return false
   if (!outcome?.ok || !outcome.visibleText) {
-    recordGenerationFailure(outcome?.error || 'invalid_dialogue_agent_response', requestedAt)
+    recordGenerationFailure(
+      outcome?.error || 'invalid_dialogue_agent_response',
+      requestedAt,
+      outcome?.errorDetails || ''
+    )
     persist(false)
     return false
   }
