@@ -214,6 +214,12 @@ function validateEpistemicRouting(questions, errors) {
     workingHypotheses: new Set(['HUMAN_HYPOTHESIS', 'AI_HYPOTHESIS']),
     contextVariants: new Set(['CONTEXT_VARIANT'])
   }
+  const expectedTypes = {
+    contextFacts: new Set(['SCENARIO_FACT']),
+    importantUnknowns: new Set(['IMPORTANT_UNKNOWN']),
+    workingHypotheses: new Set(['IMPORTANT_UNKNOWN', 'PLAUSIBLE_INTERPRETATION']),
+    contextVariants: new Set(['ALTERNATIVE_INTERPRETATION'])
+  }
   for (const questionId of EXPECTED_QUESTION_IDS) {
     const question = questions[questionId]
     if (!isObject(question)) continue
@@ -223,20 +229,26 @@ function validateEpistemicRouting(questions, errors) {
         if (!statuses.has(row?.epistemicStatus)) {
           addIssue(errors, 'epistemic_routing_mismatch', location + '.' + field + '[' + index + ']', field + ' 中出现不匹配的认识状态：' + String(row?.epistemicStatus || ''))
         }
+        if (!expectedTypes[field].has(row?.type)) {
+          addIssue(errors, 'epistemic_item_type_mismatch', location + '.' + field + '[' + index + ']', field + ' 中出现不匹配的条目类型：' + String(row?.type || ''))
+        }
       }
     }
   }
 }
 
 function validateProfileAttribution(evidenceEntries, errors) {
+  const allowed = new Set(Array.from({ length: 12 }, (_, index) => 'C' + String(index + 1).padStart(2, '0')))
+  const covered = new Set()
   for (const entry of evidenceEntries) {
     const policy = entry.value
     if (policy?.claimType !== 'CAPABILITY_EVIDENCE') continue
     const primary = String(policy?.primaryProfileCapabilityId || '')
-    if (!/^C\d{2}$/.test(primary)) {
+    if (!allowed.has(primary)) {
       addIssue(errors, 'primary_profile_capability_missing', entry.location + '.primaryProfileCapabilityId', '能力证据必须且只能指定一个全局主要画像能力 C01-C12')
       continue
     }
+    covered.add(primary)
     const bases = new Set((policy?.capabilityRefs || []).map((value) => String(value || '').match(/^(C\d{2})/)?.[1]).filter(Boolean))
     if (!bases.has(primary)) {
       addIssue(errors, 'primary_profile_capability_unlinked', entry.location + '.primaryProfileCapabilityId', '主要画像能力必须包含在 capabilityRefs 的全局父级中')
@@ -255,6 +267,10 @@ function validateProfileAttribution(evidenceEntries, errors) {
         addIssue(errors, 'q08_stem_pollution_not_blocked', entry.location, 'Q08 必须明确隔离题面复述及AI先提示后认同造成的虚假证据')
       }
     }
+  }
+  const missing = [...allowed].filter((capabilityId) => !covered.has(capabilityId))
+  if (missing.length) {
+    addIssue(errors, 'primary_profile_capability_coverage_gap', '$.questions', '十题能力证据无法形成以下全局画像维度：' + missing.join(', '))
   }
 }
 
@@ -340,11 +356,13 @@ function validateGovernanceRelations(lensEntries, evidenceEntries, dialogueEntri
   }
 
   const pathIdsByQuestion = new Map()
+  const pathEntriesById = new Map()
   for (const entry of lensEntries) {
     const pathId = entry.value?.pathId
     if (!isNonEmptyString(pathId)) continue
     if (!pathIdsByQuestion.has(entry.questionId)) pathIdsByQuestion.set(entry.questionId, new Set())
     pathIdsByQuestion.get(entry.questionId).add(pathId)
+    pathEntriesById.set(pathId, entry.value)
   }
 
   for (const entry of evidenceEntries) {
@@ -381,6 +399,14 @@ function validateGovernanceRelations(lensEntries, evidenceEntries, dialogueEntri
       if (!allowed.has(pathRef)) {
         addIssue(errors, 'unresolved_evidence_path', entry.location + '.pathRefs', '未解析或跨题 pathId：' + String(pathRef))
       }
+    }
+    const pathParents = new Set(pathRefs.flatMap((pathRef) => pathEntriesById.get(pathRef)?.parentCapabilityIds || []))
+    const capabilityBases = new Set((policy.capabilityRefs || []).map((value) => String(value || '').match(/^(C\d{2})/)?.[1]).filter(Boolean))
+    if (JSON.stringify([...pathParents].sort()) !== JSON.stringify([...capabilityBases].sort())) {
+      addIssue(errors, 'evidence_path_capability_mismatch', entry.location + '.capabilityRefs', 'capabilityRefs 必须与所绑定路径的全局父级集合完全一致')
+    }
+    if (!pathParents.has(String(policy.primaryProfileCapabilityId || ''))) {
+      addIssue(errors, 'primary_profile_capability_path_mismatch', entry.location + '.primaryProfileCapabilityId', '主要画像能力必须属于所绑定路径的全局父级')
     }
   }
 

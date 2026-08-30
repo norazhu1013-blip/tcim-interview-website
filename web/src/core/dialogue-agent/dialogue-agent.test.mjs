@@ -102,12 +102,29 @@ test('发给 Dialogue Agent 的前测信息是低精度可撤销先验，不暴�
   assert.equal(compact.scenarioBrief.pretestOptions, undefined)
   assert.equal(compact.rankingPrior.precision, 'LOW')
   assert.equal(compact.rankingPrior.selectedTopChoiceTheme, card.scenarioBrief.pretestOptions[0].content)
-  assert.equal(compact.rankingPrior.changedDuringAssessment, false)
+  assert.equal(compact.rankingPrior.changedDuringAssessment, true)
   assert.equal(compact.rankingPrior.finalRanking, undefined)
   assert.equal(compact.rankingPrior.firstRanking, undefined)
   assert.equal(compact.rankingPrior.scoreSummary, undefined)
   assert.ok(Array.isArray(compact.scenarioBrief.workingHypotheses))
   assert.ok(Array.isArray(compact.scenarioBrief.contextVariants))
+})
+
+test('紧凑运行卡按能力概念去重专业视角，路径变体不再重复占用四个名额', () => {
+  for (const questionId of ['Q01', 'Q06', 'Q10']) {
+    const compact = compactRuntimeCard(runtimeCard(questionId))
+    const capabilityIds = compact.professionalLenses.map((lens) => lens.capabilityId)
+    assert.equal(new Set(capabilityIds).size, capabilityIds.length)
+    assert.ok(capabilityIds.length >= 4)
+    assert.ok(compact.professionalLenses.every((lens) => Array.isArray(lens.pathOptions) && lens.pathOptions.length >= 2))
+  }
+})
+
+test('COMPILATION_BOUNDARY只约束编译与Fixture，不进入Dialogue Agent提示', () => {
+  for (const questionId of ['Q06', 'Q10']) {
+    const compact = compactRuntimeCard(runtimeCard(questionId), { teacherTurn: '我还想看看孩子会不会自己调整。' })
+    assert.ok(compact.dialoguePolicies.every((policy) => policy.type !== 'COMPILATION_BOUNDARY'))
+  }
 })
 
 test('紧凑运行卡保留可替代路径ANY_OF语义，不把多路径误读为全部必需', () => {

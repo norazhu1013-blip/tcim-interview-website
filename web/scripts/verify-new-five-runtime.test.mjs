@@ -58,8 +58,25 @@ expectError('pretest_prior_overprecise', (fixture) => {
 expectError('epistemic_routing_mismatch', (fixture) => {
   fixture.questions.Q01.contextFacts[0].epistemicStatus = 'AI_HYPOTHESIS'
 })
+expectError('epistemic_item_type_mismatch', (fixture) => {
+  fixture.questions.Q01.contextFacts[0].type = 'SCENARIO_NARRATIVE'
+})
 expectError('primary_profile_capability_missing', (fixture) => {
   fixture.questions.Q01.evidencePolicies[0].primaryProfileCapabilityId = ''
+})
+expectError('evidence_path_capability_mismatch', (fixture) => {
+  fixture.questions.Q01.evidencePolicies[0].capabilityRefs.push('C12')
+})
+expectError('primary_profile_capability_path_mismatch', (fixture) => {
+  fixture.questions.Q01.evidencePolicies[0].capabilityRefs = ['C12']
+  fixture.questions.Q01.evidencePolicies[0].primaryProfileCapabilityId = 'C12'
+})
+expectError('primary_profile_capability_coverage_gap', (fixture) => {
+  for (const question of Object.values(fixture.questions)) {
+    for (const policy of question.evidencePolicies) {
+      if (policy.primaryProfileCapabilityId === 'C09') policy.primaryProfileCapabilityId = 'C10'
+    }
+  }
 })
 expectError('tevv_policy_present', (fixture) => {
   fixture.questions.Q01.synthesisPolicies.push({
@@ -81,4 +98,4 @@ expectError('origin_path_refs_forbidden', (fixture) => {
   fixture.global.evidencePolicies[0].pathRefs = ['PATH-Q01-001-A']
 })
 
-console.log('新五表运行时验证器负向夹具通过：17 类违规均被确定性拒绝。')
+console.log('新五表运行时验证器负向夹具通过：21 类违规均被确定性拒绝。')

@@ -33,22 +33,37 @@ function selectRows(rows, limit, query = '', priority = () => false) {
     .map(({ row }) => row)
 }
 
-function rankingHead(value) {
-  if (Array.isArray(value)) return String(value[0] || '').trim()
-  return String(value || '').trim().match(/[A-D]/i)?.[0]?.toUpperCase() || ''
+function rankingSequence(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim().toUpperCase()).filter((item) => /^[A-D]$/.test(item))
+  return String(value || '').toUpperCase().match(/[A-D]/g) || []
+}
+
+function groupProfessionalLenses(rows) {
+  const grouped = new Map()
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const key = String(row?.capabilityId || row?.recordId || '')
+    if (!key) continue
+    if (!grouped.has(key)) grouped.set(key, { ...row, pathOptions: [] })
+    const target = grouped.get(key)
+    if (row?.pathId) {
+      target.pathOptions.push(pick(row, ['pathId', 'pathName', 'pathDescription', 'applicability', 'observableIndicators']))
+    }
+  }
+  return [...grouped.values()]
 }
 
 function lowPrecisionRankingPrior(brief = {}) {
   const teacherContext = brief.teacherContext || {}
-  const finalTop = rankingHead(teacherContext.finalRanking)
-  const firstTop = rankingHead(teacherContext.firstRanking)
+  const finalRanking = rankingSequence(teacherContext.finalRanking)
+  const firstRanking = rankingSequence(teacherContext.firstRanking)
+  const finalTop = finalRanking[0] || ''
   const selected = (brief.pretestOptions || []).find((row) => String(row?.optionCode || '').toUpperCase() === finalTop)
   if (!selected?.content) return null
   return {
     assessmentRelation: 'PRIOR_ONLY',
     precision: 'LOW',
     selectedTopChoiceTheme: selected.content,
-    changedDuringAssessment: Boolean(firstTop && finalTop && firstTop !== finalTop),
+    changedDuringAssessment: Boolean(firstRanking.length && finalRanking.length && firstRanking.join('') !== finalRanking.join('')),
     reversibleRule: '只用于承接教师自己的作答起点；与教师独立表达或具体情境不一致时立即撤销，不得决定首问、能力水平或证据结论。'
   }
 }
@@ -81,14 +96,18 @@ function compactScenario(brief = {}) {
 export function compactRuntimeCard(runtimeCard, context = {}) {
   const teacherContext = runtimeCard?.scenarioBrief?.teacherContext || {}
   const query = `${context.teacherTurn || ''} ${(context.recentTeacherTurns || []).join(' ')}`.trim()
-  const lenses = selectRows(runtimeCard?.professionalLenses, 4, query, (row) => row?.scope === 'SCENARIO_LENS')
+  const lenses = selectRows(groupProfessionalLenses(runtimeCard?.professionalLenses), 4, query, (row) => row?.scope === 'SCENARIO_LENS')
   const evidencePolicies = selectRows(
     (runtimeCard?.evidencePolicies || []).filter((row) => row?.claimType !== 'ORIGIN_POLICY' && row?.runtimeUse !== 'ORIGIN_POLICY'),
     3,
     query
   )
   const hardBoundaries = (runtimeCard?.dialoguePolicies || []).filter((row) => row?.type === 'HARD_BOUNDARY')
-  const advisoryPolicies = selectRows((runtimeCard?.dialoguePolicies || []).filter((row) => row?.type !== 'HARD_BOUNDARY'), 2, query)
+  const advisoryPolicies = selectRows(
+    (runtimeCard?.dialoguePolicies || []).filter((row) => ['AFFORDANCE', 'MONITOR'].includes(row?.type)),
+    2,
+    query
+  )
   return {
     datasetId: runtimeCard?.dataProvenance?.datasetId || '',
     schemaVersion: runtimeCard?.dataProvenance?.schemaVersion || '',
@@ -101,7 +120,7 @@ export function compactRuntimeCard(runtimeCard, context = {}) {
     processPrior: teacherContext.processPrior || null,
     professionalLenses: lenses.map((row) => pick(row, [
       'capabilityId', 'name', 'definition', 'applicability', 'tradeoffs',
-      'observableIndicators', 'prohibitedInference'
+      'observableIndicators', 'prohibitedInference', 'pathOptions'
     ])),
     evidencePolicies: evidencePolicies.map((row) => pick(row, [
       'understandingId', 'evidenceClaimId', 'claimTemplate', 'applicability',

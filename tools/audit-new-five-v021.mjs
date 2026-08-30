@@ -101,6 +101,7 @@ if (!errors.some((x) => ['parent_unresolved', 'alternative_path_unresolved', 'al
 
 const understandingIds = new Set(raw.t3.map((row) => row.understanding_id))
 const claimIds = new Set(raw.t3.map((row) => row.evidence_claim_id))
+const primaryCoverage = new Set()
 for (const row of raw.t3) {
   const refs = split(row.path_refs)
   if (row.claim_type === 'ORIGIN_POLICY') {
@@ -121,15 +122,20 @@ for (const row of raw.t3) {
   if (pathRows.some((value) => !value)) issue('error', 'evidence_path_unresolved', row.__location, refs.filter((id) => !paths.has(id)).join('|'))
   else {
     const qid = row.question_id
-    const capabilities = new Set(split(row.capability_refs))
+    const capabilities = new Set(split(row.capability_refs).map((value) => String(value).match(/^(C\d{2})/)?.[1]).filter(Boolean))
     const coveredCapabilities = new Set(pathRows.flatMap((pathRow) => [pathRow.capability_concept_id, ...split(pathRow.parent_concept_ids)]))
-    const hasCapabilityOverlap = [...capabilities].some((id) => coveredCapabilities.has(id))
-    if (pathRows.some((pathRow) => pathRow.question_id !== qid) || !hasCapabilityOverlap) issue('error', 'evidence_path_scope_mismatch', row.__location, refs.join('|'))
+    const pathParents = new Set(pathRows.flatMap((pathRow) => split(pathRow.parent_concept_ids)))
+    if (pathRows.some((pathRow) => pathRow.question_id !== qid) || JSON.stringify([...capabilities].sort()) !== JSON.stringify([...pathParents].sort())) issue('error', 'evidence_path_scope_mismatch', row.__location, refs.join('|'))
+    if (!pathParents.has(row.primary_profile_capability_id)) issue('error', 'primary_profile_capability_path_mismatch', row.__location, String(row.primary_profile_capability_id || ''))
+    primaryCoverage.add(row.primary_profile_capability_id)
     const group = new Set([pathRows[0].path_id, ...split(pathRows[0].alternative_path_ids)])
     if (group.size !== refs.length || refs.some((id) => !group.has(id))) issue('error', 'evidence_path_group_incomplete', row.__location, refs.join('|'))
   }
 }
-if (!errors.some((x) => x.code.includes('path_contract') || x.code.includes('evidence_path') || ['primary_profile_capability_invalid', 'support_anchor_scale_invalid', 'q08_stem_pollution_not_blocked'].includes(x.code))) pass('evidence_path_semantics', '50个能力证据的路径、L0—L3锚点、唯一画像归因与Q08污染隔离全部有效')
+const expectedPrimaryCapabilities = Array.from({ length: 12 }, (_, index) => `C${String(index + 1).padStart(2, '0')}`)
+const missingPrimaryCapabilities = expectedPrimaryCapabilities.filter((capabilityId) => !primaryCoverage.has(capabilityId))
+if (missingPrimaryCapabilities.length) issue('error', 'primary_profile_capability_coverage_gap', 'T3', missingPrimaryCapabilities.join('|'))
+if (!errors.some((x) => x.code.includes('path_contract') || x.code.includes('evidence_path') || ['primary_profile_capability_invalid', 'primary_profile_capability_path_mismatch', 'primary_profile_capability_coverage_gap', 'support_anchor_scale_invalid', 'q08_stem_pollution_not_blocked'].includes(x.code))) pass('evidence_path_semantics', '50个能力证据的路径、L0—L3锚点、跨表能力集合、12维唯一画像归因与Q08污染隔离全部有效')
 
 const expectedRuntime = { AFFORDANCE: 'AFFORDANCE_CARD', MONITOR: 'MONITOR_CARD', HARD_BOUNDARY: 'HARD_BOUNDARY', COMPILATION_BOUNDARY: 'COMPILER_BOUNDARY' }
 for (const row of raw.t4) {
@@ -162,6 +168,7 @@ for (let n = 1; n <= 10; n += 1) {
   if (!q?.scenario?.content || !q?.professionalLenses?.length || !q?.evidencePolicies?.length || !q?.dialoguePolicies?.length || !q?.synthesisPolicies?.length) issue('error', 'question_runtime_incomplete', qid, '题目运行卡构件缺失')
   const hard = (q?.dialoguePolicies || []).filter((row) => row.type === 'HARD_BOUNDARY')
   if (!hard.length) issue('error', 'question_hard_boundary_missing', qid, '缺少HARD_BOUNDARY')
+  if ((q?.contextFacts || []).some((row) => row.type !== 'SCENARIO_FACT' || row.epistemicStatus !== 'SCENARIO_FACT')) issue('error', 'question_context_fact_mixed', qid, 'contextFacts混入非事实条目')
 }
 if (!errors.some((x) => x.code.startsWith('question_'))) pass('question_completeness', 'Q01—Q10均具备情境、Ontology、Evidence、对话、综合与硬边界')
 

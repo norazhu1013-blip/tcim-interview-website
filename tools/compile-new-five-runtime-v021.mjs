@@ -34,6 +34,15 @@ for (const [key, file] of specs) {
 }
 
 const split = (value) => String(value ?? '').split('|').map((x) => x.trim()).filter(Boolean);
+const parseJsonObject = (value) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value ?? ''));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : value;
+  } catch {
+    return value;
+  }
+};
 const compact = (record) => Object.fromEntries(Object.entries(record).filter(([, value]) => value !== null && value !== '' && (!Array.isArray(value) || value.length)));
 const forQuestion = (rows, qid, includeAll = true) => rows.filter((row) => row.question_id === qid || (includeAll && row.question_id === 'ALL'));
 
@@ -97,7 +106,7 @@ function mapEvidence(row) {
     pathRelationReason: row.path_relation_reason,
     claimTemplate: row.claim_template,
     applicability: row.applicability_conditions,
-    supportAnchors: row.support_anchors,
+    supportAnchors: parseJsonObject(row.support_anchors),
     allowedResponseOrigins: split(row.allowed_response_origins),
     independenceRequirement: row.independence_requirement,
     teacherConfirmationRequired: row.teacher_confirmation_required,
@@ -192,7 +201,7 @@ for (let number = 1; number <= 10; number += 1) {
     professionalFocus: scenarioRows.find((row) => row.type === 'PROFESSIONAL_FOCUS') || null,
     pretestOptions: scenarioRows.filter((row) => row.type === 'PRETEST_OPTION'),
     pretestPrior: scenarioRows.find((row) => row.type === 'PRETEST_PRIOR_RULE') || null,
-    contextFacts: scenarioRows.filter((row) => row.epistemicStatus === 'SCENARIO_FACT'),
+    contextFacts: scenarioRows.filter((row) => row.type === 'SCENARIO_FACT' && row.epistemicStatus === 'SCENARIO_FACT'),
     importantUnknowns: scenarioRows.filter((row) => row.epistemicStatus === 'UNKNOWN'),
     workingHypotheses: scenarioRows.filter((row) => ['HUMAN_HYPOTHESIS', 'AI_HYPOTHESIS'].includes(row.epistemicStatus)),
     contextVariants: scenarioRows.filter((row) => row.epistemicStatus === 'CONTEXT_VARIANT'),
