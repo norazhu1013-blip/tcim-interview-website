@@ -8,14 +8,14 @@ const { FileBlob, SpreadsheetFile } = await import(artifactToolModule)
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sourceDir = path.join(root, 'config', 'new-five-tables', 'source')
-const runtimePath = path.join(root, 'web', 'src', 'generated', 'tcim-new-five-tables.runtime.v0.2.json')
-const reportPath = process.env.TCIM_AUDIT_REPORT || path.join(root, '_work', 'five-table-governance', 'second-round-audit.json')
+const runtimePath = path.join(root, 'web', 'src', 'generated', 'tcim-new-five-tables.runtime.v0.2.1.json')
+const reportPath = process.env.TCIM_AUDIT_REPORT || path.join(root, '_work', 'five-table-governance', 'v0.2.1-audit.json')
 const specs = [
-  ['t1', '01_TCIM_十题_情境深描与条件边界表_V0.2_唯一运行版.xlsx'],
-  ['t2', '02_TCIM_十题_教师游戏支持能力多路径Ontology表_V0.2_唯一运行版.xlsx'],
-  ['t3', '03_TCIM_十题_证据命题来源等级与反事实判据表_V0.2_唯一运行版.xlsx'],
-  ['t4', '04_TCIM_十题_开放探询可供性与稀疏监督表_V0.2_唯一运行版.xlsx'],
-  ['t5', '05_TCIM_十题_综合判断记忆写入与TEVV表_V0.2_唯一运行版.xlsx']
+  ['t1', '01_TCIM_十题_情境深描与条件边界表_V0.2.1_唯一运行版.xlsx'],
+  ['t2', '02_TCIM_十题_教师游戏支持能力多路径Ontology表_V0.2.1_唯一运行版.xlsx'],
+  ['t3', '03_TCIM_十题_证据命题来源等级与反事实判据表_V0.2.1_唯一运行版.xlsx'],
+  ['t4', '04_TCIM_十题_开放探询可供性与稀疏监督表_V0.2.1_唯一运行版.xlsx'],
+  ['t5', '05_TCIM_十题_综合判断记忆写入与TEVV表_V0.2.1_唯一运行版.xlsx']
 ]
 
 const errors = []
@@ -28,8 +28,8 @@ const qOf = (id) => String(id || '').match(/(?:^|-)Q(0[1-9]|10)(?:-|$)/)?.[1] ? 
 
 const actualFiles = (await fs.readdir(sourceDir)).filter((name) => name.endsWith('.xlsx')).sort()
 const expectedFiles = specs.map(([, name]) => name).sort()
-if (JSON.stringify(actualFiles) !== JSON.stringify(expectedFiles)) issue('error', 'active_source_set_mismatch', sourceDir, `活动目录必须且只能包含5个V0.2文件；实际：${actualFiles.join(', ')}`)
-else pass('active_source_set', '活动目录仅含5个V0.2工作簿；V0.1不混入')
+if (JSON.stringify(actualFiles) !== JSON.stringify(expectedFiles)) issue('error', 'active_source_set_mismatch', sourceDir, `活动目录必须且只能包含5个V0.2.1文件；实际：${actualFiles.join(', ')}`)
+else pass('active_source_set', '活动目录仅含5个V0.2.1工作簿；旧版不混入')
 
 const raw = {}
 const sourceDigests = new Map()
@@ -47,14 +47,14 @@ for (const [key, name] of specs) {
     __location: `${name}:DATA:${index + 2}`
   }))
   for (const row of raw[key]) {
-    if (row.schema_version !== '0.2.0' || row.version !== '0.2.0') issue('error', 'row_version_mismatch', row.__location, `${row.schema_version}/${row.version}`)
+    if (row.schema_version !== '0.2.1' || row.version !== '0.2.1') issue('error', 'row_version_mismatch', row.__location, `${row.schema_version}/${row.version}`)
     if (!row.record_id) issue('error', 'record_id_missing', row.__location, 'record_id不能为空')
     if (!row.source_ref) issue('error', 'source_ref_missing', row.__location, 'source_ref不能为空')
     if (row.active_in_simulation !== true || row.release_scope !== 'SIMULATION_ACTIVE') issue('error', 'simulation_scope_invalid', row.__location, '活动记录必须为SIMULATION_ACTIVE')
   }
   const dictionaryHeaders = workbook.worksheets.getItem('DICTIONARY').getUsedRange(true).values.flat().map(String)
   if (key === 't3') {
-    for (const field of ['path_relation_mode', 'path_match_rule', 'path_relation_reason']) {
+    for (const field of ['path_relation_mode', 'path_match_rule', 'path_relation_reason', 'primary_profile_capability_id']) {
       if (!dictionaryHeaders.includes(field)) issue('error', 'dictionary_field_missing', `${name}:DICTIONARY`, field)
     }
     const enums = workbook.worksheets.getItem('ENUMS').getUsedRange(true).values.flat().map(String)
@@ -72,9 +72,20 @@ for (const row of Object.values(raw).flat()) {
 }
 if (!errors.some((x) => x.code === 'duplicate_record_id')) pass('record_id_unique', `${allIds.size}个record_id全局唯一`)
 
+for (const row of raw.t1) {
+  if (row.item_type === 'PRETEST_PRIOR_RULE' && /[ABCD]{4}|高分组合|\d+(?:\.\d+)?\s*分/.test(String(row.content || ''))) {
+    issue('error', 'pretest_prior_overprecise', row.__location, '弱先验不得包含完整排序、分数或高分组合')
+  }
+  if (row.item_type === 'SCENARIO_FACT' && row.epistemic_status !== 'SCENARIO_FACT') {
+    issue('error', 'scenario_fact_epistemic_mismatch', row.__location, String(row.epistemic_status || ''))
+  }
+}
+if (!errors.some((x) => ['pretest_prior_overprecise', 'scenario_fact_epistemic_mismatch'].includes(x.code))) pass('prior_and_epistemic_routing', '前测为低精度可撤销先验；事实、未知、假设与情境变体分流')
+
 const capabilityIds = new Set(raw.t2.map((row) => row.capability_concept_id))
 const paths = new Map(raw.t2.map((row) => [row.path_id, row]))
 for (const row of raw.t2) {
+  if (row.question_id !== 'ALL' && /^C\d{2}$/.test(String(row.capability_concept_id || ''))) issue('error', 'local_global_capability_collision', row.__location, row.capability_concept_id)
   for (const parent of split(row.parent_concept_ids)) if (!capabilityIds.has(parent)) issue('error', 'parent_unresolved', row.__location, parent)
   const alternatives = split(row.alternative_path_ids)
   for (const id of alternatives) {
@@ -86,7 +97,7 @@ for (const row of raw.t2) {
     }
   }
 }
-if (!errors.some((x) => ['parent_unresolved', 'alternative_path_unresolved', 'alternative_path_group_mismatch', 'alternative_path_asymmetric'].includes(x.code))) pass('ontology_graph', '父级能力、替代路径、同题同能力与双向引用全部闭合')
+if (!errors.some((x) => ['parent_unresolved', 'alternative_path_unresolved', 'alternative_path_group_mismatch', 'alternative_path_asymmetric', 'local_global_capability_collision'].includes(x.code))) pass('ontology_graph', '父级能力、替代路径、命名空间、同题同能力与双向引用全部闭合')
 
 const understandingIds = new Set(raw.t3.map((row) => row.understanding_id))
 const claimIds = new Set(raw.t3.map((row) => row.evidence_claim_id))
@@ -95,6 +106,15 @@ for (const row of raw.t3) {
   if (row.claim_type === 'ORIGIN_POLICY') {
     if (row.path_relation_mode !== 'NOT_APPLICABLE' || row.path_match_rule !== 'NONE' || refs.length) issue('error', 'origin_path_contract', row.__location, '来源政策路径契约错误')
     continue
+  }
+  const primary = String(row.primary_profile_capability_id || '')
+  const capabilityBases = new Set(split(row.capability_refs).map((value) => String(value).match(/^(C\d{2})/)?.[1]).filter(Boolean))
+  if (!/^C\d{2}$/.test(primary) || !capabilityBases.has(primary)) issue('error', 'primary_profile_capability_invalid', row.__location, primary)
+  let anchors = null
+  try { anchors = JSON.parse(String(row.support_anchors || '')) } catch { /* reported below */ }
+  if (!anchors || JSON.stringify(Object.keys(anchors).sort()) !== JSON.stringify(['L0', 'L1', 'L2', 'L3'])) issue('error', 'support_anchor_scale_invalid', row.__location, String(row.support_anchors || ''))
+  if (row.evidence_claim_id === 'Q08-T3-001' && (!String(anchors?.L0 || '').includes('不形成能力证据') || !String(row.pseudo_evidence || '').includes('AI先说出办法后教师认同'))) {
+    issue('error', 'q08_stem_pollution_not_blocked', row.__location, '题面复述或AI先提示后认同未被隔离')
   }
   if (row.path_relation_mode !== 'ALTERNATIVE_PATHS' || row.path_match_rule !== 'ANY_OF' || refs.length < 2 || refs.length > 3) issue('error', 'evidence_path_contract', row.__location, '能力证据必须为2—3条ANY_OF路径')
   const pathRows = refs.map((id) => paths.get(id))
@@ -109,7 +129,7 @@ for (const row of raw.t3) {
     if (group.size !== refs.length || refs.some((id) => !group.has(id))) issue('error', 'evidence_path_group_incomplete', row.__location, refs.join('|'))
   }
 }
-if (!errors.some((x) => x.code.includes('path_contract') || x.code.includes('evidence_path'))) pass('evidence_path_semantics', '50个能力证据路径组与5个来源政策契约全部有效')
+if (!errors.some((x) => x.code.includes('path_contract') || x.code.includes('evidence_path') || ['primary_profile_capability_invalid', 'support_anchor_scale_invalid', 'q08_stem_pollution_not_blocked'].includes(x.code))) pass('evidence_path_semantics', '50个能力证据的路径、L0—L3锚点、唯一画像归因与Q08污染隔离全部有效')
 
 const expectedRuntime = { AFFORDANCE: 'AFFORDANCE_CARD', MONITOR: 'MONITOR_CARD', HARD_BOUNDARY: 'HARD_BOUNDARY', COMPILATION_BOUNDARY: 'COMPILER_BOUNDARY' }
 for (const row of raw.t4) {
@@ -126,7 +146,7 @@ for (const row of raw.t5) {
 if (!errors.some((x) => x.code.startsWith('synthesis_'))) pass('synthesis_contracts', '综合判断的证据命题与能力引用全部有效')
 
 const runtime = JSON.parse(await fs.readFile(runtimePath, 'utf8'))
-if (runtime.schemaVersion !== '0.2.0' || runtime.datasetId !== 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.2') issue('error', 'runtime_identity_invalid', runtimePath, `${runtime.schemaVersion}/${runtime.datasetId}`)
+if (runtime.schemaVersion !== '0.2.1' || runtime.datasetId !== 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.2.1') issue('error', 'runtime_identity_invalid', runtimePath, `${runtime.schemaVersion}/${runtime.datasetId}`)
 for (const source of runtime.sources || []) {
   if (sourceDigests.get(source.file) !== source.sha256) issue('error', 'runtime_source_hash_mismatch', source.file, '运行时未由当前活动Excel编译')
 }
@@ -146,7 +166,7 @@ for (let n = 1; n <= 10; n += 1) {
 if (!errors.some((x) => x.code.startsWith('question_'))) pass('question_completeness', 'Q01—Q10均具备情境、Ontology、Evidence、对话、综合与硬边界')
 
 const report = {
-  auditId: 'TCIM-FIVE-TABLES-V0.2-ROUND2-20260830',
+  auditId: 'TCIM-FIVE-TABLES-V0.2.1-20260830',
   scope: 'SIMULATION_ACTIVE',
   result: errors.length ? 'FAIL' : 'PASS',
   summary: { checks: checks.length, errors: errors.length, warnings: warnings.length, excelRecords: Object.values(raw).flat().length },

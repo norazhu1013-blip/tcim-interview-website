@@ -9,13 +9,13 @@ const { FileBlob, SpreadsheetFile } = await import(artifactToolModule);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = path.join(repoRoot, 'config', 'new-five-tables', 'source');
 const targetDir = path.join(repoRoot, 'web', 'src', 'generated');
-const targetPath = path.join(targetDir, 'tcim-new-five-tables.runtime.v0.2.json');
+const targetPath = path.join(targetDir, 'tcim-new-five-tables.runtime.v0.2.1.json');
 const specs = [
-  ['t1', '01_TCIM_十题_情境深描与条件边界表_V0.2_唯一运行版.xlsx'],
-  ['t2', '02_TCIM_十题_教师游戏支持能力多路径Ontology表_V0.2_唯一运行版.xlsx'],
-  ['t3', '03_TCIM_十题_证据命题来源等级与反事实判据表_V0.2_唯一运行版.xlsx'],
-  ['t4', '04_TCIM_十题_开放探询可供性与稀疏监督表_V0.2_唯一运行版.xlsx'],
-  ['t5', '05_TCIM_十题_综合判断记忆写入与TEVV表_V0.2_唯一运行版.xlsx'],
+  ['t1', '01_TCIM_十题_情境深描与条件边界表_V0.2.1_唯一运行版.xlsx'],
+  ['t2', '02_TCIM_十题_教师游戏支持能力多路径Ontology表_V0.2.1_唯一运行版.xlsx'],
+  ['t3', '03_TCIM_十题_证据命题来源等级与反事实判据表_V0.2.1_唯一运行版.xlsx'],
+  ['t4', '04_TCIM_十题_开放探询可供性与稀疏监督表_V0.2.1_唯一运行版.xlsx'],
+  ['t5', '05_TCIM_十题_综合判断记忆写入与TEVV表_V0.2.1_唯一运行版.xlsx'],
 ];
 
 const raw = {};
@@ -90,6 +90,7 @@ function mapEvidence(row) {
     evidenceClaimId: row.evidence_claim_id,
     claimType: row.claim_type,
     capabilityRefs: split(row.capability_refs),
+    primaryProfileCapabilityId: row.primary_profile_capability_id,
     pathRefs: split(row.path_refs),
     pathRelationMode: row.path_relation_mode,
     pathMatchRule: row.path_match_rule,
@@ -191,8 +192,10 @@ for (let number = 1; number <= 10; number += 1) {
     professionalFocus: scenarioRows.find((row) => row.type === 'PROFESSIONAL_FOCUS') || null,
     pretestOptions: scenarioRows.filter((row) => row.type === 'PRETEST_OPTION'),
     pretestPrior: scenarioRows.find((row) => row.type === 'PRETEST_PRIOR_RULE') || null,
-    contextFacts: scenarioRows.filter((row) => row.type === 'SCENARIO_FACT'),
-    importantUnknowns: scenarioRows.filter((row) => row.type === 'IMPORTANT_UNKNOWN'),
+    contextFacts: scenarioRows.filter((row) => row.epistemicStatus === 'SCENARIO_FACT'),
+    importantUnknowns: scenarioRows.filter((row) => row.epistemicStatus === 'UNKNOWN'),
+    workingHypotheses: scenarioRows.filter((row) => ['HUMAN_HYPOTHESIS', 'AI_HYPOTHESIS'].includes(row.epistemicStatus)),
+    contextVariants: scenarioRows.filter((row) => row.epistemicStatus === 'CONTEXT_VARIANT'),
     professionalLenses: forQuestion(raw.t2, qid, false).map(mapLens),
     evidencePolicies: forQuestion(raw.t3, qid, false).map(mapEvidence),
     dialoguePolicies: forQuestion(raw.t4, qid, false).map(mapDialogue),
@@ -203,10 +206,10 @@ for (let number = 1; number <= 10; number += 1) {
 }
 
 const output = {
-  schemaVersion: '0.2.0',
-  datasetId: 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.2',
+  schemaVersion: '0.2.1',
+  datasetId: 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.2.1',
   releaseScope: 'SIMULATION_ACTIVE',
-  sourceNote: 'AI模拟研究团队复核候选；只用于本地比较试验，不等于真人专家批准。',
+  sourceNote: 'V0.2.1聚焦修订：低精度可撤销前测先验、事实/假设分流、唯一主要画像能力与Q08题面污染隔离。AI模拟研究团队复核候选；只用于本地比较试验，不等于真人专家批准。',
   sources,
   global: {
     professionalLenses: forQuestion(raw.t2, 'ALL', false).map(mapLens),

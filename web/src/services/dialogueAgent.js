@@ -33,22 +33,43 @@ function selectRows(rows, limit, query = '', priority = () => false) {
     .map(({ row }) => row)
 }
 
+function rankingHead(value) {
+  if (Array.isArray(value)) return String(value[0] || '').trim()
+  return String(value || '').trim().match(/[A-D]/i)?.[0]?.toUpperCase() || ''
+}
+
+function lowPrecisionRankingPrior(brief = {}) {
+  const teacherContext = brief.teacherContext || {}
+  const finalTop = rankingHead(teacherContext.finalRanking)
+  const firstTop = rankingHead(teacherContext.firstRanking)
+  const selected = (brief.pretestOptions || []).find((row) => String(row?.optionCode || '').toUpperCase() === finalTop)
+  if (!selected?.content) return null
+  return {
+    assessmentRelation: 'PRIOR_ONLY',
+    precision: 'LOW',
+    selectedTopChoiceTheme: selected.content,
+    changedDuringAssessment: Boolean(firstTop && finalTop && firstTop !== finalTop),
+    reversibleRule: '只用于承接教师自己的作答起点；与教师独立表达或具体情境不一致时立即撤销，不得决定首问、能力水平或证据结论。'
+  }
+}
+
 function compactScenario(brief = {}) {
   return {
     questionId: brief.questionId,
     scenarioId: brief.scenarioId,
     content: brief.content,
     professionalFocus: pick(brief.professionalFocus, ['content', 'relatedCapabilities', 'doNotAssume', 'sourceRef']),
-    // 排序字母只有在保留选项语义时才能构成可用先验。不将选项文本传给
-    // Dialogue Agent 会使 A/B/C/D 失去指代，导致首问退化为跨题通用问句。
-    pretestOptions: (brief.pretestOptions || []).map((row) => pick(row, [
-      'optionCode', 'content', 'assessmentRelation'
-    ])),
     contextFacts: (brief.contextFacts || []).slice(0, 2).map((row) => pick(row, [
       'id', 'epistemicStatus', 'content'
     ])),
     importantUnknowns: (brief.importantUnknowns || []).slice(0, 2).map((row) => pick(row, [
       'id', 'epistemicStatus', 'content', 'doNotAssume'
+    ])),
+    workingHypotheses: (brief.workingHypotheses || []).slice(0, 1).map((row) => pick(row, [
+      'id', 'epistemicStatus', 'content', 'alternativeExplanation', 'doNotAssume'
+    ])),
+    contextVariants: (brief.contextVariants || []).slice(0, 1).map((row) => pick(row, [
+      'id', 'epistemicStatus', 'content', 'changesJudgmentWhen', 'doNotAssume'
     ]))
   }
 }
@@ -74,13 +95,9 @@ export function compactRuntimeCard(runtimeCard, context = {}) {
     configFingerprint: runtimeCard?.dataProvenance?.configFingerprint || '',
     itemId: runtimeCard?.itemId || '',
     scenarioBrief: compactScenario(runtimeCard?.scenarioBrief),
-    rankingPrior: query ? { assessmentRelation: 'PRIOR_ONLY', alreadyConsideredAtOpening: true } : {
-        assessmentRelation: 'PRIOR_ONLY',
-        finalRanking: teacherContext.finalRanking || [],
-        firstRanking: teacherContext.firstRanking || [],
-        scoreSummary: teacherContext.scoreSummary || null,
-        pretestPrior: pick(runtimeCard?.scenarioBrief?.pretestPrior, ['content', 'doNotAssume'])
-      },
+    rankingPrior: query
+      ? { assessmentRelation: 'PRIOR_ONLY', alreadyConsideredAtOpening: true }
+      : lowPrecisionRankingPrior(runtimeCard?.scenarioBrief),
     processPrior: teacherContext.processPrior || null,
     professionalLenses: lenses.map((row) => pick(row, [
       'capabilityId', 'name', 'definition', 'applicability', 'tradeoffs',
@@ -117,6 +134,7 @@ export function compactEvidenceRuntimeCard(runtimeCard, context = {}) {
     professionalLenses: [],
     evidencePolicies: policies.map((row) => pick(row, [
       'recordId', 'understandingId', 'evidenceClaimId', 'claimType', 'capabilityRefs',
+      'primaryProfileCapabilityId',
       'pathRefs', 'pathRelationMode', 'pathMatchRule', 'pathRelationReason',
       'claimTemplate', 'applicability', 'supportAnchors', 'allowedResponseOrigins',
       'independenceRequirement', 'teacherConfirmationRequired', 'sourceSpanRequired', 'minEvidenceLevel',

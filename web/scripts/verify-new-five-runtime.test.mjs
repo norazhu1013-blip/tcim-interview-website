@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { validateNewFiveRuntime } from './verify-new-five-runtime.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const runtimeFile = path.resolve(here, '../src/generated/tcim-new-five-tables.runtime.v0.2.json')
+const runtimeFile = path.resolve(here, '../src/generated/tcim-new-five-tables.runtime.v0.2.1.json')
 const baseline = JSON.parse(fs.readFileSync(runtimeFile, 'utf8'))
 
 function clone(value) {
@@ -52,6 +52,15 @@ expectError('hard_boundary_marker_mismatch', (fixture) => {
 expectError('pretest_not_prior_only', (fixture) => {
   fixture.questions.Q01.pretestPrior.assessmentRelation = 'DIRECT_EVIDENCE'
 })
+expectError('pretest_prior_overprecise', (fixture) => {
+  fixture.questions.Q01.pretestPrior.content = 'ABCD 是高分组合'
+})
+expectError('epistemic_routing_mismatch', (fixture) => {
+  fixture.questions.Q01.contextFacts[0].epistemicStatus = 'AI_HYPOTHESIS'
+})
+expectError('primary_profile_capability_missing', (fixture) => {
+  fixture.questions.Q01.evidencePolicies[0].primaryProfileCapabilityId = ''
+})
 expectError('tevv_policy_present', (fixture) => {
   fixture.questions.Q01.synthesisPolicies.push({
     policyId: 'Q01-TEVV-FIXTURE',
@@ -72,4 +81,4 @@ expectError('origin_path_refs_forbidden', (fixture) => {
   fixture.global.evidencePolicies[0].pathRefs = ['PATH-Q01-001-A']
 })
 
-console.log('新五表运行时验证器负向夹具通过：14 类违规均被确定性拒绝。')
+console.log('新五表运行时验证器负向夹具通过：17 类违规均被确定性拒绝。')

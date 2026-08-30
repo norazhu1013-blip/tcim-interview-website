@@ -26,7 +26,7 @@ import { compactDialogueProgressState, compactRuntimeCard } from '../../services
 import { resolveLocalModelConfigBaseUrl } from '../../services/modelConfig.js'
 
 const runtimeData = JSON.parse(readFileSync(
-  new URL('../../generated/tcim-new-five-tables.runtime.v0.2.json', import.meta.url),
+  new URL('../../generated/tcim-new-five-tables.runtime.v0.2.1.json', import.meta.url),
   'utf8'
 ))
 
@@ -40,7 +40,7 @@ function runtimeCard(questionId = 'Q1') {
     runtimeCardId: 'card-Q01-v2',
     teacherContext: {
       finalRanking: ['A', 'C', 'B', 'D'],
-      initialRanking: ['A', 'B', 'C', 'D'],
+      firstRanking: ['A', 'B', 'C', 'D'],
       processTags: ['首位摇摆']
     }
   })
@@ -96,12 +96,18 @@ test('runtime-data adapter 将 Q1 与 Q01 映射到同一新版运行卡', () =>
   assert.ok(shortId.synthesisPolicies.length > 0)
 })
 
-test('发给 Dialogue Agent 的紧凑运行卡保留四个选项的字母与语义', () => {
-  const compact = compactRuntimeCard(runtimeCard('Q1'))
-  assert.equal(compact.scenarioBrief.pretestOptions.length, 4)
-  assert.deepEqual(compact.scenarioBrief.pretestOptions.map((option) => option.optionCode), ['A', 'B', 'C', 'D'])
-  assert.ok(compact.scenarioBrief.pretestOptions.every((option) => option.content && option.assessmentRelation === 'PRIOR_ONLY'))
-  assert.equal(compact.rankingPrior.finalRanking.join(''), 'ACBD')
+test('发给 Dialogue Agent 的前测信息是低精度可撤销先验，不暴露完整排序、分数或四个选项', () => {
+  const card = runtimeCard('Q1')
+  const compact = compactRuntimeCard(card)
+  assert.equal(compact.scenarioBrief.pretestOptions, undefined)
+  assert.equal(compact.rankingPrior.precision, 'LOW')
+  assert.equal(compact.rankingPrior.selectedTopChoiceTheme, card.scenarioBrief.pretestOptions[0].content)
+  assert.equal(compact.rankingPrior.changedDuringAssessment, false)
+  assert.equal(compact.rankingPrior.finalRanking, undefined)
+  assert.equal(compact.rankingPrior.firstRanking, undefined)
+  assert.equal(compact.rankingPrior.scoreSummary, undefined)
+  assert.ok(Array.isArray(compact.scenarioBrief.workingHypotheses))
+  assert.ok(Array.isArray(compact.scenarioBrief.contextVariants))
 })
 
 test('紧凑运行卡保留可替代路径ANY_OF语义，不把多路径误读为全部必需', () => {

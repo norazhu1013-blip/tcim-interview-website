@@ -42,6 +42,8 @@ export function createRuntimeCardFromRuntimeData(runtimeData, input = {}) {
     pretestPrior: clone(question.pretestPrior || {}),
     contextFacts: clone(question.contextFacts || []),
     importantUnknowns: clone(question.importantUnknowns || []),
+    workingHypotheses: clone(question.workingHypotheses || []),
+    contextVariants: clone(question.contextVariants || []),
     teacherContext: clone(input.teacherContext || {})
   }
 

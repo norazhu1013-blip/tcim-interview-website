@@ -40,6 +40,14 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))]
 }
 
+function profileCapabilityRefs(policy) {
+  const primary = baseCapabilityId(policy?.primaryProfileCapabilityId)
+  if (primary) return [primary]
+  // 兼容旧会话时只取首个可解析维度，避免同一条教师表达被重复计入多个画像维度。
+  const fallback = unique((policy?.capabilityRefs || []).map(baseCapabilityId))[0]
+  return fallback ? [fallback] : []
+}
+
 function formalRecords(session) {
   const merged = { ...(session?.interview || {}), ...(session?.comparisonInterview || {}) }
   return Object.entries(merged).filter(([, record]) => isFormalComparisonInterviewRecord(record))
@@ -111,7 +119,7 @@ export function buildCanonicalCapabilityProfile(session, runtimeData = {}) {
     const state = interview?.dialogueSession?.evidenceState || {}
     for (const evidence of activeRecords(interview)) {
       const policy = policies.get(`${evidence.evidenceClaimId}::${evidence.understandingId}`)
-      for (const capabilityRef of policy?.capabilityRefs || []) {
+      for (const capabilityRef of profileCapabilityRefs(policy)) {
         const capabilityId = baseCapabilityId(capabilityRef)
         if (!dimensions.has(capabilityId)) continue
         dimensions.get(capabilityId).observations.push({
@@ -122,6 +130,7 @@ export function buildCanonicalCapabilityProfile(session, runtimeData = {}) {
           evidenceClaimId: evidence.evidenceClaimId,
           understandingId: evidence.understandingId,
           capabilityRef,
+          associatedCapabilityRefs: unique(policy?.capabilityRefs || []),
           responseOrigin: evidence.responseOrigin,
           originClass: originClass(evidence.responseOrigin),
           effectiveStatus: evidence.effectiveStatus || 'PARTIAL',
@@ -135,7 +144,7 @@ export function buildCanonicalCapabilityProfile(session, runtimeData = {}) {
     for (const claim of Object.values(state.claims || {})) {
       if (!claim?.hasConflict) continue
       const policy = policies.get(`${claim.evidenceClaimId}::${claim.understandingId}`)
-      for (const capabilityRef of policy?.capabilityRefs || []) {
+      for (const capabilityRef of profileCapabilityRefs(policy)) {
         const capabilityId = baseCapabilityId(capabilityRef)
         if (!dimensions.has(capabilityId)) continue
         dimensions.get(capabilityId).conflicts.push({

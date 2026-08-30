@@ -64,7 +64,7 @@ function isInterviewComplete(session) {
   <section class="page home-page">
     <div class="hero">
       <div>
-        <span class="comparison-badge">本机研究比较版 · Dialogue Agent 主导</span>
+        <span class="comparison-badge">本机研究比较版 V0.2.1 · Dialogue Agent 主导</span>
         <p class="eyebrow">幼儿园教师专业能力发展</p>
         <h1>{{ profile?.name ? `${profile.name}老师，您好` : '游戏支持与引导能力测评' }}</h1>
         <p>通过 10 个真实教育情境，记录您的专业判断过程，并围绕三个情境开展 AI 证据访谈。</p>

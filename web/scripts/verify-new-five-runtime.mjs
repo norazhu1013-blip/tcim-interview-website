@@ -2,8 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const EXPECTED_SCHEMA_VERSION = '0.2.0'
-export const EXPECTED_DATASET_ID = 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.2'
+export const EXPECTED_SCHEMA_VERSION = '0.2.1'
+export const EXPECTED_DATASET_ID = 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.2.1'
 export const EXPECTED_QUESTION_IDS = Object.freeze(
   Array.from({ length: 10 }, (_, index) => 'Q' + String(index + 1).padStart(2, '0'))
 )
@@ -185,6 +185,9 @@ function validatePretest(questions, errors) {
       if (prior.assessmentRelation !== 'PRIOR_ONLY') {
         addIssue(errors, 'pretest_not_prior_only', location + '.pretestPrior.assessmentRelation', '前测先验必须标为 PRIOR_ONLY')
       }
+      if (/[ABCD]{4}|高分组合|\d+(?:\.\d+)?\s*分/.test(String(prior.content || ''))) {
+        addIssue(errors, 'pretest_prior_overprecise', location + '.pretestPrior.content', '前测弱先验不得包含完整排序、分数或高分组合')
+      }
     }
 
     const options = arrayField(question, 'pretestOptions', location, errors)
@@ -199,6 +202,57 @@ function validatePretest(questions, errors) {
           location + '.pretestOptions[' + index + ']',
           '前测选项必须同时标为 PRETEST_OPTION 与 PRIOR_ONLY'
         )
+      }
+    }
+  }
+}
+
+function validateEpistemicRouting(questions, errors) {
+  const expected = {
+    contextFacts: new Set(['SCENARIO_FACT']),
+    importantUnknowns: new Set(['UNKNOWN']),
+    workingHypotheses: new Set(['HUMAN_HYPOTHESIS', 'AI_HYPOTHESIS']),
+    contextVariants: new Set(['CONTEXT_VARIANT'])
+  }
+  for (const questionId of EXPECTED_QUESTION_IDS) {
+    const question = questions[questionId]
+    if (!isObject(question)) continue
+    const location = '$.questions.' + questionId
+    for (const [field, statuses] of Object.entries(expected)) {
+      for (const [index, row] of arrayField(question, field, location, errors).entries()) {
+        if (!statuses.has(row?.epistemicStatus)) {
+          addIssue(errors, 'epistemic_routing_mismatch', location + '.' + field + '[' + index + ']', field + ' 中出现不匹配的认识状态：' + String(row?.epistemicStatus || ''))
+        }
+      }
+    }
+  }
+}
+
+function validateProfileAttribution(evidenceEntries, errors) {
+  for (const entry of evidenceEntries) {
+    const policy = entry.value
+    if (policy?.claimType !== 'CAPABILITY_EVIDENCE') continue
+    const primary = String(policy?.primaryProfileCapabilityId || '')
+    if (!/^C\d{2}$/.test(primary)) {
+      addIssue(errors, 'primary_profile_capability_missing', entry.location + '.primaryProfileCapabilityId', '能力证据必须且只能指定一个全局主要画像能力 C01-C12')
+      continue
+    }
+    const bases = new Set((policy?.capabilityRefs || []).map((value) => String(value || '').match(/^(C\d{2})/)?.[1]).filter(Boolean))
+    if (!bases.has(primary)) {
+      addIssue(errors, 'primary_profile_capability_unlinked', entry.location + '.primaryProfileCapabilityId', '主要画像能力必须包含在 capabilityRefs 的全局父级中')
+    }
+    let anchors = policy?.supportAnchors
+    if (typeof anchors === 'string') {
+      try { anchors = JSON.parse(anchors) } catch { anchors = null }
+    }
+    const keys = isObject(anchors) ? Object.keys(anchors).sort() : []
+    if (JSON.stringify(keys) !== JSON.stringify(['L0', 'L1', 'L2', 'L3'])) {
+      addIssue(errors, 'support_anchor_scale_invalid', entry.location + '.supportAnchors', '支持锚点必须完整使用 L0-L3')
+    }
+    if (policy?.evidenceClaimId === 'Q08-T3-001') {
+      const l0 = String(anchors?.L0 || '')
+      if (!l0.includes('不形成能力证据') || !String(policy?.pseudoEvidence || '').includes('AI先说出办法后教师认同')) {
+        addIssue(errors, 'q08_stem_pollution_not_blocked', entry.location, 'Q08 必须明确隔离题面复述及AI先提示后认同造成的虚假证据')
       }
     }
   }
@@ -418,6 +472,8 @@ export function validateNewFiveRuntime(data) {
   validateEvidenceReferences(synthesisEntries, claimIds, errors)
   const hardBoundaryCount = validateHardBoundaries(dialogueEntries, errors)
   validatePretest(questions, errors)
+  validateEpistemicRouting(questions, errors)
+  validateProfileAttribution(evidenceEntries, errors)
   validateGovernanceRelations(lensEntries, evidenceEntries, dialogueEntries, errors)
 
   return {
@@ -464,7 +520,7 @@ const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === path.re
 if (isDirectRun) {
   const runtimeFile = path.resolve(
     path.dirname(currentFile),
-    '../src/generated/tcim-new-five-tables.runtime.v0.2.json'
+    '../src/generated/tcim-new-five-tables.runtime.v0.2.1.json'
   )
   const result = verifyRuntimeFile(runtimeFile)
 

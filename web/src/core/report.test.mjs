@@ -29,7 +29,8 @@ function mockSession() {
         dialogueSession: {
           runtimeCard: { evidencePolicies: [{
             recordId: 'T3-Q01-001', evidenceClaimId: 'ECL-Q01-PLAY-FRAME', understandingId: 'UND-Q01-001',
-            capabilityRefs: ['C02-Q01-PLAY-FRAME'], maxSupportedConclusion: 'EPISODE_DESCRIPTION', contextBoundary: '仅Q1'
+            capabilityRefs: ['C02-Q01-PLAY-FRAME', 'C04-Q01-ALTERNATIVE'], primaryProfileCapabilityId: 'C02',
+            maxSupportedConclusion: 'EPISODE_DESCRIPTION', contextBoundary: '仅Q1'
           }] },
           evidenceState: { claims: {}, records: [{
           evidenceId: 'e-1', evidenceClaimId: 'ECL-Q01-PLAY-FRAME', understandingId: 'UND-Q01-001',
@@ -115,7 +116,10 @@ check('三源来源标签: 有访谈证据的指标标注"测评+访谈",无的�
 
 check('Canonical Evidence能稳定转换为有边界的能力画像候选', () => {
   const c02 = r.canonicalCapabilityProfile.dimensions.find((row) => row.capabilityId === 'C02')
+  const c04 = r.canonicalCapabilityProfile.dimensions.find((row) => row.capabilityId === 'C04')
   if (!c02 || c02.evidenceCount !== 1) throw new Error('C02独立证据转换失败')
+  if (!c04 || c04.evidenceCount !== 0) throw new Error('同一证据被重复计入关联能力C04')
+  if (!c02.independent[0].associatedCapabilityRefs.includes('C04-Q01-ALTERNATIVE')) throw new Error('关联能力审计信息丢失')
   if (c02.band.code !== 'EPISODE_SUPPORTED') throw new Error('C02 band=' + c02.band.code)
   if (!/RO0\/RO1/.test(r.canonicalCapabilityProfile.interpretationBoundary)) throw new Error('缺少来源边界')
 })

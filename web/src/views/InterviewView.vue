@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ITEMS } from '../generated/data.js'
-import fiveTableRuntime from '../generated/tcim-new-five-tables.runtime.v0.2.json'
+import fiveTableRuntime from '../generated/tcim-new-five-tables.runtime.v0.2.1.json'
 import { computeProcess } from '../core/process.js'
 import {
   createDialogueSession,
