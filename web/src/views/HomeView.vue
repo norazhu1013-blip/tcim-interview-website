@@ -53,6 +53,11 @@ function interviewProgress(session) {
   const done = formalInterviews(session).filter((item) => item?.status === 'done').length
   return `${done}/${planned}`
 }
+
+function isInterviewComplete(session) {
+  const planned = session.selection?.final?.length || 3
+  return formalInterviews(session).filter((item) => item?.status === 'done').length >= planned
+}
 </script>
 
 <template>
@@ -105,8 +110,12 @@ function interviewProgress(session) {
           <template v-else>
             <button class="button secondary" @click="router.push(`/report/${session.sessionId}`)">看报告</button>
             <button class="button text" @click="router.push(`/review/${session.sessionId}`)">看答题</button>
-            <button class="button text" @click="router.push(`/interviews/${session.sessionId}`)">
-              {{ session.selection?.final?.length && interviewProgress(session) === `${session.selection.final.length}/${session.selection.final.length}` ? '回看访谈' : '去访谈' }}
+            <button
+              class="button text"
+              :class="{ 'interview-pending': !isInterviewComplete(session) }"
+              @click="router.push(`/interviews/${session.sessionId}`)"
+            >
+              {{ isInterviewComplete(session) ? '回看访谈' : '去访谈' }}
             </button>
           </template>
         </div>
@@ -126,5 +135,14 @@ function interviewProgress(session) {
   background: rgba(238, 242, 255, .9);
   font-size: 12px;
   font-weight: 800;
+}
+
+.button.text.interview-pending {
+  color: #16834a;
+}
+
+.button.text.interview-pending:hover:not(:disabled) {
+  color: #0d6a3a;
+  background: #edf9f1;
 }
 </style>
