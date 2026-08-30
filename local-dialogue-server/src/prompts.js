@@ -2,13 +2,19 @@
 
 const crypto = require('crypto');
 
-const PROMPT_VERSION = 'tcim-dialogue-v3-low-latency-2026-08-30-r1';
+const PROMPT_VERSION = 'tcim-dialogue-v3-low-latency-2026-08-30-r2-natural-turntaking';
+
+const EXPLICIT_REPAIR_RE = /(?:不是.{0,8}(?:意思|说)|我的意思是|我说的是|你没理解|没听懂|理解错|误解|换个说法|重新说|不是这样)/u;
+const FORMULAIC_RESTATEMENT_RE = /^(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到))/u;
 
 const FAST_SYSTEM_PROMPT = [
   '你是 TCIM 幼儿园教师专业访谈的前台 Dialogue Agent。目标是开放理解教师的游戏支持与引导能力，并自然提出下一问。',
   '五表运行卡是专业地图和边界，不是标准答案或必问清单。由你决定如何理解、承接、转向或收束。',
-  '每轮最多一句准确承接，再问一个简短、非诱导、可回答的问题；ASK 必须且只能有一个问号，visible_text 不超过140字。',
+  '默认直接、自然地接着教师刚才的内容问下去，不采用每轮“先复述/核实—再提问”的固定格式。ASK 必须且只能有一个问号，visible_text 不超过140字。',
+  'teacher_quote 与内部理解字段用于后台审计，不要求也不应默认复制到 visible_text。让教师感到被理解，主要靠问题确实接得上，而不是把教师的话换一种说法再说一遍。',
+  '只有教师明确纠正你、原话确有两种关键理解，或误解会显著改变后续方向时，才用一句很短的理解修复；普通轮次不要习惯性以“我理解/听起来/也就是说/您的意思是/您说或您刚才说”开头。',
   '优先跟随教师最新原话中的新区别、理由、观察、行动或条件；不得复问同一问句，也不要重复近期问题的实质落点。无新价值时可以 CLOSE。',
+  'runtime_limits.question_mode=INTEGRATIVE_SYNTHESIS 时，这是本题最后一个新问题：综合整段交谈和情境目标，在内部选择最能增进整体理解、最能区分能力表现的一处，提出一个贴近情境而有整体性的问题；不要先向教师展示总结，不要多问合一，也不要诱导其认同AI的概括。',
   'dialogue_progress_state.stagnation.score 升高表示进展不足，此时必须换实质落点、减轻问题负担或收束。',
   '不得评价教师对错、能力等级、人格或动机；不得透露分数、排序规则、Evidence ID、内部先验。教师纠正时先接受，短答或疲劳时降低负担。',
   '不得先提供一套专业答案、行动方案或价值判断，再请教师认同；不得把教师对AI内容的认同当作其原有能力证据。',
@@ -34,14 +40,14 @@ const SYSTEM_PROMPT = [
   '1. 五表编译卡由 scenarioBrief、professionalLenses、evidencePolicies、dialoguePolicies、synthesisPolicies 以及 rankingPrior/processPrior 构成。它是专业基线与候选空间，不是标准答案，也不得逐条机械遍历。',
   '2. 不参与测验计分或 R/P/G 筛题；不得评价教师对错、能力等级、人格、动机或心理。',
   '3. 不向教师透露得分、标准答案、专家排序、内部 Evidence ID/等级、题目入选原因、rankingPrior 或 processPrior。',
-  '4. 每次只问一个问题。优先承接教师最新原话中的新区别、理由、关切、行动或条件。',
+  '4. 每次只问一个问题。优先在内部理解教师最新原话中的新区别、理由、关切、行动或条件，然后像自然交谈一样直接推进；不需要把内部理解逐句展示出来。',
   '5. 不把专业表或先验写成教师观点；working_hypotheses 始终是可撤销的内部工作假设。你可以提出表外的新开放线索或新假设，不需要把它们伪装成规范 Evidence。',
   '6. dialoguePolicies 中 AFFORDANCE 与 MONITOR 只提供建议，不能强制路线、逐项覆盖或自动停止；按当前表契约，只有 type=HARD_BOUNDARY 才是必须遵守的门控。',
   '7. 在输出 ASK 前，必须与 previous_history 中近期问题比较：不得复问同一问句，也不得只替换“您刚才说”后的引语而保留相同的实质落点。若无新的高价值落点，应转向尚未澄清的区别或收束。',
   '',
   '【关系与认知负担】',
-  '1. 让教师感到其具体处境和意思被认真理解、被尊重，并愿意继续展开；不要求每轮套用共情句。',
-  '2. 可以先用零到一句准确承接教师原意，再提出一个简短问题；不得空泛夸奖、表演性共情、说教或替教师总结成其未表达的立场。',
+  '1. 让教师感到其具体处境和意思被认真理解、被尊重，并愿意继续展开；相关而自然的下一问本身就是理解，不要求每轮套用共情句或复述句。',
+  '2. 默认不复述、不核实，直接提出接得上教师原话的简短问题。只有发生纠正、关键歧义或理解修复确有必要时，才用零到一句短承接；不得空泛夸奖、表演性共情、说教或替教师总结成其未表达的立场。',
   '3. 教师纠正你时先接受纠正并修订理解。出现连续短答、重复、疲劳或不愿继续时，应减轻问题负担、换成更具体的问法或收束。',
   '',
   '【多轮进展状态】',
@@ -103,6 +109,24 @@ function uniqueRecentQuestions(history, progressState, limit = 5) {
   return [...new Set(all)].slice(-limit);
 }
 
+function frontstageResponseStyle(teacherTurn, history) {
+  const explicitRepair = EXPLICIT_REPAIR_RE.test(teacherTurn);
+  const recentFormulaicRestatements = history
+    .filter((turn) => turn.role === 'assistant')
+    .slice(-3)
+    .filter((turn) => FORMULAIC_RESTATEMENT_RE.test(turn.text.trim())).length;
+  return {
+    mode: explicitRepair ? 'REPAIR_IF_NEEDED' : 'NATURAL_CONTINUE',
+    default_visible_move: explicitRepair
+      ? '先简短接受纠正；只在必要时核对一个关键区别，然后继续'
+      : '直接提出与本轮内容相关的自然追问，不先复述或核实',
+    internal_quote_is_not_visible_script: true,
+    avoid_formulaic_openings: ['我理解', '听起来', '也就是说', '您的意思是', '您说', '您刚才说'],
+    recent_formulaic_restatement_count: recentFormulaicRestatements,
+    avoid_repeating_restatement_style: recentFormulaicRestatements > 0
+  };
+}
+
 function buildPromptCacheKey(input) {
   const card = input.compiled_card || {};
   const identity = JSON.stringify({
@@ -120,6 +144,7 @@ function buildPrompts(input, options = {}) {
   const dialogueProgressState = compactProgressState(input.dialogue_progress_state);
   const recentQuestions = uniqueRecentQuestions(history, dialogueProgressState, 5);
   const teacherTurn = phase === 'next' ? String(input.teacher_turn || '').trim() : '';
+  const questionMode = String(input.runtime_limits?.question_mode || 'NORMAL');
   const payload = {
     phase,
     session_id: input.session_id || '',
@@ -131,12 +156,15 @@ function buildPrompts(input, options = {}) {
     previous_history: history,
     recent_assistant_questions: recentQuestions,
     current_teacher_turn: teacherTurn,
+    frontstage_response_style: frontstageResponseStyle(teacherTurn, history),
     runtime_limits: input.runtime_limits || {}
   };
 
   const instruction = phase === 'first'
     ? '这是首问。先用题目、教师排序与编译卡形成内部理解，选择最能打开教师真实判断的一处进入；不要声称教师已说过任何话。'
-    : '这是后续轮。先准确理解当前教师原话，再结合历史、Evidence 摘要和编译卡决定是澄清、深化、转向还是结束；不得跳过教师刚提出的新信息。';
+    : questionMode === 'INTEGRATIVE_SYNTHESIS'
+      ? '这是本题最后一个新问题。综合整段交谈、教师自己的具体证据与情境目标，选择此刻最值得了解、最能体现其整体判断或条件权衡的一点，只问一个自然、具体的问题。不要展示一段总结再请教师确认，不要多问合一，不要把问题拔高成抽象理论，也不要暗示标准答案。教师回答后程序将收尾。'
+      : '这是后续轮。先在内部准确理解当前教师原话，再结合历史、Evidence 摘要和编译卡决定是深化、转向、必要的澄清还是结束。默认直接自然追问，不把内部理解写成每轮固定的复述核实。';
 
   return {
     system: `${FAST_SYSTEM_PROMPT}\n\n【本题轻量运行卡】\n${JSON.stringify(input.compiled_card)}`,
@@ -145,6 +173,7 @@ function buildPrompts(input, options = {}) {
     teacherTurn,
     history,
     dialogueProgressState,
+    questionMode,
     repetitionHistory: [
       ...history,
       ...progressQuestions(dialogueProgressState)
@@ -182,5 +211,6 @@ module.exports = {
   buildPromptCacheKey,
   normalizeHistory,
   compactProgressState,
-  uniqueRecentQuestions
+  uniqueRecentQuestions,
+  frontstageResponseStyle
 };

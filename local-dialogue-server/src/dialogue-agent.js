@@ -306,6 +306,7 @@ function createDialogueAgent(options = {}) {
             model,
             prompt_version: PROMPT_VERSION,
             prompt_cache_key: prompts.promptCacheKey,
+            question_mode: prompts.questionMode,
             generation_attempts: attempts.length,
             question_quality: qualitySignals,
             usage,

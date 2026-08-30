@@ -164,6 +164,7 @@ function nextRequest(session, kind, teacherTurn, options = {}) {
     evidenceState: clone(session.evidenceState),
     dialogueProgressState: clone(session.dialogueProgressState),
     interviewUtilityState: clone(session.interviewUtilityState || deriveInterviewUtilityState(session)),
+    runtimeDirectives: clone(options.runtimeDirectives || {}),
     history: clone(session.history)
   }
 }

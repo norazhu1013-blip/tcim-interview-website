@@ -16,10 +16,12 @@ import {
 } from '../core/dialogue-agent/index.js'
 import {
   INTERVIEW_DURATION_MS,
+  INTEGRATIVE_QUESTION_TRIGGER_MS,
   WRAP_UP_NOTICE,
   WRAP_UP_RESERVE_MS,
   interviewTimePhase,
-  mayStartForegroundGeneration
+  mayStartForegroundGeneration,
+  shouldRequestIntegrativeQuestion
 } from '../core/interview-timing.js'
 import {
   COMPARISON_INTERVIEW_MODE as INTERVIEW_MODE,
@@ -212,15 +214,40 @@ function ensureDialogueSession() {
   return dialogueSession.value
 }
 
-function providerFor(controller) {
+function providerFor(controller, options = {}) {
   const locked = session.value?.dialogueModelSelection || {}
   const expectedProvider = simulationOnly.value ? 'mock' : (locked.provider || lastLLMProfile.value || agentHealth.value.provider)
   const expectedModel = simulationOnly.value ? 'mock-dialogue-v1' : (locked.model || lastLLMModel.value || agentHealth.value.model)
   return (request) => runDialogueAgent(request, {
     signal: controller.signal,
     remainingMs: Math.max(0, deadlineAt.value - Date.now()),
+    questionMode: request.runtimeDirectives?.questionMode || options.questionMode || 'NORMAL',
     expectedProvider,
     expectedModel
+  })
+}
+
+function integrativeQuestionAlreadyAsked(modelSession = dialogueSession.value) {
+  return ['ASKED', 'ANSWERED'].includes(modelSession?.integrativeQuestion?.status)
+}
+
+function markIntegrativeQuestionAsked(modelSession, outcome, remainingMs) {
+  modelSession.integrativeQuestion = {
+    status: 'ASKED',
+    questionTurnId: `turn-${modelSession.turnSeq}`,
+    questionText: outcome.visibleText,
+    askedAt: Date.now(),
+    remainingMs: Number(remainingMs || 0)
+  }
+  modelSession.version += 1
+  modelSession.auditLog.push({
+    eventId: `dialogue-log-${modelSession.auditLog.length + 1}`,
+    type: 'IntegrativeQuestionAsked',
+    at: modelSession.integrativeQuestion.askedAt,
+    sessionVersion: modelSession.version,
+    remainingMs: modelSession.integrativeQuestion.remainingMs,
+    triggerMs: INTEGRATIVE_QUESTION_TRIGGER_MS,
+    questionText: outcome.visibleText
   })
 }
 
@@ -364,7 +391,7 @@ async function generateFirstQuestion() {
   return acceptAgentOutcome(outcome, requestedAt, 'first')
 }
 
-async function generateAfterTeacher(teacherText, preparedSession = null) {
+async function generateAfterTeacher(teacherText, preparedSession = null, options = {}) {
   const requestedAt = Date.now()
   let modelSession = preparedSession
   if (!modelSession) {
@@ -376,12 +403,21 @@ async function generateAfterTeacher(teacherText, preparedSession = null) {
   }
   _activeGeneration = new AbortController()
   const previousResultId = modelSession.lastAgentResult?.resultId || ''
-  const pending = submitTeacherTurn(modelSession, teacherText, providerFor(_activeGeneration))
+  const pending = submitTeacherTurn(
+    modelSession,
+    teacherText,
+    providerFor(_activeGeneration, options),
+    { runtimeDirectives: { questionMode: options.questionMode || 'NORMAL' } }
+  )
   // 教师原话、turnSeq 和 pendingRequest 已同步写入领域会话，先持久化再等网络。
   persist(false)
   const outcome = await pending
   const modelGenerated = Boolean(modelSession.lastAgentResult?.resultId && modelSession.lastAgentResult.resultId !== previousResultId)
   const accepted = await acceptAgentOutcome(outcome, requestedAt, 'next', modelGenerated)
+  if (accepted && modelGenerated && options.questionMode === 'INTEGRATIVE_SYNTHESIS' && outcome.action === 'ASK') {
+    markIntegrativeQuestionAsked(modelSession, outcome, options.remainingMs)
+    persist(false)
+  }
   if (accepted && modelGenerated && dialogueSession.value?.lastAgentResult?.trace?.requestId) {
     const metric = performanceMetrics.value.at(-1)
     const turnId = `turn-${modelSession.turnSeq}`
@@ -409,13 +445,19 @@ async function send() {
   sending.value = true
   try {
     const remainingMs = Math.max(0, deadlineAt.value - Date.now())
-    if (!mayStartForegroundGeneration(remainingMs)) {
+    const answeringIntegrativeQuestion = modelSession.integrativeQuestion?.status === 'ASKED'
+    if (answeringIntegrativeQuestion || !mayStartForegroundGeneration(remainingMs)) {
       enterWrapUpWindow('FINAL_TEACHER_SUBMISSION')
       const elicitingQuestion = [...messages.value].reverse().find((message) => message.role === 'ai')?.text || ''
       const outcome = completeFinalTeacherTurn(modelSession, text, {
-        reason: 'TIME_RESERVED_WRAP_UP',
+        reason: answeringIntegrativeQuestion ? 'INTEGRATIVE_QUESTION_ANSWERED' : 'TIME_RESERVED_WRAP_UP',
         reservedMs: WRAP_UP_RESERVE_MS
       })
+      if (answeringIntegrativeQuestion) {
+        modelSession.integrativeQuestion.status = 'ANSWERED'
+        modelSession.integrativeQuestion.answerTurnId = outcome.turnId
+        modelSession.integrativeQuestion.answeredAt = Date.now()
+      }
       messages.value.push({
         role: 'ai',
         text: outcome.visibleText,
@@ -434,7 +476,14 @@ async function send() {
         metricId: null
       })
     } else {
-      await generateAfterTeacher(text, modelSession)
+      const askIntegrative = shouldRequestIntegrativeQuestion(
+        remainingMs,
+        integrativeQuestionAlreadyAsked(modelSession)
+      )
+      await generateAfterTeacher(text, modelSession, {
+        questionMode: askIntegrative ? 'INTEGRATIVE_SYNTHESIS' : 'NORMAL',
+        remainingMs
+      })
     }
   } finally {
     sending.value = false

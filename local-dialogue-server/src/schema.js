@@ -126,6 +126,7 @@ const VISIBLE_LEAK_RE = /得分|分数|标准答案|专家排序|能力等级|�
 const DUPLICATE_QUESTION_ERROR = 'duplicate_question';
 const LEADING_QUESTION_ERROR = 'leading_confirmation_question';
 const LEADING_CONFIRMATION_RE = /(您|你)(是不是也|是否也|同意|也认为|也觉得).{0,30}[?？]|(这样|这么做|我说的).{0,16}(对吗|好吗|是吗)[?？]|(正确做法|更好的做法|应该就是).{0,30}[?？]/i;
+const FORMULAIC_RESTATEMENT_OPENING_RE = /^(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到))/u;
 
 /**
  * 去掉不改变问题落点的承接壳和常见语气词。这不做语义判分，只为中文问句的
@@ -416,7 +417,8 @@ function assessQuestionQuality(value, context = {}) {
     contingentOnTeacherTurn: context.phase === 'first' || Boolean(quote && teacherTurn.includes(quote)),
     visibleChars: text.length,
     matchedTeacherQuote: quote,
-    duplicateScore: duplicate ? Number(duplicate.score.toFixed(3)) : 0
+    duplicateScore: duplicate ? Number(duplicate.score.toFixed(3)) : 0,
+    formulaicRestatementOpening: FORMULAIC_RESTATEMENT_OPENING_RE.test(text)
   };
   return { ...signals, passed: signals.oneQuestion && signals.concise && signals.nonLeading && signals.novel && signals.contingentOnTeacherTurn };
 }

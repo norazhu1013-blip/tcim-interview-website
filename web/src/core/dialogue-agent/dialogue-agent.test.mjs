@@ -16,9 +16,11 @@ import {
   validateRuntimeCard
 } from './index.js'
 import {
+  INTEGRATIVE_QUESTION_TRIGGER_MS,
   WRAP_UP_RESERVE_MS,
   interviewTimePhase,
-  mayStartForegroundGeneration
+  mayStartForegroundGeneration,
+  shouldRequestIntegrativeQuestion
 } from '../interview-timing.js'
 import { compactDialogueProgressState, compactRuntimeCard } from '../../services/dialogueAgent.js'
 import { resolveLocalModelConfigBaseUrl } from '../../services/modelConfig.js'
@@ -561,6 +563,14 @@ test('最合90秒进入收尾且不再启动新的前台追问', () => {
   assert.equal(interviewTimePhase(0), 'EXPIRED')
   assert.equal(mayStartForegroundGeneration(WRAP_UP_RESERVE_MS), false)
   assert.equal(mayStartForegroundGeneration(WRAP_UP_RESERVE_MS + 15_000), false)
+})
+
+test('整体理解问题只在约两分钟窗口触发一次且不侵占收尾保护线', () => {
+  assert.equal(shouldRequestIntegrativeQuestion(INTEGRATIVE_QUESTION_TRIGGER_MS + 1, false), false)
+  assert.equal(shouldRequestIntegrativeQuestion(INTEGRATIVE_QUESTION_TRIGGER_MS, false), true)
+  assert.equal(shouldRequestIntegrativeQuestion(WRAP_UP_RESERVE_MS + 15_001, false), true)
+  assert.equal(shouldRequestIntegrativeQuestion(WRAP_UP_RESERVE_MS + 15_000, false), false)
+  assert.equal(shouldRequestIntegrativeQuestion(INTEGRATIVE_QUESTION_TRIGGER_MS, true), false)
 })
 
 test('收尾轮保存教师原话并直接完成，不需要模型再提问', async () => {

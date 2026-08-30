@@ -223,6 +223,7 @@ function mapAgentResult(response) {
       requestId: String(response.request_id || ''),
       providerRequestId: String(response.provider_request_id || ''),
       generationAttempts: Number(response.trace?.generation_attempts || 1),
+      questionMode: String(response.trace?.question_mode || 'NORMAL'),
       questionQuality: response.trace?.question_quality || null,
       latencyMs: Number(response.latency_ms || 0),
       usage: response.usage || null
@@ -273,7 +274,8 @@ export async function runDialogueAgent(request, options = {}) {
     runtime_limits: {
       remaining_ms: Number(options.remainingMs || 0),
       one_question_only: true,
-      max_visible_chars: 140
+      max_visible_chars: 140,
+      question_mode: String(options.questionMode || 'NORMAL')
     }
   }
   const result = await requestJson('/v1/dialogue/turn', {

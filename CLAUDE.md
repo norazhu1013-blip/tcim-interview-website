@@ -370,3 +370,7 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **运行状态**:本机网页 `http://127.0.0.1:5173` 与 Dialogue Agent `http://127.0.0.1:8787` 均已启动并通过健康检查；Kimi K3 当前 configured/ready。验证结果更新为 local service 32/32、web Dialogue Agent 28/28、240 个题目×排列评分对拍、新五表负向夹具、报告与生产构建全部通过。
   - **说明材料**:`交付文档/TCIM当前程序整体架构_实现机制与本机发布分析报告_V0.1.docx` 说明权力结构、逐轮实现、接口、Evidence→画像、延时/收尾、发布和限制；`交付文档/TCIM新五表三类数据警告_人工治理操作手册_V0.1.docx` 逐条列出 59 个父引用、21 条路由错配和 55 条无路径记录，并给出人工复核、重新编译、兼容检查和完成定义。两份文档已用 LibreOffice 逐页渲染检查。
   - **五表治理边界**:当前三类 warning 仍不阻断 SIMULATION_ACTIVE 研究比较版；不得由编译器自动猜专业关系。建议先修 21 条 type/runtimeUse，再核对 59 条 parentCapabilityIds，最后处理 50 条 EvidenceAnchor pathRefs；5 条 RO0—RO4 来源政策应显式 `NOT_APPLICABLE`，不应强绑专业路径。
+- **2026-08-30 自然轮替与两分钟整体理解问题**:
+  - **自然承接**:前台提示词取消每轮固定“复述/核实—再提问”。`teacher_quote` 与内部理解只作后台审计；普通轮次直接提出接得上的自然追问，只有教师明确纠正、关键歧义或误解会改变方向时才短暂修复。问句质量 trace 增加机械复述开头诊断，但不把它设为新的硬模板门控。
+  - **整体问题窗口**:`interview-timing.js` 在剩余 150s 至前台生成保护线 105s 之间、且每题尚未触发时发送 `question_mode=INTEGRATIVE_SYNTHESIS`。程序只调度时机；Dialogue Agent 综合整段历史、情境目标与教师原话，自主生成一个贴近情境、非诱导、非多问合一的最后新问题。状态和原问句写入 `integrativeQuestion` 与审计日志；教师回答后用 `INTEGRATIVE_QUESTION_ANSWERED` 保存最后一轮并结束，后台 Evidence 分析继续完成。失败重试通过 `runtimeDirectives` 保留该模式，不会降回普通问句。
+  - **验证**:local service 36/36、web Dialogue Agent 29/29、240 排列对拍、新五表运行时/负向夹具和报告检查通过。
