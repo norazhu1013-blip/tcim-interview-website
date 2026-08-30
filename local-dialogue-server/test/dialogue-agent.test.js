@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { InputError, createDialogueAgent } = require('../src/dialogue-agent');
 const { ProviderError } = require('../src/providers');
 const { PROMPT_VERSION } = require('../src/prompts');
-const { questionSimilarity } = require('../src/schema');
+const { questionSimilarity, formulaicRestatementPrefix } = require('../src/schema');
 const { validOutput, compiledCard } = require('./fixtures');
 
 test('foreground question and background evidence use separate compact model calls', async () => {
@@ -134,6 +134,42 @@ test('valid canonical evidence proposal passes the unified validator', async () 
   assert.equal(result.evidence_candidates[0].evidence_claim_id, 'ECL-Q01-PLAY-FRAME');
 });
 
+test('formulaic restatement prefix is removed without a second model call', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: '您希望孩子理解规则的重要性和含义。您怎么判断他们是真的理解，而不只是当时照着做了？',
+        understanding: { teacher_quote: '理解规则到底是什么', meaning: '教师关注规则理解', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(),
+    teacher_turn: '明白规则的重要性，也理解规则到底是什么。'
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.visible_text, '您怎么判断他们是真的理解，而不只是当时照着做了？');
+  assert.equal(result.trace.visible_style_adjusted, true);
+  assert.equal(result.trace.style_adjustments[0].type, 'REMOVED_FORMULAIC_RESTATEMENT_PREFIX');
+  assert.equal(result.trace.question_quality.formulaicRestatementOpening, false);
+});
+
+test('observed r1 restatement patterns are recognized while a direct question is preserved', () => {
+  for (const text of [
+    '您一下就看出是共同游戏规则没理解。当时哪些表现支持这个判断？',
+    '明白，您从各玩各的看出问题了。接下来您会怎么做？',
+    '您选择先讲解、再示范引导。您希望孩子具体学到什么？',
+    '您希望孩子理解规则的重要性。您怎么判断他们是真的理解？',
+    '您说要继续观察。接下来会重点看哪些表现？',
+    '您会看他们是否围绕一个目标轮流下。如果他们自定玩法，您会怎样看？',
+    '您觉得他们自定玩法就更高级了。这个判断来自哪些平时观察？'
+  ]) assert.ok(formulaicRestatementPrefix(text), text);
+  assert.equal(formulaicRestatementPrefix('您会看到什么变化，才决定从等待转为靠近？'), null);
+});
+
 test('follow-up understanding must include a non-empty exact quote from the current teacher turn', async () => {
   const provider = {
     id: 'mock', model: 'test', ready: true,
@@ -194,7 +230,7 @@ test('near-duplicate question is rejected once and automatically regenerated wit
     history: [{ role: 'assistant', text: '您刚才提到孩子很开心，您为什么会特别看重这个方面？' }]
   });
   assert.equal(calls, 2);
-  assert.match(correctionPrompt, /程序质检退回：复问或诱导性问句/);
+  assert.match(correctionPrompt, /程序质检退回：复问、诱导或模式化复述/);
   assert.equal(result.visible_text, '如果幼儿转身去找同伴，您会怎样调整做法？');
   assert.equal(result.trace.generation_attempts, 2);
   assert.deepEqual(result.usage, { input_tokens: 22, output_tokens: 9, total_tokens: 31 });

@@ -35,20 +35,24 @@ test('recent formulaic restatement is exposed as a variation warning to the mode
 });
 
 test('integrative mode asks one final scenario-grounded synthesis question', () => {
+  const longHistory = Array.from({ length: 16 }, (_, index) => ({
+    role: index % 2 === 0 ? 'assistant' : 'teacher',
+    text: `第${index + 1}轮${index % 2 === 0 ? '问题？' : '回答'}`
+  }));
   const prompts = buildPrompts({
     phase: 'next',
     session_id: 's1',
     item_id: 'Q1',
     teacher_turn: '我会看孩子是否还愿意继续尝试，再决定要不要过去。',
     compiled_card: compiledCard(),
-    history: [
-      { role: 'assistant', text: '您会先观察什么？' },
-      { role: 'teacher', text: '我会看他尝试的方法有没有变化。' }
-    ],
+    history: longHistory,
     runtime_limits: { question_mode: 'INTEGRATIVE_SYNTHESIS' }
   });
   assert.equal(prompts.questionMode, 'INTEGRATIVE_SYNTHESIS');
   assert.match(prompts.user, /最后一个新问题/);
-  assert.match(prompts.user, /不要展示一段总结/);
+  assert.match(prompts.user, /不先展示总结/);
   assert.match(prompts.system, /最能区分能力表现/);
+  assert.equal(prompts.history.length, 14);
+  assert.equal(prompts.history[0].text, '第3轮问题？');
+  assert.match(prompts.user, /整体判断、条件权衡、边界意识或调整依据/);
 });

@@ -12,6 +12,7 @@ const { loadEnvFile } = require('../src/env-file');
 const { createLocalStore } = require('../src/local-store');
 const { createLocalGateway } = require('../src/local-gateway');
 const { compiledCard, fullAnswers } = require('./fixtures');
+const { PROMPT_VERSION } = require('../src/prompts');
 
 async function startFixture(t) {
   const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tcim-dialogue-test-'));
@@ -52,6 +53,7 @@ test('health, localhost CORS and first-turn endpoint work', async (t) => {
   const { base } = await startFixture(t);
   const health = await fetch(`${base}/health`, { headers: { Origin: 'http://localhost:5173' } });
   assert.equal(health.status, 200);
+  assert.equal((await health.clone().json()).prompt_version, PROMPT_VERSION);
   assert.equal(health.headers.get('access-control-allow-origin'), 'http://localhost:5173');
   const blocked = await fetch(`${base}/health`, { headers: { Origin: 'https://example.com' } });
   assert.equal(blocked.status, 403);

@@ -142,6 +142,7 @@ function createHttpServer(options = {}) {
         schema_version: 'dialogue-turn-v2',
         provider: agent.provider.id,
         model: agent.provider.model || '',
+        prompt_version: agent.promptVersion || '',
         ready: agent.provider.ready !== false,
         timeout_ms: agent.timeoutMs
       });

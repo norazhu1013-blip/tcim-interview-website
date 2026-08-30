@@ -62,7 +62,7 @@ OpenAI provider 使用 Responses API、严格 JSON Schema，并固定发送 `sto
 - `POST /v1/evidence/analyze`：在前台问题显示后异步分析本轮教师原话，返回可校验的 Evidence 候选；
 - `GET /v1/model-config`：读取当前 provider、模型、就绪状态及两类密钥是否已配置；
 - `POST /v1/model-config`：本机选择 `kimi`、`openai` 或 `mock`，可选提交当前 provider 的 `api_key`；保存后立即热切换；
-- `GET /health`：查看 provider、模型、就绪状态和超时配置。
+- `GET /health`：查看 provider、模型、当前提示词版本、就绪状态和超时配置。
 
 模型配置接口固定返回：
 

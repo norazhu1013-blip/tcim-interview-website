@@ -7,10 +7,12 @@ const {
   EVIDENCE_ANALYSIS_SCHEMA,
   DUPLICATE_QUESTION_ERROR,
   LEADING_QUESTION_ERROR,
+  FORMULAIC_RESTATEMENT_ERROR,
   recentAssistantQuestions,
   validateDialogueOutput,
   validateEvidenceAnalysisOutput,
   normalizeFastDialogueOutput,
+  normalizeNaturalQuestionOutput,
   assessQuestionQuality,
   collectDialoguePolicyIndex
 } = require('./schema');
@@ -73,6 +75,7 @@ function hasCorrectableQuestionError(validation) {
     && validation.errors.some((error) => (
       String(error).startsWith(`${DUPLICATE_QUESTION_ERROR}:`)
       || String(error).startsWith(`${LEADING_QUESTION_ERROR}:`)
+      || String(error).startsWith(`${FORMULAIC_RESTATEMENT_ERROR}:`)
     )));
 }
 
@@ -82,7 +85,7 @@ function questionCorrectionUser(originalUser, rejectedOutput, history, validatio
   return [
     originalUser,
     '',
-    '【程序质检退回：复问或诱导性问句】',
+    '【程序质检退回：复问、诱导或模式化复述】',
     `上一候选问句：${JSON.stringify(rejectedQuestion)}`,
     `近期已问问句：${JSON.stringify(recentQuestions)}`,
     `退回原因：${JSON.stringify(validation?.errors || [])}`,
@@ -90,7 +93,8 @@ function questionCorrectionUser(originalUser, rejectedOutput, history, validatio
     '1. 不要只替换承接引语或同义改写；',
     '2. 承接当前教师原话中的另一个具体区别，转向不同的证据缺口，或在无新增价值时 CLOSE；',
     '3. 不得提供专业答案后请教师同意，不得把AI观点塞进问句；',
-    '4. action=ASK 时仍只能有一个问题。'
+    '4. action=ASK 时仍只能有一个问题。',
+    '5. 不要先改写教师刚才的意思再提问；能直接问就直接问。'
   ].join('\n');
 }
 
@@ -192,6 +196,7 @@ function createDialogueAgent(options = {}) {
 
   return {
     get provider() { return activeProvider; },
+    promptVersion: PROMPT_VERSION,
     timeoutMs,
     prepareProvider,
     setProvider,
@@ -220,6 +225,7 @@ function createDialogueAgent(options = {}) {
       const requestId = crypto.randomUUID();
       try {
         const attempts = [];
+        const styleAdjustments = [];
         let generated;
         let validated;
         let userPrompt = prompts.user;
@@ -245,6 +251,17 @@ function createDialogueAgent(options = {}) {
           });
           attempts.push(generated);
           generated.output = normalizeFastDialogueOutput(generated.output, prompts.phase);
+          // trace只记录最终候选的可见文本调整，不把被拒绝尝试混入。
+          styleAdjustments.length = 0;
+          const naturalized = normalizeNaturalQuestionOutput(generated.output, {
+            phase: prompts.phase,
+            allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED'
+          });
+          generated.output = naturalized.value;
+          if (naturalized.adjusted) styleAdjustments.push({
+            type: 'REMOVED_FORMULAIC_RESTATEMENT_PREFIX',
+            removed_prefix: naturalized.removedPrefix
+          });
           const knownDialoguePolicies = collectDialoguePolicyIndex(input.compiled_card).all;
           generated.output.direction.consulted_policy_ids = generated.output.direction.consulted_policy_ids
             .filter((policyId) => knownDialoguePolicies.has(policyId));
@@ -253,7 +270,8 @@ function createDialogueAgent(options = {}) {
             teacherTurn: prompts.teacherTurn,
             history: prompts.repetitionHistory,
             compiledCard: input.compiled_card,
-            maxQuestionChars
+            maxQuestionChars,
+            allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED'
           });
           if (validated.ok) break;
           if (generationAttempt === 1 && hasCorrectableQuestionError(validated)) {
@@ -280,7 +298,8 @@ function createDialogueAgent(options = {}) {
           phase: prompts.phase,
           teacherTurn: prompts.teacherTurn,
           history: prompts.repetitionHistory,
-          maxQuestionChars
+          maxQuestionChars,
+          allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED'
         });
         return {
           ok: true,
@@ -308,6 +327,8 @@ function createDialogueAgent(options = {}) {
             prompt_cache_key: prompts.promptCacheKey,
             question_mode: prompts.questionMode,
             generation_attempts: attempts.length,
+            visible_style_adjusted: styleAdjustments.length > 0,
+            style_adjustments: styleAdjustments,
             question_quality: qualitySignals,
             usage,
             latency_ms: latencyMs

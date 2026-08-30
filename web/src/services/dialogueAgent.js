@@ -226,6 +226,8 @@ function mapAgentResult(response) {
       providerRequestId: String(response.provider_request_id || ''),
       generationAttempts: Number(response.trace?.generation_attempts || 1),
       questionMode: String(response.trace?.question_mode || 'NORMAL'),
+      visibleStyleAdjusted: Boolean(response.trace?.visible_style_adjusted),
+      styleAdjustments: Array.isArray(response.trace?.style_adjustments) ? response.trace.style_adjustments : [],
       questionQuality: response.trace?.question_quality || null,
       latencyMs: Number(response.latency_ms || 0),
       usage: response.usage || null

@@ -565,7 +565,7 @@ test('教师明确退出由硬边界本地收束且不再调用模型', async ()
   assert.ok(session.auditLog.some((event) => event.type === 'HardBoundaryHandled' && event.kind === 'EXIT'))
 })
 
-test('最合90秒进入收尾且不再启动新的前台追问', () => {
+test('最后90秒进入收尾且不再启动新的前台追问', () => {
   assert.equal(interviewTimePhase(WRAP_UP_RESERVE_MS + 1), 'DIALOGUE')
   assert.equal(interviewTimePhase(WRAP_UP_RESERVE_MS), 'WRAP_UP')
   assert.equal(interviewTimePhase(0), 'EXPIRED')
@@ -579,6 +579,8 @@ test('整体理解问题只在约两分钟窗口触发一次且不侵占收尾�
   assert.equal(shouldRequestIntegrativeQuestion(WRAP_UP_RESERVE_MS + 15_001, false), true)
   assert.equal(shouldRequestIntegrativeQuestion(WRAP_UP_RESERVE_MS + 15_000, false), false)
   assert.equal(shouldRequestIntegrativeQuestion(INTEGRATIVE_QUESTION_TRIGGER_MS, true), false)
+  // 真实回放中一次提交发生在剩余153秒；旧150秒上沿会错过，本版应触发。
+  assert.equal(shouldRequestIntegrativeQuestion(153_000, false), true)
 })
 
 test('收尾轮保存教师原话并直接完成，不需要模型再提问', async () => {

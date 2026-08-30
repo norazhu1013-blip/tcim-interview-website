@@ -46,6 +46,29 @@ $manifest = [ordered]@{
   webUrl = 'http://127.0.0.1:5173'
 }
 [System.IO.File]::WriteAllText((Join-Path $releaseDir 'release.json'), ($manifest | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
+# 网页是静态文件，可直接读取新 dist；Dialogue Agent 是常驻 Node 进程，若不
+# 重启会继续使用旧提示词和旧质量门。发布必须同步重启两项本机服务，避免
+# “界面显示新版、后台仍是旧版”的隐性混用。
+$previousNoBrowser = $env:TCIM_NO_BROWSER
+try {
+  $env:TCIM_NO_BROWSER = '1'
+  $processRecord = Join-Path $tcimRoot '.local-runtime\processes.json'
+  if (Test-Path -LiteralPath $processRecord -PathType Leaf) {
+    & (Join-Path $tcimRoot 'stop-local-comparison.ps1')
+  }
+  & (Join-Path $tcimRoot 'start-local-comparison.ps1')
+  $dialogueHealth = Invoke-RestMethod -Uri 'http://127.0.0.1:8787/health' -TimeoutSec 5
+  if (-not $dialogueHealth.ok -or -not $dialogueHealth.prompt_version) {
+    throw 'Dialogue Agent restarted but did not report an active prompt version.'
+  }
+  $manifest['dialoguePromptVersion'] = [string]$dialogueHealth.prompt_version
+  [System.IO.File]::WriteAllText((Join-Path $releaseDir 'release.json'), ($manifest | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+} finally {
+  if ($null -eq $previousNoBrowser) { Remove-Item Env:TCIM_NO_BROWSER -ErrorAction SilentlyContinue }
+  else { $env:TCIM_NO_BROWSER = $previousNoBrowser }
+}
+
 Write-Host 'TCIM local release created.' -ForegroundColor Green
 Write-Host "Git commit: $($manifest.gitCommit)"
 Write-Host "Config fingerprint: $($manifest.configFingerprint)"
