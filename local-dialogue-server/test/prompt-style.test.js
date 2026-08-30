@@ -33,7 +33,7 @@ test('a substantive tension invites one brief relational microcue', () => {
 });
 
 test('relational microcues have a cooldown and do not become a new template', () => {
-  const style = frontstageResponseStyle('我还会继续观察孩子之间怎样协商。', [
+  const style = frontstageResponseStyle('我再看看。', [
     { role: 'assistant', text: '这个场面确实不好拿捏。那一刻您会先做什么？' }
   ]);
   assert.equal(style.recent_relational_cue_count, 1);
@@ -41,14 +41,69 @@ test('relational microcues have a cooldown and do not become a new template', ()
   assert.equal(style.relational_cue_budget, 0);
 });
 
-test('a generic long answer does not automatically earn another praise-like preface', () => {
+test('the first substantive answer schedules one specific affirmation rather than generic praise', () => {
   const style = frontstageResponseStyle('我会根据她平时的兴趣和能力，再决定是否继续提供材料。', [
     { role: 'assistant', text: '这个取舍确实不容易。您最先会看什么？' },
     { role: 'assistant', text: '什么变化会让您调整做法？' }
   ]);
-  assert.equal(style.relational_move, 'NONE');
-  assert.equal(style.relational_cue_budget, 0);
+  assert.equal(style.relational_move, 'AFFIRM_SPECIFICITY');
+  assert.equal(style.relational_cue_budget, 1);
+  assert.equal(style.warm_affirmation_required, true);
+  assert.equal(style.warm_affirmation_count, 0);
   assert.equal(style.support_level, 'OPEN_FIRST');
+});
+
+test('controlled warmth is scheduled twice per scenario and then exhausted', () => {
+  const questionLedger = [
+    { action: 'ASK', questionText: '您在现场会先做什么？' },
+    { action: 'ASK', questionText: '这个观察说得很细致。您当时最先留意什么？' },
+    { action: 'ASK', questionText: '您平时通常会怎样继续观察？' },
+    { action: 'ASK', questionText: '从您的经验看，哪些表现最值得留意？' }
+  ];
+  const second = frontstageResponseStyle(
+    '我会根据孩子后面的表现，再调整支持的程度。',
+    [],
+    { questionLedger }
+  );
+  assert.equal(second.warm_affirmation_count, 1);
+  assert.equal(second.warm_affirmation_required, true);
+  assert.equal(second.warm_affirmations_remaining, 1);
+
+  questionLedger.push({ action: 'ASK', questionText: '这个区别很有分辨。回到当时，您还注意到了什么？' });
+  const exhausted = frontstageResponseStyle(
+    '我会根据孩子后面的表现，再调整支持的程度。',
+    [],
+    { questionLedger }
+  );
+  assert.equal(exhausted.warm_affirmation_count, 2);
+  assert.equal(exhausted.warm_affirmation_required, false);
+  assert.equal(exhausted.warm_affirmations_remaining, 0);
+});
+
+test('a challenge question forces a lower-pressure relief turn and challenges are capped', () => {
+  const afterChallenge = frontstageResponseStyle(
+    '我会先看看孩子当时的表情和动作，再决定怎么做。',
+    [],
+    { questionLedger: [
+      { action: 'ASK', questionText: '如果孩子还是一直拒绝，您会怎么做？' }
+    ] }
+  );
+  assert.equal(afterChallenge.pressure_pacing.last_question_pressure, 'CHALLENGE');
+  assert.equal(afterChallenge.pressure_pacing.must_relax, true);
+  assert.equal(afterChallenge.pressure_pacing.next_move, 'RELAX');
+
+  const capped = frontstageResponseStyle(
+    '我还会结合平时经验继续观察。',
+    [],
+    { questionLedger: [
+      { action: 'ASK', questionText: '如果孩子还是一直拒绝，您会怎么做？' },
+      { action: 'ASK', questionText: '回到当时，您最先看到什么？' },
+      { action: 'ASK', questionText: '什么情况下您会改变刚才的判断？' },
+      { action: 'ASK', questionText: '从您的经验看，您还会留意什么？' }
+    ] }
+  );
+  assert.equal(capped.pressure_pacing.challenge_question_count, 2);
+  assert.equal(capped.pressure_pacing.must_relax, true);
 });
 
 test('an explicit clarification request unlocks examples while an ordinary answer stays open-first', () => {

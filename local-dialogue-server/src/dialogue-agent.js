@@ -16,6 +16,8 @@ const {
   normalizeFastDialogueOutput,
   normalizeDialogueGrounding,
   normalizeNaturalQuestionOutput,
+  normalizeBroadPraisePrefix,
+  normalizeScheduledWarmth,
   assessQuestionQuality,
   collectDialoguePolicyIndex
 } = require('./schema');
@@ -280,6 +282,22 @@ function createDialogueAgent(options = {}) {
             type: 'REMOVED_FORMULAIC_RESTATEMENT_PREFIX',
             removed_prefix: naturalized.removedPrefix
           });
+          const dePraised = normalizeBroadPraisePrefix(generated.output);
+          generated.output = dePraised.value;
+          if (dePraised.adjusted) styleAdjustments.push({
+            type: 'REMOVED_BROAD_PRAISE_PREFIX',
+            removed_prefix: dePraised.removedPrefix
+          });
+          const warmed = normalizeScheduledWarmth(generated.output, {
+            required: Boolean(prompts.responseStyle?.warm_affirmation_required),
+            teacherTurn: prompts.teacherTurn,
+            warmAffirmationCount: Number(prompts.responseStyle?.warm_affirmation_count || 0)
+          });
+          generated.output = warmed.value;
+          if (warmed.adjusted) styleAdjustments.push({
+            type: 'ADDED_SCHEDULED_WARM_AFFIRMATION',
+            added_prefix: warmed.addedPrefix
+          });
           const knownDialoguePolicies = collectDialoguePolicyIndex(input.compiled_card).all;
           generated.output.direction.consulted_policy_ids = generated.output.direction.consulted_policy_ids
             .filter((policyId) => knownDialoguePolicies.has(policyId));
@@ -292,7 +310,10 @@ function createDialogueAgent(options = {}) {
             allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED',
             allowScaffoldedOptions: prompts.responseStyle?.support_level === 'SCAFFOLD_ALLOWED',
             questionMode: prompts.questionMode,
-            relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE'
+            relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE',
+            warmAffirmationAllowed: Boolean(prompts.responseStyle?.warm_affirmation_allowed),
+            warmAffirmationRequired: Boolean(prompts.responseStyle?.warm_affirmation_required),
+            mustRelaxPressure: Boolean(prompts.responseStyle?.pressure_pacing?.must_relax)
           });
           if (validated.ok) break;
           if (generationAttempt < 3) {
@@ -323,7 +344,10 @@ function createDialogueAgent(options = {}) {
           allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED',
           allowScaffoldedOptions: prompts.responseStyle?.support_level === 'SCAFFOLD_ALLOWED',
           questionMode: prompts.questionMode,
-          relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE'
+          relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE',
+          warmAffirmationAllowed: Boolean(prompts.responseStyle?.warm_affirmation_allowed),
+          warmAffirmationRequired: Boolean(prompts.responseStyle?.warm_affirmation_required),
+          mustRelaxPressure: Boolean(prompts.responseStyle?.pressure_pacing?.must_relax)
         });
         return {
           ok: true,
@@ -351,6 +375,10 @@ function createDialogueAgent(options = {}) {
             prompt_cache_key: prompts.promptCacheKey,
             question_mode: prompts.questionMode,
             relationship_move_requested: prompts.responseStyle?.relational_move || 'NONE',
+            warm_affirmation_target: Boolean(prompts.responseStyle?.warm_affirmation_required),
+            warm_affirmation_count_before_turn: Number(prompts.responseStyle?.warm_affirmation_count || 0),
+            warm_affirmations_remaining_before_turn: Number(prompts.responseStyle?.warm_affirmations_remaining || 0),
+            pressure_pacing: prompts.responseStyle?.pressure_pacing || {},
             relational_microcue_observed: Boolean(qualitySignals.relationalMicrocueObserved),
             relational_cue_prefix: qualitySignals.relationalCuePrefix || '',
             generation_attempts: attempts.length,

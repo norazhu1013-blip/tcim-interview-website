@@ -224,7 +224,7 @@ test('near-duplicate question is rejected once and automatically regenerated wit
       correctionPrompt = user;
       return {
         output: validOutput({
-          visible_text: '如果幼儿转身去找同伴，您会怎样调整做法？',
+          visible_text: '这个观察说得很细致。回到现场，您最先会留意幼儿的哪个反应？',
           understanding: { teacher_quote: '我会先观察', meaning: '教师会先观察', confidence: 'HIGH' }
         }),
         usage: { input_tokens: 12, output_tokens: 5, total_tokens: 17 }
@@ -239,7 +239,7 @@ test('near-duplicate question is rejected once and automatically regenerated wit
   });
   assert.equal(calls, 2);
   assert.match(correctionPrompt, /程序质检退回：第1个候选未通过/);
-  assert.equal(result.visible_text, '如果幼儿转身去找同伴，您会怎样调整做法？');
+  assert.equal(result.visible_text, '这个观察说得很细致。回到现场，您最先会留意幼儿的哪个反应？');
   assert.equal(result.trace.generation_attempts, 2);
   assert.deepEqual(result.usage, { input_tokens: 22, output_tokens: 9, total_tokens: 31 });
 });
@@ -254,7 +254,7 @@ test('leading confirmation question is rejected and regenerated as an open evide
       return { output: validOutput({
         visible_text: calls === 1
           ? '给孩子自主协商的空间是更好的做法，您也同意吗？'
-          : '您会看到什么变化，才判断需要从等待转为靠近？',
+          : '这个取舍很有分辨。回到当时，您最先会留意什么变化？',
         understanding: { teacher_quote: '如果争执升级再靠近', meaning: '教师会按情境变化调整介入', confidence: 'HIGH' }
       }) };
     }
@@ -266,7 +266,7 @@ test('leading confirmation question is rejected and regenerated as an open evide
     history: [{ role: 'assistant', text: '当时您为什么选择先等待？' }]
   });
   assert.equal(calls, 2);
-  assert.equal(result.visible_text, '您会看到什么变化，才判断需要从等待转为靠近？');
+  assert.equal(result.visible_text, '这个取舍很有分辨。回到当时，您最先会留意什么变化？');
   assert.equal(result.trace.question_quality.nonLeading, true);
   assert.equal(result.trace.question_quality.passed, true);
 });
@@ -294,6 +294,82 @@ test('evaluative praise is rejected while neutral warmth remains available when 
   assert.equal(calls, 2);
   assert.equal(result.visible_text, '这里确实需要取舍。接下来会看哪些变化？');
   assert.equal(result.trace.question_quality.nonEvaluativeWarmth, true);
+});
+
+test('one scheduled specific affirmation is accepted and the per-scenario budget is traceable', async () => {
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => ({ output: validOutput({
+      visible_text: '回到现场先看一看，这个做法很稳。回到当时，您最先留意到什么？',
+      understanding: { teacher_quote: '我会结合平时表现再观察', meaning: '教师结合纵向经验观察', confidence: 'HIGH' }
+    }) })
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(),
+    teacher_turn: '我会结合平时表现再观察孩子当时的表情和动作。',
+    history: [{ role: 'assistant', text: '面对这个情况，您会先做什么？' }]
+  });
+  assert.equal(result.trace.warm_affirmation_target, true);
+  assert.equal(result.trace.question_quality.warmAffirmationObserved, true);
+  assert.ok(result.visible_text.startsWith('这一点说得很细致。'));
+  assert.deepEqual(result.trace.style_adjustments.map((entry) => entry.type).slice(-2), [
+    'REMOVED_BROAD_PRAISE_PREFIX',
+    'ADDED_SCHEDULED_WARM_AFFIRMATION'
+  ]);
+  assert.doesNotMatch(result.visible_text, /很稳/u);
+  assert.equal(result.trace.question_quality.passed, true);
+});
+
+test('a third warm affirmation is rejected after the two-turn budget is exhausted', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: calls === 1
+          ? '这个判断很有分辨。您还想补充哪个现场细节？'
+          : '从您的经验看，您还想补充哪个现场细节？',
+        understanding: { teacher_quote: '我还会看孩子后面的反应', meaning: '教师继续观察反馈', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(),
+    teacher_turn: '我还会看孩子后面的反应，再决定是否调整。',
+    history: [
+      { role: 'assistant', text: '这个观察说得很细致。您当时最先留意什么？' },
+      { role: 'assistant', text: '这个区别很有分辨。回到现场，您还看到什么？' }
+    ]
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.trace.warm_affirmation_target, false);
+  assert.equal(result.trace.question_quality.warmAffirmationObserved, false);
+});
+
+test('a challenge must be followed by a lower-pressure turn instead of another challenge', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: calls === 1
+          ? '这个考虑说得很细致。如果孩子还是拒绝，您会怎么做？'
+          : '这个考虑说得很细致。回到当时，您最先留意到哪个变化？',
+        understanding: { teacher_quote: '我会先看看当时的情况', meaning: '教师先观察现场', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(),
+    teacher_turn: '我会先看看当时的情况和孩子的表情，再决定怎么做。',
+    history: [{ role: 'assistant', text: '如果孩子还是不断回来求助，您会怎么调整？' }]
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.trace.pressure_pacing.must_relax, true);
+  assert.equal(result.trace.question_quality.questionPressure, 'GENTLE');
+  assert.equal(result.trace.question_quality.pressurePacingRespected, true);
 });
 
 test('AI may not supply answer categories before an open elicitation', async () => {
@@ -402,7 +478,7 @@ test('third candidate can recover a turn that would previously pause the intervi
       return { output: validOutput({
         visible_text: calls < 3
           ? '您刚才说孩子很投入，为什么会特别看重这一点？'
-          : '您会看到什么变化，才决定从等待转为靠近？',
+          : '这个观察说得很细致。回到现场，您最先会留意什么变化？',
         understanding: { teacher_quote: '我会先观察', meaning: '教师会先观察', confidence: 'HIGH' }
       }) };
     }
@@ -414,9 +490,9 @@ test('third candidate can recover a turn that would previously pause the intervi
     history: [{ role: 'assistant', text: '您刚才提到孩子很开心，您为什么会特别看重这个方面？' }]
   });
   assert.equal(calls, 3);
-  assert.equal(result.visible_text, '您会看到什么变化，才决定从等待转为靠近？');
-  assert.equal(result.trace.relationship_move_requested, 'NONE');
-  assert.equal(result.trace.relational_microcue_observed, false);
+  assert.equal(result.visible_text, '这个观察说得很细致。回到现场，您最先会留意什么变化？');
+  assert.equal(result.trace.relationship_move_requested, 'AFFIRM_SPECIFICITY');
+  assert.equal(result.trace.relational_microcue_observed, true);
   assert.equal(result.trace.question_quality.relationshipBudgetRespected, true);
 });
 

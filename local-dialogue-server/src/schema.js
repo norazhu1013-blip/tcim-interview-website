@@ -127,16 +127,23 @@ const DUPLICATE_QUESTION_ERROR = 'duplicate_question';
 const LEADING_QUESTION_ERROR = 'leading_confirmation_question';
 const FORMULAIC_RESTATEMENT_ERROR = 'formulaic_restatement_before_question';
 const EVALUATIVE_PRAISE_ERROR = 'evaluative_praise_before_question';
+const WARM_AFFIRMATION_BUDGET_ERROR = 'warm_affirmation_outside_budget';
 const AI_SUPPLIED_OPTIONS_ERROR = 'ai_supplied_answer_options_before_open_elicitation';
 const INTEGRATIVE_QUALITY_ERROR = 'integrative_question_lacks_global_judgment';
 const RELATIONAL_CUE_BUDGET_ERROR = 'relational_microcue_outside_budget';
+const CONSECUTIVE_CHALLENGE_ERROR = 'challenge_question_without_relief_turn';
 const LEADING_CONFIRMATION_RE = /(您|你)(是不是也|是否也|同意|也认为|也觉得).{0,30}[?？]|(这样|这么做|我说的).{0,16}(对吗|好吗|是吗)[?？]|(正确做法|更好的做法|应该就是).{0,30}[?？]/i;
 const FORMULAIC_RESTATEMENT_OPENING_RE = /^(?:(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到))|(?:明白|好的|嗯|原来如此)[，,]\s*您|您(?:一下就|选择|希望|说要|会看|觉得|从|认为|想把|要先|是根据))/u;
 const RELATIONAL_MICROCUE_OPENING_RE = /^(?:(?:嗯|明白|确实|这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在|不容易|可以理解)|[^?？。；]{0,24}(?:确实|不容易|不好拿捏|需要拿捏|需要掂量|要顾|都要顾))/u;
-const EVALUATIVE_PRAISE_RE = /(?:很难得|很细致|很有分辨|很生动|很实际|很成熟|很到位|很合理|很妥当|很恰当|好(?:的)?起点|非常好|很专业|很全面|考虑得很周到|很有深度|真不错|做得很好|回答得很好|想得很周全|特别棒)/u;
+// 用户研究允许每个情境在程序预算内出现两次具体、克制的肯定。这些词只
+// 承认本轮表达的细致程度或所作区分，不得升级为能力、对错或人格评价。
+const WARM_AFFIRMATION_RE = /(?:很难得|很细致|很有分辨|很生动|很实际)/u;
+const PROHIBITED_PRAISE_RE = /(?:很成熟|很到位|很合理|很妥当|很恰当|很稳|很不错|挺好|很好|很清楚|很准确|很敏锐|好(?:的)?起点|非常好|很专业|很全面|考虑得很周到|很有深度|真不错|做得很好|回答得很好|想得很周全|特别棒|能力很强|水平很高|回答正确|答得对)/u;
 const AI_SUPPLIED_OPTIONS_RE = /(?:比如|例如)[^?？]{0,90}(?:、|或者|或是|还是)[^?？]*[?？]|(?:可能是|原因是|会不会是)[^?？]{1,48}(?:、|或者|或是)[^?？]{1,48}(?:还是|或)[^?？]{1,48}[?？]|(?:您|你)(?:会|是想|更倾向于)[^?？]{2,48}(?:还是|或者|或是)[^?？]{2,48}[?？]/u;
 const INTEGRATIVE_DECISION_RE = /(?:判断|决定|依据|标准|取舍|平衡|兼顾|改变|调整|坚持|例外|边界|信号)/u;
 const INTEGRATIVE_SCOPE_RE = /(?:整体|综合|放在一起|同时|之间|回过来看|回到这个情境|最看重|最关键|何时|什么时候|什么情况下|哪些|什么会|后续|最终)/u;
+const CHALLENGE_QUESTION_RE = /(?:如果|假如|即使|哪怕|仍(?:然)?|怎么都|不肯|拒绝|失败|无效|推翻|例外|底线|边界|一定|必须|什么情况下|什么时候会改变|何时.{0,24}何时|坚持.{0,24}例外)/u;
+const GENTLE_QUESTION_RE = /(?:愿意说说|讲一个|当时|平时|通常|最先|先看到|先留意|具体会留意|还想补充|还有什么|从您的经验|回到当时|慢慢说)/u;
 
 function formulaicRestatementPrefix(value) {
   const text = String(value || '').trim();
@@ -234,7 +241,77 @@ function hasEvaluativePraise(value) {
   const text = String(value || '').trim();
   const questionIndex = text.search(/[?？]/u);
   const visibleLead = questionIndex < 0 ? text : text.slice(0, questionIndex);
-  return EVALUATIVE_PRAISE_RE.test(visibleLead);
+  return PROHIBITED_PRAISE_RE.test(visibleLead);
+}
+
+function hasWarmAffirmation(value) {
+  const text = String(value || '').trim();
+  const questionIndex = text.search(/[?？]/u);
+  const visibleLead = questionIndex < 0 ? text : text.slice(0, questionIndex);
+  return WARM_AFFIRMATION_RE.test(visibleLead);
+}
+
+function warmAffirmationPrefix(value) {
+  const text = String(value || '').trim();
+  const questionIndex = text.search(/[?？]/u);
+  if (questionIndex < 0) return '';
+  const beforeQuestion = text.slice(0, questionIndex);
+  const boundary = beforeQuestion.search(/[。！!；;]/u);
+  if (boundary < 0) return '';
+  const prefix = beforeQuestion.slice(0, boundary).trim();
+  return prefix.length <= 24 && WARM_AFFIRMATION_RE.test(prefix) ? prefix : '';
+}
+
+/**
+ * 两个预约肯定轮次属于会话节律，而不是让模型自由猜的写作偏好。模型若已
+ * 自然生成具体肯定则保持原样；若遗漏，程序依据当前原话补一条极短肯定，
+ * 不增加模型调用，也不改变问句或Evidence来源。
+ */
+function normalizeScheduledWarmth(value, context = {}) {
+  if (!value || value.action !== 'ASK' || !context.required || hasWarmAffirmation(value.visible_text)) {
+    return { value, adjusted: false, addedPrefix: '' };
+  }
+  const teacherTurn = String(context.teacherTurn || '');
+  const warmthIndex = Number(context.warmAffirmationCount || 0);
+  let addedPrefix = '这一点说得很细致。';
+  if (/(?:区别|不同|区分|分清|比较|原因)/u.test(teacherTurn)) addedPrefix = '这个区分很有分辨。';
+  else if (/(?:不确定|可能|再看看|先等等|保留|未必)/u.test(teacherTurn)) addedPrefix = '愿意先保留判断，很难得。';
+  else if (warmthIndex >= 1 && /(?:观察|留意|表现|表情|动作|细节)/u.test(teacherTurn)) addedPrefix = '您对这些细节看得很细致。';
+  return {
+    value: { ...value, visible_text: `${addedPrefix}${String(value.visible_text || '').trim()}` },
+    adjusted: true,
+    addedPrefix
+  };
+}
+
+function normalizeBroadPraisePrefix(value) {
+  if (!value || value.action !== 'ASK') return { value, adjusted: false, removedPrefix: '' };
+  const text = String(value.visible_text || '').trim();
+  const questionIndex = text.search(/[?？]/u);
+  if (questionIndex < 0) return { value, adjusted: false, removedPrefix: '' };
+  const lead = text.slice(0, questionIndex);
+  if (!PROHIBITED_PRAISE_RE.test(lead)) return { value, adjusted: false, removedPrefix: '' };
+  const boundaries = [...lead.matchAll(/[。！!；;]/gu)];
+  if (!boundaries.length) return { value, adjusted: false, removedPrefix: '' };
+  const boundary = boundaries[boundaries.length - 1].index;
+  const remainder = text.slice(boundary + 1).trim();
+  if ((remainder.match(/[?？]/gu) || []).length !== 1 || remainder.length < 6) {
+    return { value, adjusted: false, removedPrefix: '' };
+  }
+  return {
+    value: { ...value, visible_text: remainder },
+    adjusted: true,
+    removedPrefix: text.slice(0, boundary).trim()
+  };
+}
+
+function classifyQuestionPressure(value) {
+  const text = stripQuestionShell(value);
+  if (!/[?？]/u.test(String(value || ''))) return 'NONE';
+  if (CHALLENGE_QUESTION_RE.test(text)) return 'CHALLENGE';
+  if (isIntegrativeQuestion(value)) return 'REFLECTIVE';
+  if (GENTLE_QUESTION_RE.test(text)) return 'GENTLE';
+  return 'NEUTRAL';
 }
 
 function hasAiSuppliedOptions(value) {
@@ -256,7 +333,8 @@ function stripQuestionShell(value) {
     /^(?:谢谢(?:您|你)?[^,，。；;!?！？]{0,30}[,，。；;]\s*)/u,
     /^(?:您|你)?(?:刚才|前面)(?:提到|说到|谈到|说过|强调|讲到|说)[\s\S]{0,80}?[,，。；;]\s*/u,
     /^(?:听起来|我听到|我理解到|也就是说)[\s\S]{0,80}?[,，。；;]\s*/u,
-    /^(?:(?:嗯|明白|确实|不容易|可以理解)|(?:这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在)[^,，。；;!?！？]{0,24}|[^,，。；;!?！？]{0,18}(?:确实|不容易|不好拿捏|需要拿捏)[^,，。；;!?！？]{0,12})[,，。；;]\s*/u
+    /^(?:(?:嗯|明白|确实|不容易|可以理解)|(?:这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在)[^,，。；;!?！？]{0,24}|[^,，。；;!?！？]{0,18}(?:确实|不容易|不好拿捏|需要拿捏)[^,，。；;!?！？]{0,12})[,，。；;]\s*/u,
+    /^[^,，。；;!?！？]{0,24}(?:很难得|很细致|很有分辨|很生动|很实际)[^,，。；;!?！？]{0,12}[,，。；;]\s*/u
   ];
   for (let pass = 0; pass < 2; pass += 1) {
     for (const shell of shells) text = text.replace(shell, '');
@@ -521,9 +599,16 @@ function validateDialogueOutput(value, context = {}) {
       errors.push(`${FORMULAIC_RESTATEMENT_ERROR}: output.visible_text restates the teacher before asking`);
     }
     if (hasEvaluativePraise(visibleText)) {
-      errors.push(`${EVALUATIVE_PRAISE_ERROR}: relationship warmth must not grade the teacher's answer`);
+      errors.push(`${EVALUATIVE_PRAISE_ERROR}: broad praise must not grade the teacher's answer or ability`);
     }
-    if (context.relationshipMoveRequested === 'NONE' && relationalMicrocuePrefix(visibleText)) {
+    const warmAffirmationObserved = hasWarmAffirmation(visibleText);
+    if (warmAffirmationObserved && !context.warmAffirmationAllowed) {
+      errors.push(`${WARM_AFFIRMATION_BUDGET_ERROR}: a concrete affirmation is only allowed on one of the two scheduled turns`);
+    }
+    if (context.warmAffirmationRequired && !warmAffirmationObserved) {
+      errors.push(`${WARM_AFFIRMATION_BUDGET_ERROR}: this scheduled warmth turn requires one short concrete affirmation`);
+    }
+    if (context.relationshipMoveRequested === 'NONE' && (relationalMicrocuePrefix(visibleText) || warmAffirmationObserved)) {
       errors.push(`${RELATIONAL_CUE_BUDGET_ERROR}: this turn should advance directly without another prefatory relationship cue`);
     }
     if (!context.allowScaffoldedOptions && hasAiSuppliedOptions(visibleText)) {
@@ -531,6 +616,9 @@ function validateDialogueOutput(value, context = {}) {
     }
     if (context.questionMode === 'INTEGRATIVE_SYNTHESIS' && !isIntegrativeQuestion(visibleText)) {
       errors.push(`${INTEGRATIVE_QUALITY_ERROR}: final new question must elicit an overall basis, tradeoff, boundary, or change condition`);
+    }
+    if (context.mustRelaxPressure && classifyQuestionPressure(visibleText) === 'CHALLENGE') {
+      errors.push(`${CONSECUTIVE_CHALLENGE_ERROR}: follow a demanding question with a lower-pressure descriptive or reflective turn`);
     }
   }
   if (visibleText.length > (context.maxQuestionChars || 140)) errors.push('output.visible_text is too long');
@@ -553,12 +641,18 @@ function assessQuestionQuality(value, context = {}) {
     matchedTeacherQuote: quote,
     duplicateScore: duplicate ? Number(duplicate.score.toFixed(3)) : 0,
     formulaicRestatementOpening: Boolean(formulaicRestatementPrefix(text)),
-    relationalMicrocueObserved: Boolean(relationalMicrocuePrefix(text)),
-    relationalCuePrefix: relationalMicrocuePrefix(text),
-    nonEvaluativeWarmth: !hasEvaluativePraise(text),
+    relationalMicrocueObserved: Boolean(relationalMicrocuePrefix(text) || warmAffirmationPrefix(text)),
+    relationalCuePrefix: relationalMicrocuePrefix(text) || warmAffirmationPrefix(text),
+    warmAffirmationObserved: hasWarmAffirmation(text),
+    broadPraiseAvoided: !hasEvaluativePraise(text),
+    nonEvaluativeWarmth: !hasEvaluativePraise(text)
+      && (!hasWarmAffirmation(text) || Boolean(context.warmAffirmationAllowed)),
     openBeforeScaffold: Boolean(context.allowScaffoldedOptions) || !hasAiSuppliedOptions(text),
     integrativeEnough: context.questionMode !== 'INTEGRATIVE_SYNTHESIS' || isIntegrativeQuestion(text),
-    relationshipBudgetRespected: context.relationshipMoveRequested !== 'NONE' || !relationalMicrocuePrefix(text)
+    questionPressure: classifyQuestionPressure(text),
+    pressurePacingRespected: !context.mustRelaxPressure || classifyQuestionPressure(text) !== 'CHALLENGE',
+    relationshipBudgetRespected: context.relationshipMoveRequested !== 'NONE'
+      || !(relationalMicrocuePrefix(text) || hasWarmAffirmation(text))
   };
   return {
     ...signals,
@@ -570,6 +664,7 @@ function assessQuestionQuality(value, context = {}) {
       && signals.nonEvaluativeWarmth
       && signals.openBeforeScaffold
       && signals.integrativeEnough
+      && signals.pressurePacingRespected
       && signals.relationshipBudgetRespected
   };
 }
@@ -639,17 +734,24 @@ module.exports = {
   LEADING_QUESTION_ERROR,
   FORMULAIC_RESTATEMENT_ERROR,
   EVALUATIVE_PRAISE_ERROR,
+  WARM_AFFIRMATION_BUDGET_ERROR,
   AI_SUPPLIED_OPTIONS_ERROR,
   INTEGRATIVE_QUALITY_ERROR,
   RELATIONAL_CUE_BUDGET_ERROR,
+  CONSECUTIVE_CHALLENGE_ERROR,
   formulaicRestatementPrefix,
   normalizeNaturalQuestionOutput,
   exactTeacherQuote,
   normalizeDialogueGrounding,
+  normalizeBroadPraisePrefix,
+  normalizeScheduledWarmth,
   relationalMicrocuePrefix,
   hasEvaluativePraise,
+  hasWarmAffirmation,
+  warmAffirmationPrefix,
   hasAiSuppliedOptions,
   isIntegrativeQuestion,
+  classifyQuestionPressure,
   validateDialogueOutput,
   assessQuestionQuality,
   validateEvidenceAnalysisOutput,
