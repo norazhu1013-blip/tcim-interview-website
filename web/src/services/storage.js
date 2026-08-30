@@ -1,3 +1,5 @@
+import { currentReleaseSnapshot } from '../core/release.js'
+
 const PROFILE_KEY = 'gsyg:web:profile'
 const SESSION_IDS_KEY = 'gsyg:web:session_ids'
 const SESSION_PREFIX = 'gsyg:web:session:'
@@ -47,6 +49,7 @@ export function createSession(dataVersion, options = {}) {
     dataVersion,
     studyMode: options.studyMode || 'full_assessment',
     targetItemId: options.targetItemId || null,
+    releaseSnapshot: currentReleaseSnapshot(now),
     status: 'in_progress',
     answers: {},
     interview: {},

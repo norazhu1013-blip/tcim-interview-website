@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getSession, saveSession } from '../services/storage.js'
 import { reportInterview } from '../services/api.js'
+import { currentReleaseSnapshot } from '../core/release.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,7 +20,12 @@ async function submit() {
   if (submitting.value) return
   submitting.value = true
   submitError.value = ''
-  session.value.interviewFeedback = { ...form, submittedAt: Date.now() }
+  session.value.interviewFeedback = {
+    ...form,
+    submittedAt: Date.now(),
+    feedbackSchemaVersion: 'tcim-interview-feedback/v1',
+    releaseSnapshot: session.value.releaseSnapshot || currentReleaseSnapshot()
+  }
   session.value = saveSession(session.value)
   let err = ''
   try {

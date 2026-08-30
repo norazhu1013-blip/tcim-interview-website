@@ -18,6 +18,7 @@ export function reportExam(session, profile) {
     selection: session.selection || null,
     studyMode: session.studyMode || 'full_assessment',
     targetItemId: session.targetItemId || null,
+    releaseSnapshot: session.releaseSnapshot || null,
     submitStatus: session.submitStatus || null,
     items: Object.entries(answers).map(([itemId, answer]) => ({
       itemId,
@@ -72,6 +73,7 @@ export function reportInterview(session) {
     targetItemId: session.targetItemId || null,
     transcripts,
     feedback: session.interviewFeedback || null,
+    releaseSnapshot: session.releaseSnapshot || null,
     revision: Number(session.reportRevision || 0)
   }
   const payloadBytes = byteLength(JSON.stringify(payload))

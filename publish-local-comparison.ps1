@@ -13,6 +13,13 @@ $pnpmExe = if ($pnpmCommand) { $pnpmCommand.Source } else { Join-Path $bundledRo
 if (-not (Test-Path -LiteralPath $nodeExe -PathType Leaf)) { throw 'Node.js was not found.' }
 if (-not (Test-Path -LiteralPath $pnpmExe -PathType Leaf)) { throw 'pnpm was not found.' }
 $env:Path = "$(Split-Path -Parent $nodeExe);$(Split-Path -Parent $pnpmExe);$env:Path"
+$commit = (& git -C $tcimRoot rev-parse --short HEAD 2>$null)
+if (-not $commit) { $commit = 'unavailable' }
+$commit = $commit.Trim()
+$buildTime = (Get-Date).ToString('o')
+# 把同一次发布的提交和构建时间编入网页；新会话/反馈会冻结该版本快照。
+$env:VITE_TCIM_GIT_COMMIT = $commit
+$env:VITE_TCIM_BUILT_AT = $buildTime
 
 $viteEntry = Join-Path $webDir 'node_modules\vite\bin\vite.js'
 if (-not (Test-Path -LiteralPath $viteEntry -PathType Leaf)) {
@@ -31,13 +38,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Local production build failed.' }
 
 New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 $runtime = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $webDir 'src\generated\tcim-new-five-tables.runtime.v0.2.1.json') | ConvertFrom-Json
-$commit = (& git -C $tcimRoot rev-parse --short HEAD 2>$null)
-if (-not $commit) { $commit = 'unavailable' }
 $manifest = [ordered]@{
   product = 'TCIM Dialogue Agent Comparison - Local Release'
   releaseMode = 'LOCAL_RESEARCH_COMPARISON'
-  builtAt = (Get-Date).ToString('o')
-  gitCommit = $commit.Trim()
+  builtAt = $buildTime
+  gitCommit = $commit
   runtimeDatasetId = $runtime.datasetId
   runtimeSchemaVersion = $runtime.schemaVersion
   configFingerprint = $runtime.configFingerprint
