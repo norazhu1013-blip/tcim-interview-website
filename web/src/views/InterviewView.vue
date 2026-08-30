@@ -462,7 +462,11 @@ async function send() {
   try {
     const remainingMs = Math.max(0, deadlineAt.value - Date.now())
     const answeringIntegrativeQuestion = modelSession.integrativeQuestion?.status === 'ASKED'
-    if (answeringIntegrativeQuestion || !mayStartForegroundGeneration(remainingMs)) {
+    const askIntegrative = shouldRequestIntegrativeQuestion(
+      remainingMs,
+      integrativeQuestionAlreadyAsked(modelSession)
+    )
+    if (answeringIntegrativeQuestion || (!askIntegrative && !mayStartForegroundGeneration(remainingMs))) {
       enterWrapUpWindow('FINAL_TEACHER_SUBMISSION')
       const elicitingQuestion = [...messages.value].reverse().find((message) => message.role === 'ai')?.text || ''
       const outcome = completeFinalTeacherTurn(modelSession, text, {
@@ -492,10 +496,6 @@ async function send() {
         metricId: null
       })
     } else {
-      const askIntegrative = shouldRequestIntegrativeQuestion(
-        remainingMs,
-        integrativeQuestionAlreadyAsked(modelSession)
-      )
       await generateAfterTeacher(text, modelSession, {
         questionMode: askIntegrative ? 'INTEGRATIVE_SYNTHESIS' : 'NORMAL',
         remainingMs

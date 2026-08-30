@@ -126,9 +126,17 @@ const VISIBLE_LEAK_RE = /得分|分数|标准答案|专家排序|能力等级|�
 const DUPLICATE_QUESTION_ERROR = 'duplicate_question';
 const LEADING_QUESTION_ERROR = 'leading_confirmation_question';
 const FORMULAIC_RESTATEMENT_ERROR = 'formulaic_restatement_before_question';
+const EVALUATIVE_PRAISE_ERROR = 'evaluative_praise_before_question';
+const AI_SUPPLIED_OPTIONS_ERROR = 'ai_supplied_answer_options_before_open_elicitation';
+const INTEGRATIVE_QUALITY_ERROR = 'integrative_question_lacks_global_judgment';
+const RELATIONAL_CUE_BUDGET_ERROR = 'relational_microcue_outside_budget';
 const LEADING_CONFIRMATION_RE = /(您|你)(是不是也|是否也|同意|也认为|也觉得).{0,30}[?？]|(这样|这么做|我说的).{0,16}(对吗|好吗|是吗)[?？]|(正确做法|更好的做法|应该就是).{0,30}[?？]/i;
 const FORMULAIC_RESTATEMENT_OPENING_RE = /^(?:(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到))|(?:明白|好的|嗯|原来如此)[，,]\s*您|您(?:一下就|选择|希望|说要|会看|觉得|从|认为|想把|要先|是根据))/u;
-const RELATIONAL_MICROCUE_OPENING_RE = /^(?:(?:嗯|明白|确实|这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在|不容易|可以理解)|[^?？。；]{0,18}(?:确实|不容易|不好拿捏|需要拿捏))/u;
+const RELATIONAL_MICROCUE_OPENING_RE = /^(?:(?:嗯|明白|确实|这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在|不容易|可以理解)|[^?？。；]{0,24}(?:确实|不容易|不好拿捏|需要拿捏|需要掂量|要顾|都要顾))/u;
+const EVALUATIVE_PRAISE_RE = /(?:很难得|很细致|很有分辨|很生动|很实际|很成熟|很到位|很合理|很妥当|很恰当|好(?:的)?起点|非常好|很专业|很全面|考虑得很周到|很有深度|真不错|做得很好|回答得很好|想得很周全|特别棒)/u;
+const AI_SUPPLIED_OPTIONS_RE = /(?:比如|例如)[^?？]{0,90}(?:、|或者|或是|还是)[^?？]*[?？]|(?:可能是|原因是|会不会是)[^?？]{1,48}(?:、|或者|或是)[^?？]{1,48}(?:还是|或)[^?？]{1,48}[?？]|(?:您|你)(?:会|是想|更倾向于)[^?？]{2,48}(?:还是|或者|或是)[^?？]{2,48}[?？]/u;
+const INTEGRATIVE_DECISION_RE = /(?:判断|决定|依据|标准|取舍|平衡|兼顾|改变|调整|坚持|例外|边界|信号)/u;
+const INTEGRATIVE_SCOPE_RE = /(?:整体|综合|放在一起|同时|之间|回过来看|回到这个情境|最看重|最关键|何时|什么时候|什么情况下|哪些|什么会|后续|最终)/u;
 
 function formulaicRestatementPrefix(value) {
   const text = String(value || '').trim();
@@ -220,6 +228,22 @@ function relationalMicrocuePrefix(value) {
   const prefix = beforeQuestion.slice(0, boundary).trim();
   if (!prefix || prefix.length > 24 || !RELATIONAL_MICROCUE_OPENING_RE.test(prefix)) return '';
   return prefix;
+}
+
+function hasEvaluativePraise(value) {
+  const text = String(value || '').trim();
+  const questionIndex = text.search(/[?？]/u);
+  const visibleLead = questionIndex < 0 ? text : text.slice(0, questionIndex);
+  return EVALUATIVE_PRAISE_RE.test(visibleLead);
+}
+
+function hasAiSuppliedOptions(value) {
+  return AI_SUPPLIED_OPTIONS_RE.test(String(value || '').trim());
+}
+
+function isIntegrativeQuestion(value) {
+  const text = stripQuestionShell(value);
+  return INTEGRATIVE_DECISION_RE.test(text) && INTEGRATIVE_SCOPE_RE.test(text);
 }
 
 /**
@@ -496,6 +520,18 @@ function validateDialogueOutput(value, context = {}) {
     if (context.phase === 'next' && !context.allowVisibleRepair && formulaicRestatementPrefix(visibleText)) {
       errors.push(`${FORMULAIC_RESTATEMENT_ERROR}: output.visible_text restates the teacher before asking`);
     }
+    if (hasEvaluativePraise(visibleText)) {
+      errors.push(`${EVALUATIVE_PRAISE_ERROR}: relationship warmth must not grade the teacher's answer`);
+    }
+    if (context.relationshipMoveRequested === 'NONE' && relationalMicrocuePrefix(visibleText)) {
+      errors.push(`${RELATIONAL_CUE_BUDGET_ERROR}: this turn should advance directly without another prefatory relationship cue`);
+    }
+    if (!context.allowScaffoldedOptions && hasAiSuppliedOptions(visibleText)) {
+      errors.push(`${AI_SUPPLIED_OPTIONS_ERROR}: ask the teacher to generate distinctions before supplying examples or choices`);
+    }
+    if (context.questionMode === 'INTEGRATIVE_SYNTHESIS' && !isIntegrativeQuestion(visibleText)) {
+      errors.push(`${INTEGRATIVE_QUALITY_ERROR}: final new question must elicit an overall basis, tradeoff, boundary, or change condition`);
+    }
   }
   if (visibleText.length > (context.maxQuestionChars || 140)) errors.push('output.visible_text is too long');
   if (VISIBLE_LEAK_RE.test(visibleText)) errors.push('teacher-visible text exposes protected internal information');
@@ -518,9 +554,24 @@ function assessQuestionQuality(value, context = {}) {
     duplicateScore: duplicate ? Number(duplicate.score.toFixed(3)) : 0,
     formulaicRestatementOpening: Boolean(formulaicRestatementPrefix(text)),
     relationalMicrocueObserved: Boolean(relationalMicrocuePrefix(text)),
-    relationalCuePrefix: relationalMicrocuePrefix(text)
+    relationalCuePrefix: relationalMicrocuePrefix(text),
+    nonEvaluativeWarmth: !hasEvaluativePraise(text),
+    openBeforeScaffold: Boolean(context.allowScaffoldedOptions) || !hasAiSuppliedOptions(text),
+    integrativeEnough: context.questionMode !== 'INTEGRATIVE_SYNTHESIS' || isIntegrativeQuestion(text),
+    relationshipBudgetRespected: context.relationshipMoveRequested !== 'NONE' || !relationalMicrocuePrefix(text)
   };
-  return { ...signals, passed: signals.oneQuestion && signals.concise && signals.nonLeading && signals.novel && signals.contingentOnTeacherTurn };
+  return {
+    ...signals,
+    passed: signals.oneQuestion
+      && signals.concise
+      && signals.nonLeading
+      && signals.novel
+      && signals.contingentOnTeacherTurn
+      && signals.nonEvaluativeWarmth
+      && signals.openBeforeScaffold
+      && signals.integrativeEnough
+      && signals.relationshipBudgetRespected
+  };
 }
 
 function validateEvidenceAnalysisOutput(value, context = {}) {
@@ -587,11 +638,18 @@ module.exports = {
   DUPLICATE_QUESTION_ERROR,
   LEADING_QUESTION_ERROR,
   FORMULAIC_RESTATEMENT_ERROR,
+  EVALUATIVE_PRAISE_ERROR,
+  AI_SUPPLIED_OPTIONS_ERROR,
+  INTEGRATIVE_QUALITY_ERROR,
+  RELATIONAL_CUE_BUDGET_ERROR,
   formulaicRestatementPrefix,
   normalizeNaturalQuestionOutput,
   exactTeacherQuote,
   normalizeDialogueGrounding,
   relationalMicrocuePrefix,
+  hasEvaluativePraise,
+  hasAiSuppliedOptions,
+  isIntegrativeQuestion,
   validateDialogueOutput,
   assessQuestionQuality,
   validateEvidenceAnalysisOutput,

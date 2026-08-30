@@ -604,11 +604,11 @@ test('最后90秒进入收尾且不再启动新的前台追问', () => {
   assert.equal(mayStartForegroundGeneration(WRAP_UP_RESERVE_MS + 15_000), false)
 })
 
-test('整体理解问题只在约两分钟窗口触发一次且不侵占收尾保护线', () => {
+test('整体理解问题在宽窗口触发一次，并保留独立的95秒生成保护线', () => {
   assert.equal(shouldRequestIntegrativeQuestion(INTEGRATIVE_QUESTION_TRIGGER_MS + 1, false), false)
   assert.equal(shouldRequestIntegrativeQuestion(INTEGRATIVE_QUESTION_TRIGGER_MS, false), true)
-  assert.equal(shouldRequestIntegrativeQuestion(WRAP_UP_RESERVE_MS + 15_001, false), true)
-  assert.equal(shouldRequestIntegrativeQuestion(WRAP_UP_RESERVE_MS + 15_000, false), false)
+  assert.equal(shouldRequestIntegrativeQuestion(WRAP_UP_RESERVE_MS + 5_001, false), true)
+  assert.equal(shouldRequestIntegrativeQuestion(WRAP_UP_RESERVE_MS + 5_000, false), false)
   assert.equal(shouldRequestIntegrativeQuestion(INTEGRATIVE_QUESTION_TRIGGER_MS, true), false)
   // 真实回放中一次提交发生在剩余153秒；旧150秒上沿会错过，本版应触发。
   assert.equal(shouldRequestIntegrativeQuestion(153_000, false), true)

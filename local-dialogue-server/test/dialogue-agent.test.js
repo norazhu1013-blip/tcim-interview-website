@@ -271,6 +271,104 @@ test('leading confirmation question is rejected and regenerated as an open evide
   assert.equal(result.trace.question_quality.passed, true);
 });
 
+test('evaluative praise is rejected while neutral warmth remains available when needed', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: calls === 1
+          ? '这个分寸很实际。接下来会看哪些变化？'
+          : '这里确实需要取舍。接下来会看哪些变化？',
+        understanding: { teacher_quote: '既要尊重兴趣，也要考虑规则', meaning: '教师在处理取舍', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next',
+    compiled_card: compiledCard(),
+    teacher_turn: '既要尊重兴趣，也要考虑规则。',
+    history: []
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.visible_text, '这里确实需要取舍。接下来会看哪些变化？');
+  assert.equal(result.trace.question_quality.nonEvaluativeWarmth, true);
+});
+
+test('AI may not supply answer categories before an open elicitation', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: calls === 1
+          ? '她不参加可能是鞋子不舒服、怕累还是只想和朋友玩？'
+          : '您觉得她不愿意参加可能有哪些不同原因？',
+        understanding: { teacher_quote: '我会先了解原因', meaning: '教师准备了解原因', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(), teacher_turn: '我会先了解原因。', history: []
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.visible_text, '您觉得她不愿意参加可能有哪些不同原因？');
+  assert.equal(result.trace.question_quality.openBeforeScaffold, true);
+});
+
+test('integrative mode rejects a local branch and requires an overall judgment question', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: calls === 1
+          ? '如果她还是不想参加，您接下来会怎么做？'
+          : '把兴趣、运动需要和规则放在一起，您最依据什么判断何时坚持、何时允许例外？',
+        understanding: { teacher_quote: '我会先听听她的原因', meaning: '教师会先理解原因', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next',
+    compiled_card: compiledCard(),
+    teacher_turn: '我会先听听她的原因。',
+    history: [{ role: 'assistant', text: '您会怎样邀请她参加运动？' }],
+    runtime_limits: { question_mode: 'INTEGRATIVE_SYNTHESIS' }
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.trace.question_mode, 'INTEGRATIVE_SYNTHESIS');
+  assert.equal(result.trace.question_quality.integrativeEnough, true);
+});
+
+test('background Evidence deterministically marks answers to AI-supplied options as prompted', async () => {
+  const card = compiledCard();
+  card.evidencePolicies[0].allowedResponseOrigins = ['RO0', 'RO1', 'RO2', 'RO3', 'RO4'];
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async (request) => ({
+      output: request.schemaName === 'tcim_evidence_analysis_v1'
+        ? { evidence_candidates: [{
+          evidence_claim_id: 'ECL-Q01-PLAY-FRAME', understanding_id: 'UND-Q01-001',
+          relation: 'SUPPORT', proposed_status: 'SUFFICIENT', response_origin: 'RO1', confidence: 0.8,
+          spans: ['我会先看鞋子是否不舒服'], rationale: '教师回应了具体原因'
+        }] }
+        : validOutput()
+    })
+  };
+  const result = await createDialogueAgent({ provider }).analyzeEvidence({
+    phase: 'next', compiled_card: card,
+    teacher_turn: '我会先看鞋子是否不舒服。',
+    eliciting_question: '她不参加可能是鞋子不舒服、怕累还是只想和朋友玩？',
+    history: []
+  });
+  assert.equal(result.evidence_candidates[0].response_origin, 'RO3');
+  assert.equal(result.origin_guard.minimum_origin, 'RO3');
+});
+
 test('duplicate correction is bounded to two regeneration attempts', async () => {
   let calls = 0;
   const provider = {
@@ -304,7 +402,7 @@ test('third candidate can recover a turn that would previously pause the intervi
       return { output: validOutput({
         visible_text: calls < 3
           ? '您刚才说孩子很投入，为什么会特别看重这一点？'
-          : '这个场面确实需要拿捏。您会看到什么变化，才决定从等待转为靠近？',
+          : '您会看到什么变化，才决定从等待转为靠近？',
         understanding: { teacher_quote: '我会先观察', meaning: '教师会先观察', confidence: 'HIGH' }
       }) };
     }
@@ -316,10 +414,10 @@ test('third candidate can recover a turn that would previously pause the intervi
     history: [{ role: 'assistant', text: '您刚才提到孩子很开心，您为什么会特别看重这个方面？' }]
   });
   assert.equal(calls, 3);
-  assert.equal(result.visible_text, '这个场面确实需要拿捏。您会看到什么变化，才决定从等待转为靠近？');
-  assert.equal(result.trace.relationship_move_requested, 'ACKNOWLEDGE_PERSPECTIVE');
-  assert.equal(result.trace.relational_microcue_observed, true);
-  assert.equal(result.trace.question_quality.relationalCuePrefix, '这个场面确实需要拿捏');
+  assert.equal(result.visible_text, '您会看到什么变化，才决定从等待转为靠近？');
+  assert.equal(result.trace.relationship_move_requested, 'NONE');
+  assert.equal(result.trace.relational_microcue_observed, false);
+  assert.equal(result.trace.question_quality.relationshipBudgetRespected, true);
 });
 
 test('built-in mock completes an end-to-end bounded dialogue without repeating accepted questions', async () => {

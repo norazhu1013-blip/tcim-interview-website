@@ -3,10 +3,11 @@ export const WRAP_UP_RESERVE_MS = 90 * 1000
 export const FOREGROUND_GENERATION_GUARD_MS = 15 * 1000
 // 整体理解问题只能在教师提交一轮回答后自然出现，因此采用约两分钟的
 // 触发窗口，而不是依赖某个精确秒点；窗口下沿仍服从前台生成保护线。
-// 实测教师两次提交常相隔45—70秒；若只在150—105秒触发，可能从153秒
-// 直接跨到105秒以下而错失整体问题。上沿前移到165秒，生成完成后通常仍
-// 落在“接近两分钟”的体验区，并保留90秒收尾。
-export const INTEGRATIVE_QUESTION_TRIGGER_MS = 165 * 1000
+// 实测教师两次提交可能相隔1—2分钟。触发点前移到210秒，系统会在“首次
+// 进入该窗口的教师提交”后发起整体问题；通常显示时已接近剩余2—3分钟。
+// 整体问题有独立的95秒生成保护线，避免普通追问的105秒门槛先把它跳过。
+export const INTEGRATIVE_QUESTION_TRIGGER_MS = 210 * 1000
+export const INTEGRATIVE_GENERATION_GUARD_MS = 5 * 1000
 
 export function interviewTimePhase(remainingMs) {
   const value = Math.max(0, Number(remainingMs || 0))
@@ -23,11 +24,15 @@ export function mayStartForegroundGeneration(remainingMs) {
   return Number(remainingMs || 0) > WRAP_UP_RESERVE_MS + FOREGROUND_GENERATION_GUARD_MS
 }
 
+export function mayStartIntegrativeGeneration(remainingMs) {
+  return Number(remainingMs || 0) > WRAP_UP_RESERVE_MS + INTEGRATIVE_GENERATION_GUARD_MS
+}
+
 export function shouldRequestIntegrativeQuestion(remainingMs, alreadyAsked = false) {
   const value = Number(remainingMs || 0)
   return !alreadyAsked
     && value <= INTEGRATIVE_QUESTION_TRIGGER_MS
-    && mayStartForegroundGeneration(value)
+    && mayStartIntegrativeGeneration(value)
 }
 
 export const WRAP_UP_NOTICE = '已进入收尾阶段。请完成当前想法；提交后系统将保存这段回答，不再发起新的专业追问。'

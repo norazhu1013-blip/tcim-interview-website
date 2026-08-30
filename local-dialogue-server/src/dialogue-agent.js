@@ -1,7 +1,12 @@
 'use strict';
 
 const crypto = require('crypto');
-const { buildPrompts, buildEvidencePrompts, PROMPT_VERSION } = require('./prompts');
+const {
+  buildPrompts,
+  buildEvidencePrompts,
+  applyElicitationOriginGuard,
+  PROMPT_VERSION
+} = require('./prompts');
 const {
   FAST_DIALOGUE_RESPONSE_SCHEMA,
   EVIDENCE_ANALYSIS_SCHEMA,
@@ -71,6 +76,9 @@ function validateProviderLock(input, provider) {
 function questionCorrectionUser(originalUser, rejectedOutput, history, validation, generationAttempt = 1) {
   const rejectedQuestion = String(rejectedOutput && rejectedOutput.visible_text || '').trim();
   const recentQuestions = recentAssistantQuestions(history, 5);
+  const integrativeCorrection = (validation?.errors || []).some((error) => /integrative_question_lacks_global_judgment/.test(error))
+    ? '9. 当前是最后整体问题：不要再追一个局部动作；问教师整体依据、两种关切如何取舍、哪些信号会改变决定，或何时坚持/何时允许例外。问句应明确出现“判断/依据/取舍/改变/例外”等决策词，以及“哪些/何时/整体/同时/之间/后续”等范围词。'
+    : '';
   return [
     originalUser,
     '',
@@ -85,7 +93,10 @@ function questionCorrectionUser(originalUser, rejectedOutput, history, validatio
     '4. action=ASK 时仍只能有一个问题。',
     '5. 不要先改写教师刚才的意思再提问；能直接问就直接问。',
     '6. 可以有一句很短的关系承接，但不能只靠更换“明白/确实”等开头掩盖同一个问题。',
-    generationAttempt >= 2 ? '7. 这是最后一次自动恢复；若没有新的安全问题，请 action=CLOSE，用简短、温和、无问号的陈述收束。' : ''
+    '7. 不要用“很难得、很细致、很有分辨、很生动、很实际、很成熟、很到位、好的起点”等话给教师的回答打分。',
+    '8. 先让教师自己提出原因、类别或标准；除非教师明确要求解释，不要在问句里先列“比如……”或“是A还是B”。',
+    integrativeCorrection,
+    generationAttempt >= 2 ? '10. 这是最后一次自动恢复；若没有新的安全问题，请 action=CLOSE，用简短、温和、无问号的陈述收束。' : ''
   ].join('\n');
 }
 
@@ -155,7 +166,12 @@ function createDialogueAgent(options = {}) {
         signal: controller.signal,
         requestId
       });
-      const evidenceOutput = { evidence_candidates: Array.isArray(generated.output?.evidence_candidates) ? generated.output.evidence_candidates : [] };
+      const evidenceOutput = {
+        evidence_candidates: applyElicitationOriginGuard(
+          Array.isArray(generated.output?.evidence_candidates) ? generated.output.evidence_candidates : [],
+          prompts.originGuard
+        )
+      };
       const validated = validateEvidenceAnalysisOutput(evidenceOutput, {
         teacherTurn: prompts.teacherTurn,
         compiledCard: input.compiled_card
@@ -176,7 +192,8 @@ function createDialogueAgent(options = {}) {
         prompt_version: `${PROMPT_VERSION}:evidence-v1`,
         usage: generated.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
         latency_ms: Date.now() - startedAt,
-        provider_request_id: generated.provider_request_id || ''
+        provider_request_id: generated.provider_request_id || '',
+        origin_guard: prompts.originGuard
       };
     } finally {
       externalSignal?.removeEventListener('abort', abort);
@@ -272,7 +289,10 @@ function createDialogueAgent(options = {}) {
             history: prompts.repetitionHistory,
             compiledCard: input.compiled_card,
             maxQuestionChars,
-            allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED'
+            allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED',
+            allowScaffoldedOptions: prompts.responseStyle?.support_level === 'SCAFFOLD_ALLOWED',
+            questionMode: prompts.questionMode,
+            relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE'
           });
           if (validated.ok) break;
           if (generationAttempt < 3) {
@@ -300,7 +320,10 @@ function createDialogueAgent(options = {}) {
           teacherTurn: prompts.teacherTurn,
           history: prompts.repetitionHistory,
           maxQuestionChars,
-          allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED'
+          allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED',
+          allowScaffoldedOptions: prompts.responseStyle?.support_level === 'SCAFFOLD_ALLOWED',
+          questionMode: prompts.questionMode,
+          relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE'
         });
         return {
           ok: true,

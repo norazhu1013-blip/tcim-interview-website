@@ -41,6 +41,30 @@ test('relational microcues have a cooldown and do not become a new template', ()
   assert.equal(style.relational_cue_budget, 0);
 });
 
+test('a generic long answer does not automatically earn another praise-like preface', () => {
+  const style = frontstageResponseStyle('我会根据她平时的兴趣和能力，再决定是否继续提供材料。', [
+    { role: 'assistant', text: '这个取舍确实不容易。您最先会看什么？' },
+    { role: 'assistant', text: '什么变化会让您调整做法？' }
+  ]);
+  assert.equal(style.relational_move, 'NONE');
+  assert.equal(style.relational_cue_budget, 0);
+  assert.equal(style.support_level, 'OPEN_FIRST');
+});
+
+test('an explicit clarification request unlocks examples while an ordinary answer stays open-first', () => {
+  assert.equal(frontstageResponseStyle('我不清楚你具体问什么，可以解释一下吗？', []).support_level, 'SCAFFOLD_ALLOWED');
+  assert.equal(frontstageResponseStyle('我还想继续观察。', []).support_level, 'OPEN_FIRST');
+});
+
+test('repeated short answers or clear stagnation may unlock a small scaffold without upgrading its evidence', () => {
+  const short = frontstageResponseStyle('不知道。', [{ role: 'teacher', text: '没想过。' }]);
+  assert.equal(short.support_level, 'SCAFFOLD_ALLOWED');
+  assert.equal(short.scaffold_reason, 'REPEATED_SHORT_ANSWERS');
+  const stalled = frontstageResponseStyle('我会再看看。', [], { stagnation: { score: 2 } });
+  assert.equal(stalled.support_level, 'SCAFFOLD_ALLOWED');
+  assert.equal(stalled.scaffold_reason, 'DIALOGUE_STAGNATION');
+});
+
 test('recent formulaic restatement is exposed as a variation warning to the model', () => {
   const style = frontstageResponseStyle('我还会看看其他孩子的反应。', [
     { role: 'assistant', text: '我理解您会先观察。那您会观察什么？' }

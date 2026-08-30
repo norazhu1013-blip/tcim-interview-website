@@ -368,6 +368,7 @@ export async function analyzeDialogueEvidence(request, options = {}) {
       promptVersion: String(response.prompt_version || 'unknown'),
       requestId: String(response.request_id || ''),
       providerRequestId: String(response.provider_request_id || ''),
+      originGuard: response.origin_guard || null,
       latencyMs: Number(response.latency_ms || 0),
       usage: response.usage || null
     }
