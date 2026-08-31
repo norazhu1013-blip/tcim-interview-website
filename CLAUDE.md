@@ -410,3 +410,12 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **四层版本**:网页发布号`TCIM-WEB-2026.08.30-R6.1`、新五表版本/指纹、Dialogue Agent提示版本、实际provider/model独立记录；另保留Git提交、构建时间和schema版本。首页显示短标签`TCIM Web R6.1 · 五表 V0.2.1`。
   - **会话冻结**:`web/src/core/release.js`是构建时发布描述；`createSession`写入`releaseSnapshot`，旧会话不随网页升级改写。`reportSession`、`reportInterview`及三项教师反馈均携带快照；实际每轮trace继续保存真实provider/model/promptVersion。
   - **反馈闭环**:实际反馈、人工评价、失败与延时须以`sessionId + itemId + releaseSnapshot + 实际模型trace`关联并按版本分组，不混合不同发布条件。`publish-local-comparison.ps1`在构建前注入Git提交和构建时间，包内manifest/校验值为最终交付依据。
+- **2026-08-31 R6.1 腾讯云生产外壳适配（分支 `release/tcim-web-r6.1-cloud`，基线 `7eddcf1`）**:
+  - **边界**:只替换本机通信/密钥/存储外壳，不修改 Dialogue Agent 提示词与质量门禁、新五表 V0.2.1、Evidence State、两次具体肯定、挑战节律、整体问题、计时、评分或 R/P/G 筛题。原线上分支与原本机基线不被覆盖。
+  - **受保护云函数**:新增 `gsyg_dialogueAgent`，其 `src/` 由 `tools/sync_dialogue_cf.js` 从冻结的 `local-dialogue-server/src/` 四个核心文件物理同步；正式请求只接受现有 `gsyg_webGateway` 注入的 `web_account` actor 和共享令牌，按 `gsyg_sessions` 校验 owner，并把 provider/model/promptVersion 锁定到整次测评。生产拒绝 mock、缺 model lock、跨模型续接和超过 1MB 的载荷。
+  - **内容安全与密钥**:`SEC_CHECK=1` 是 ready 门禁；教师输入和 AI 可见输出都过 `msgSecCheck`，未配置时失败关闭。Kimi/OpenAI 密钥只读云函数环境变量；生产网页不再导入模型配置模块，不显示模型选择或密钥输入，也不配置单独 Dialogue Agent 公网地址。
+  - **网关**:`ACTIONS.dialogueAgent → gsyg_dialogueAgent`，与旧访谈一样走 65 秒 CloudBase SDK 实例；默认账号限流由 36/10min 调为 180/10min（R6.1 每轮含前台问句+后台 Evidence）。`/health`聚合受保护 Dialogue Agent 的 ready/provider/model/promptVersion，业务 `/call` 仍必须登录。
+  - **云端追溯**:`gsyg_reportSession`首次冻结 `releaseSnapshot`；`gsyg_reportDraft`逐轮保存 revision/payloadHash、消息、Evidence State、DialogueProgressState、五表指纹、releaseSnapshot 和实际模型 trace，并拒绝旧轮覆盖；`gsyg_reportInterview`实际持久化 releaseSnapshot/payloadHash，旧 revision 返回存量回执。
+  - **构建身份**:`vite.config.js`在每次生产构建注入实际 Git HEAD 和 UTC 时间，`.env.production`固定 R6.1 架构/发布号且 `VITE_LOCAL_RESEARCH_MODE=0`。`verify_production_dist.mjs`拒绝回环请求地址、本机模型配置入口、密钥变量和CommonJS残留；CloudBase官方登录SDK的URL标准化器保留1个不带协议的`localhost`常量（非请求地址），必须单独说明并用浏览器网络验收确认本机请求为0。
+  - **当前状态**:本地机制、网关和网页自动测试已通过；尚未上传腾讯云、配置真实密钥或完成三题人工验收。实际发布后再填写 `04_发布验收与回滚记录模板.md`，不得提前标记可发布。
+  - **上游依赖风险**:`gsyg_dialogueAgent`锁定发布时微信官方最新稳定版`wx-server-sdk 4.0.2`，并声明`security.msgSecCheck`权限。npm审计仍报告该官方SDK间接依赖的5个high/1个moderate公告；当前适配层不接受动态数据库字段路径或SDK目标URL，降低了这些公告在本调用面的可利用性，但正式验收须记为已知上游依赖风险并跟踪微信/CloudBase SDK修复版本。

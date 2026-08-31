@@ -2,6 +2,7 @@
 // 按 openid + sessionId + itemId 幂等 upsert；turnSeq 记录第几轮（教师第几条回答），
 // 用于乱序保护（旧一轮不得覆盖新草稿）。浏览器本地保存只作离线副本，这里才是研究数据的来源。
 const cloud = require('wx-server-sdk');
+const crypto = require('crypto');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
@@ -19,34 +20,68 @@ function resolveActor(event) {
   return { id: OPENID, identityType: 'wechat' };
 }
 
+function createPayloadHash(event, releaseSnapshot) {
+  return crypto.createHash('sha256').update(JSON.stringify({
+    sessionId: event.sessionId,
+    itemId: event.itemId,
+    turnSeq: Number(event.turnSeq || 0),
+    revision: Number(event.revision || 0),
+    status: event.status || 'in_progress',
+    messages: event.messages || null,
+    architecture: event.architecture || null,
+    evidenceVersion: Number(event.evidenceVersion || 0),
+    evidenceState: event.evidenceState || null,
+    dialogueProgressState: event.dialogueProgressState || null,
+    runtimeConfigFingerprint: event.runtimeConfigFingerprint || '',
+    releaseSnapshot,
+    modelTrace: event.modelTrace || null
+  })).digest('hex');
+}
+
 exports.main = async (event) => {
   const actor = resolveActor(event);
   if (!actor.id) return { ok: false, error: 'missing_identity' };
   const sessionId = event.sessionId;
   const itemId = event.itemId;
   const turnSeq = Number(event.turnSeq || 0);
+  const revision = Number(event.revision || 0);
   if (!sessionId || !itemId || !Number.isFinite(turnSeq) || turnSeq < 0) {
     return { ok: false, error: 'missing_draft_key' };
   }
   try {
     const now = Date.now();
+    const incomingReleaseSnapshot = event.releaseSnapshot && typeof event.releaseSnapshot === 'object'
+      ? event.releaseSnapshot
+      : null;
     const existing = await db.collection(COLL).where({ openid: actor.id, sessionId: sessionId, itemId: itemId }).limit(1).get();
     if (existing.data && existing.data.length) {
       const doc = existing.data[0];
+      const releaseSnapshot = doc.releaseSnapshot || incomingReleaseSnapshot;
+      const payloadHash = createPayloadHash(event, releaseSnapshot);
       // 乱序保护：拒绝旧一轮覆盖新草稿（幂等返回，不报错）
-      if (turnSeq < Number(doc.turnSeq || 0)) {
-        return { ok: true, id: doc._id, staleTurnRejected: true, serverUpdatedAt: doc.updatedAt };
+      if (turnSeq < Number(doc.turnSeq || 0) || revision < Number(doc.revision || 0)) {
+        return { ok: true, id: doc._id, staleTurnRejected: true, serverUpdatedAt: doc.updatedAt, payloadHash: doc.payloadHash || payloadHash };
       }
       await db.collection(COLL).doc(doc._id).update({
         data: {
           turnSeq: turnSeq,
+          revision,
           status: event.status || 'in_progress',
           messages: event.messages || null,
+          architecture: event.architecture || null,
+          evidenceVersion: Number(event.evidenceVersion || 0),
+          evidenceState: event.evidenceState || null,
+          dialogueProgressState: event.dialogueProgressState || null,
+          runtimeConfigFingerprint: event.runtimeConfigFingerprint || '',
+          modelTrace: event.modelTrace || null,
+          releaseSnapshot,
+          payloadHash,
           updatedAt: now
         }
       });
-      return { ok: true, id: doc._id, serverUpdatedAt: now };
+      return { ok: true, id: doc._id, serverUpdatedAt: now, payloadHash };
     }
+    const payloadHash = createPayloadHash(event, incomingReleaseSnapshot);
     const r = await db.collection(COLL).add({
       data: {
         openid: actor.id,
@@ -54,13 +89,22 @@ exports.main = async (event) => {
         sessionId: sessionId,
         itemId: itemId,
         turnSeq: turnSeq,
+        revision,
         status: event.status || 'in_progress',
         messages: event.messages || null,
+        architecture: event.architecture || null,
+        evidenceVersion: Number(event.evidenceVersion || 0),
+        evidenceState: event.evidenceState || null,
+        dialogueProgressState: event.dialogueProgressState || null,
+        runtimeConfigFingerprint: event.runtimeConfigFingerprint || '',
+        modelTrace: event.modelTrace || null,
+        releaseSnapshot: incomingReleaseSnapshot,
+        payloadHash,
         createdAt: now,
         updatedAt: now
       }
     });
-    return { ok: true, id: r._id, serverUpdatedAt: now };
+    return { ok: true, id: r._id, serverUpdatedAt: now, payloadHash };
   } catch (e) {
     return { ok: false, error: e && e.message };
   }

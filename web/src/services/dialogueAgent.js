@@ -1,6 +1,8 @@
 import { AGENT_RESULT_SCHEMA } from '../core/dialogue-agent/index.js'
+import { callGateway } from './web-gateway.js'
 
 const baseUrl = String(import.meta.env?.VITE_DIALOGUE_AGENT_API_BASE_URL || '').replace(/\/$/, '')
+const localResearchMode = String(import.meta.env?.VITE_LOCAL_RESEARCH_MODE || '').trim() === '1'
 
 function pick(value, keys) {
   const out = {}
@@ -255,7 +257,7 @@ function mapAgentResult(response) {
     understanding: response.understanding || null,
     workingHypotheses: response.working_hypotheses || [],
     trace: {
-      agentId: `http:${response.provider || 'unknown'}`,
+      agentId: `${localResearchMode ? 'local' : 'cloud'}:${response.provider || 'unknown'}`,
       provider: response.provider || 'unknown',
       model: String(response.model || 'unknown'),
       promptVersion: String(response.prompt_version || 'unknown'),
@@ -276,6 +278,28 @@ function mapAgentResult(response) {
 }
 
 async function requestJson(path, options = {}) {
+  if (!localResearchMode) {
+    const operation = path === '/health'
+      ? 'health'
+      : path === '/v1/evidence/analyze'
+        ? 'evidence'
+        : path === '/v1/dialogue/turn'
+          ? 'turn'
+          : ''
+    if (!operation) {
+      const error = new Error('dialogue_agent_route_not_supported')
+      error.code = 'dialogue_agent_route_not_supported'
+      throw error
+    }
+    const payload = options.body ? JSON.parse(options.body) : null
+    const result = await callGateway('dialogueAgent', { operation, payload }, { signal: options.signal })
+    if (!result?.ok) {
+      const error = new Error(result?.error || 'dialogue_agent_unreachable')
+      error.code = result?.error || 'dialogue_agent_unreachable'
+      throw error
+    }
+    return result
+  }
   if (!baseUrl) {
     const error = new Error('dialogue_agent_not_configured')
     error.code = 'dialogue_agent_not_configured'

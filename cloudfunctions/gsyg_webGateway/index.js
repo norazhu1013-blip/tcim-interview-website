@@ -17,7 +17,9 @@ const TOKEN = process.env.GSYG_WEB_GATEWAY_TOKEN || '';
 const SESSION_SECRET = process.env.GSYG_WEB_SESSION_SECRET || '';
 const PORT = Number(process.env.PORT || 9000);
 const MAX_BODY = process.env.GSYG_WEB_MAX_BODY || '1mb';
-const MAX_CALLS = Math.max(5, Number(process.env.GSYG_WEB_RATE_LIMIT || 36));
+// R6.1 每轮包含前台问句与后台 Evidence 两次受保护调用；三题完整访谈需要
+// 明显高于旧版 36 次的额度。仍按账号和时间窗限流，生产可用环境变量收紧。
+const MAX_CALLS = Math.max(20, Number(process.env.GSYG_WEB_RATE_LIMIT || 180));
 const WINDOW_MS = Math.max(60_000, Number(process.env.GSYG_WEB_RATE_WINDOW_MS || 600_000));
 const SESSION_TTL_SECONDS = Math.min(7 * 24 * 60 * 60, Math.max(15 * 60, Number(process.env.GSYG_WEB_SESSION_TTL_SECONDS || 21600)));
 const DEFAULT_UPSTREAM_TIMEOUT_MS = Math.max(5_000, Number(process.env.GSYG_WEB_UPSTREAM_TIMEOUT_MS || 15_000));
@@ -57,7 +59,8 @@ const ACTIONS = Object.freeze({
   reportInterview: 'gsyg_reportInterview',
   reportDraft: 'gsyg_reportDraft',
   semanticProbe: 'gsyg_semanticProbe',
-  planner: 'gsyg_planner'
+  planner: 'gsyg_planner',
+  dialogueAgent: 'gsyg_dialogueAgent'
 });
 
 function createCloudInvoker({
@@ -65,7 +68,7 @@ function createCloudInvoker({
   interviewClient = interviewCloud
 } = {}) {
   return ({ name, data }) => {
-    const client = name === ACTIONS.interviewChat ? interviewClient : defaultClient;
+    const client = [ACTIONS.interviewChat, ACTIONS.dialogueAgent].includes(name) ? interviewClient : defaultClient;
     return client.callFunction({ name, data });
   };
 }
@@ -253,14 +256,32 @@ function createGateway({
   });
   app.use(express.json({ limit: MAX_BODY }));
 
-  app.get('/health', (_req, res) => {
-    res.json({
+  app.get('/health', async (_req, res) => {
+    const health = {
       ok: true,
       mode: 'cloudbase_account_login',
       tokenConfigured: Boolean(TOKEN),
       sessionConfigured: Boolean(SESSION_SECRET),
       cloudbaseUserInfoConfigured: Boolean(USER_INFO_URL)
-    });
+    };
+    if (!TOKEN) return res.json({ ...health, dialogueAgent: { ok: false, ready: false, error: 'gateway_token_not_configured' } });
+    try {
+      const result = await invoke({
+        name: ACTIONS.dialogueAgent,
+        data: {
+          operation: 'health',
+          payload: null,
+          __gsygGateway: { token: TOKEN, actor: 'web:healthcheck', identityType: 'web_account' }
+        },
+        timeout: DEFAULT_UPSTREAM_TIMEOUT_MS
+      });
+      return res.json({
+        ...health,
+        dialogueAgent: result && result.result ? result.result : { ok: false, ready: false, error: 'empty_function_result' }
+      });
+    } catch (error) {
+      return res.status(503).json({ ...health, ok: false, dialogueAgent: { ok: false, ready: false, error: 'upstream_function_failed' } });
+    }
   });
 
   app.get('/auth/session', (req, res) => {
@@ -313,7 +334,7 @@ function createGateway({
     try {
       // timeout 同时留在内部调用契约中，便于注入测试和日志观察；线上真正生效的
       // 超时来自上方分别初始化的 defaultClient / interviewClient。
-      const timeout = action === 'interviewChat'
+      const timeout = ['interviewChat', 'dialogueAgent'].includes(action)
         ? INTERVIEW_UPSTREAM_TIMEOUT_MS
         : DEFAULT_UPSTREAM_TIMEOUT_MS;
       const result = await invoke({ name: functionName, data, timeout });

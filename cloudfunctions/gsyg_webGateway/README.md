@@ -12,14 +12,18 @@
 
 ## 云函数环境变量
 
-以下八个函数必须配置**同一个**高强度随机值：
+以下网页受控函数必须配置**同一个**高强度随机值（只部署实际启用的可选模块）：
 
 - `gsyg_webGateway`
 - `gsyg_reportTeacher`
 - `gsyg_reportSession`
 - `gsyg_reportInterview`
+- `gsyg_reportDraft`
 - `gsyg_selectFinal`
 - `gsyg_interviewChat`
+- `gsyg_dialogueAgent`
+- `gsyg_semanticProbe`
+- `gsyg_planner`
 - `gsyg_whoami`
 - `gsyg_exportData`
 
@@ -45,10 +49,11 @@ WEB_ALLOWED_ORIGIN=https://app.example.com
 WEB_COOKIE_SECURE=1
 WEB_COOKIE_SAMESITE=lax
 WEB_SESSION_TTL_SECONDS=21600
-GSYG_WEB_RATE_LIMIT=36
+# R6.1 每轮有前台问句 + 后台 Evidence 两次调用，三题访谈建议至少 120。
+GSYG_WEB_RATE_LIMIT=180
 GSYG_WEB_RATE_WINDOW_MS=600000
 
-# 普通云函数保持 15 秒；访谈模型允许等待 65 秒。
+# 普通云函数保持 15 秒；旧访谈和 R6.1 Dialogue Agent 允许等待 65 秒。
 GSYG_WEB_UPSTREAM_TIMEOUT_MS=15000
 GSYG_WEB_INTERVIEW_TIMEOUT_MS=65000
 NODE_ENV=production
@@ -65,7 +70,7 @@ NODE_ENV=production
 1. CloudBase 控制台 → 云函数 → 新建 **HTTP 云函数**，名称 `gsyg_webGateway`，Node.js 18+。
 2. 上传本目录并选择「云端安装依赖」。HTTP 云函数通过 `scf_bootstrap` 监听 9000 端口；函数自身超时需设为至少 70 秒。
 3. 配置上述环境变量；在「HTTP 访问服务」绑定 `/gsyg-web` 路径或自定义 API 域名。
-4. 重新上传受控事件云函数：`gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal`、`gsyg_interviewChat`、`gsyg_whoami`、`gsyg_exportData`。其中身份与管理员接口只接受格式为 `web:<CloudBase UID>` 的、带共享网关令牌的网页调用。
+4. 新建并部署 `gsyg_dialogueAgent`（Node.js 18.15+、超时至少 65 秒、`SEC_CHECK=1`），再重新上传网关白名单使用的受控事件云函数：`gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_reportDraft`、`gsyg_selectFinal`、`gsyg_whoami`、`gsyg_exportData`，以及实际启用的可选模块。函数只接受格式为 `web:<CloudBase UID>` 的、带共享网关令牌的网页调用。
 5. 设置网页构建变量，重新构建并部署 `web/dist`：
 
 ```env
@@ -74,7 +79,7 @@ VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 VITE_CLOUDBASE_REGION=ap-shanghai
 ```
 
-6. 上线前验证：打开网页 → 注册并输入邮箱验证码 → 自动登录 → 网关 `/auth/session` 返回 `identityType: web_account` → 完成一次资料保存、答题上报和访谈调用。可先运行 `npm test` 验证正式账号通过、匿名身份拒绝、会话签发和伪造身份拦截逻辑。
+6. 上线前先访问 `/gsyg-web/health`，确认 `dialogueAgent.ready=true`、provider/model/promptVersion 正确，再打开网页完成注册、资料、答题和访谈。可先运行 `npm test` 验证正式账号通过、匿名身份拒绝、会话签发和伪造身份拦截逻辑。
 
 ## 安全边界
 

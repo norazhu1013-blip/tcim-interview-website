@@ -1,12 +1,14 @@
 const buildEnv = import.meta.env || {}
+const injectedGitCommit = typeof __TCIM_GIT_COMMIT__ === 'undefined' ? '' : __TCIM_GIT_COMMIT__
+const injectedBuiltAt = typeof __TCIM_BUILT_AT__ === 'undefined' ? '' : __TCIM_BUILT_AT__
 
 export const TCIM_RELEASE = Object.freeze({
   releaseSchemaVersion: 'tcim-web-release/v1',
   releaseId: String(buildEnv.VITE_TCIM_RELEASE_ID || 'TCIM-WEB-2026.08.30-R6.1'),
   shortLabel: String(buildEnv.VITE_TCIM_RELEASE_LABEL || 'TCIM Web R6.1 · 五表 V0.2.1'),
   architecture: String(buildEnv.VITE_TCIM_COMPARISON_ARCHITECTURE || 'dialogue_agent_new_five_tables_evidence_state'),
-  gitCommit: String(buildEnv.VITE_TCIM_GIT_COMMIT || 'unrecorded'),
-  builtAt: String(buildEnv.VITE_TCIM_BUILT_AT || 'unrecorded'),
+  gitCommit: String(buildEnv.VITE_TCIM_GIT_COMMIT || injectedGitCommit || 'unrecorded'),
+  builtAt: String(buildEnv.VITE_TCIM_BUILT_AT || injectedBuiltAt || 'unrecorded'),
   runtimeDatasetId: 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.2.1',
   runtimeSchemaVersion: '0.2.1',
   runtimeConfigFingerprint: 'd8eebef72dad95f81045250e6a17c6bfdc78fc6441211e425e3ac9e0e2d7ef07',

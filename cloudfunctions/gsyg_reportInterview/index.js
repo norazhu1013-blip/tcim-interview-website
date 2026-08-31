@@ -17,6 +17,20 @@ function resolveActor(event) {
   return { id: OPENID, identityType: 'wechat' };
 }
 
+function createPayloadHash({ sessionId, data, feedback, releaseSnapshot, revision }) {
+  return crypto.createHash('sha256')
+    .update(JSON.stringify({
+      sessionId,
+      studyMode: data.studyMode,
+      targetItemId: data.targetItemId,
+      transcripts: data.transcripts,
+      feedback: feedback || null,
+      releaseSnapshot,
+      revision
+    }))
+    .digest('hex');
+}
+
 exports.main = async (event) => {
   const actor = resolveActor(event);
   if (!actor.id) return { ok: false, error: 'missing_identity' };
@@ -38,22 +52,39 @@ exports.main = async (event) => {
     };
     // 仅在带 feedback 时写入(不用 null 覆盖既有反馈)
     if (event.feedback) data.feedback = event.feedback;
-    // 回执：客户端据此确认真实落库，避免"页面完成但库无记录"。
-    const payloadHash = crypto.createHash('sha256')
-      .update(JSON.stringify({ sessionId, studyMode: data.studyMode, targetItemId: data.targetItemId, transcripts: data.transcripts, feedback: event.feedback || null }))
-      .digest('hex');
+    const incomingReleaseSnapshot = event.releaseSnapshot && typeof event.releaseSnapshot === 'object'
+      ? event.releaseSnapshot
+      : null;
     const existing = await db.collection(COLL).where({ sessionId: sessionId }).limit(1).get();
     if (existing.data && existing.data.length) {
       const id = existing.data[0]._id;
       if (existing.data[0].openid !== actor.id) return { ok: false, error: 'forbidden' };
+      data.releaseSnapshot = existing.data[0].releaseSnapshot || incomingReleaseSnapshot;
+      const payloadHash = createPayloadHash({
+        sessionId,
+        data,
+        feedback: event.feedback,
+        releaseSnapshot: data.releaseSnapshot,
+        revision: incomingRevision
+      });
+      data.payloadHash = payloadHash;
       const storedRevision = Number(existing.data[0].reportRevision || 0);
-      if (Number.isFinite(incomingRevision) && incomingRevision > 0 && incomingRevision < storedRevision) {
+      if (Number.isFinite(incomingRevision) && incomingRevision < storedRevision) {
         // 旧一轮晚到 → 拒绝覆盖,幂等返回现有回执
         return { ok: true, id, staleRejected: true, serverUpdatedAt: existing.data[0].updatedAt || now, payloadHash: existing.data[0].payloadHash || payloadHash };
       }
       await db.collection(COLL).doc(id).update({ data: data });
       return { ok: true, id: id, serverRecordId: id, serverUpdatedAt: now, payloadHash };
     }
+    data.releaseSnapshot = incomingReleaseSnapshot;
+    const payloadHash = createPayloadHash({
+      sessionId,
+      data,
+      feedback: event.feedback,
+      releaseSnapshot: data.releaseSnapshot,
+      revision: incomingRevision
+    });
+    data.payloadHash = payloadHash;
     const r = await db.collection(COLL).add({ data: Object.assign({ createdAt: now }, data) });
     return { ok: true, id: r._id, serverRecordId: r._id, serverUpdatedAt: now, payloadHash };
   } catch (e) {
