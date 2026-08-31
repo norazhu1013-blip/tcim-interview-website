@@ -437,8 +437,14 @@ Page({
   },
 
   /* -------- UI 辅助 -------- */
+  msgTime(ts) {
+    const d = new Date(ts);
+    const p = (n) => (n < 10 ? '0' + n : '' + n);
+    return p(d.getHours()) + ':' + p(d.getMinutes());
+  },
   pushMsg(role, text) {
-    const messages = this.data.messages.concat([{ role, text }]);
+    const ts = Date.now();
+    const messages = this.data.messages.concat([{ role, text, ts, timeText: this.msgTime(ts) }]);
     this.setData({ messages });
     this.scrollBottom();
   },

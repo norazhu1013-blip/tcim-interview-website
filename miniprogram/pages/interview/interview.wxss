@@ -114,6 +114,10 @@
   background: var(--pri); color: #fff; border: none;
   border-radius: 22rpx 6rpx 22rpx 22rpx;
 }
+.msg .bub .mt { display: block; margin-top: 8rpx; font-size: 20rpx; color: #98a1b3; }
+.msg.me .bub .mt { color: rgba(255, 255, 255, 0.78); }
+
+.done-title { display: block; text-align: center; font-weight: 600; color: #2c3345; margin-bottom: 16rpx; }
 
 .iv-foot {
   display: block;

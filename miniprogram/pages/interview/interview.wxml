@@ -32,13 +32,13 @@
 
   <!-- 对话 -->
   <view wx:for="{{messages}}" wx:key="idx" id="m{{index}}" class="msg {{item.role === 'me' ? 'me' : ''}}">
-    <view class="av">{{item.role === 'me' ? '师' : 'AI'}}</view>
-    <view class="bub" style="font-size:{{bubSize}}rpx;">{{item.text}}</view>
+    <view class="av">{{item.role === 'me' ? '我' : 'AI'}}</view>
+    <view class="bub" style="font-size:{{bubSize}}rpx;">{{item.text}}<view class="mt muted">{{item.timeText}}</view></view>
   </view>
 
   <view wx:if="{{thinking}}" class="msg">
     <view class="av">AI</view>
-    <view class="bub muted">正在思考追问…</view>
+    <view class="bub muted">正在整理下一问…</view>
   </view>
 
   <view wx:if="{{isReview && submittedText}}" class="muted rv-time">提交时间：{{submittedText}}</view>
@@ -49,7 +49,7 @@
 <!-- 输入区（回看模式隐藏） -->
 <view wx:if="{{!isReview && !done}}" class="foot iv-foot" style="bottom:{{kbHeight}}px;">
   <view class="iv-compose">
-    <textarea class="iv-input" style="font-size:{{inputSize}}rpx;" placeholder="说说你的想法…" value="{{input}}"
+    <textarea class="iv-input" style="font-size:{{inputSize}}rpx;" placeholder="请输入您的回答…" value="{{input}}"
       bindinput="onInput" bindfocus="onInputFocus" bindblur="onInputBlur"
       bindkeyboardheightchange="onKbHeightChange"
       auto-height maxlength="500" disabled="{{sending}}"
@@ -61,6 +61,7 @@
 </view>
 
 <view wx:if="{{!isReview && done}}" class="foot iv-done-foot">
-  <button class="btn" bindtap="onBack">完成，返回情境列表</button>
+  <view class="done-title">本情境访谈已完成</view>
+  <button class="btn" bindtap="onBack">返回情境列表</button>
   <view class="ai-disclaimer">内容由AI生成，仅供参考</view>
 </view>
