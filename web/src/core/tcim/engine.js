@@ -49,11 +49,13 @@ const HITS_MIN = 3
 let semanticProvider = null
 
 // V0.2 双状态 + Planner + Gate 是否启用（网页构建变量 VITE_TCIM_V2=1；默认关，Node 下为 undefined）
-const V2_ENABLED = String((typeof import.meta && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_TCIM_V2) || (typeof process !== 'undefined' && process.env && process.env.VITE_TCIM_V2) || '').trim() === '1'
+let V2_ENABLED = String((typeof import.meta && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_TCIM_V2) || (typeof process !== 'undefined' && process.env && process.env.VITE_TCIM_V2) || '').trim() === '1'
 let _semanticMode = String((typeof import.meta && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_TCIM_SEMANTIC_MODE) || (typeof process !== 'undefined' && process.env && process.env.TCIM_SEMANTIC_MODE) || (V2_ENABLED ? 'fallback_allowed' : 'disabled')).trim()
 export function setSemanticMode(mode) { _semanticMode = String(mode || 'disabled').trim() }
 export function getSemanticMode() { return _semanticMode }
 export function isV2Enabled() { return V2_ENABLED }
+// 小程序等读不到 VITE 变量的运行时：显式开启 V0.2（web 仍由 env 驱动，不调用即不影响）
+export function setV2Enabled(v) { V2_ENABLED = !!v }
 
 /**
  * 注入一个语义预筛提供者（A01 调用点）。`provider(teacherTurn, ctx)` 返回

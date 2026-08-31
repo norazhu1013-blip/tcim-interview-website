@@ -33,9 +33,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// ../tcim/modules/context/belief_state.js
+// tcim/modules/context/belief_state.js
 var require_belief_state = __commonJS({
-  "../tcim/modules/context/belief_state.js"(exports, module2) {
+  "tcim/modules/context/belief_state.js"(exports, module2) {
     "use strict";
     var BELIEF_OPS = Object.freeze(["NO_CHANGE", "ADD", "STRENGTHEN", "WEAKEN", "SPLIT", "RETRACT"]);
     var BELIEF_STATUS = Object.freeze(["ACTIVE", "RETRACTED", "DIVERGED"]);
@@ -136,9 +136,9 @@ var require_belief_state = __commonJS({
   }
 });
 
-// ../tcim/modules/context/teacher_model.js
+// tcim/modules/context/teacher_model.js
 var require_teacher_model = __commonJS({
-  "../tcim/modules/context/teacher_model.js"(exports, module2) {
+  "tcim/modules/context/teacher_model.js"(exports, module2) {
     "use strict";
     var _snapshotSeed = 0;
     var BUILDER_VERSION = "2026-08-24-teacher-model-v1";
@@ -210,9 +210,9 @@ var require_teacher_model = __commonJS({
   }
 });
 
-// ../tcim/core/contracts.js
+// tcim/core/contracts.js
 var require_contracts = __commonJS({
-  "../tcim/core/contracts.js"(exports, module2) {
+  "tcim/core/contracts.js"(exports, module2) {
     "use strict";
     var TABLE_ALIGNMENT = Object.freeze(["SUPPORT", "PARTIAL", "CONFLICT", "OUT_OF_SCHEMA", "NO_APPLICABLE_RULE"]);
     var POLICY_CLASS = Object.freeze(["HARD", "SOFT", "PRIOR", "ADVISORY"]);
@@ -372,9 +372,9 @@ var require_contracts = __commonJS({
   }
 });
 
-// ../tcim/modules/planner/agent_planner.js
+// tcim/modules/planner/agent_planner.js
 var require_agent_planner = __commonJS({
-  "../tcim/modules/planner/agent_planner.js"(exports, module2) {
+  "tcim/modules/planner/agent_planner.js"(exports, module2) {
     "use strict";
     var { TABLE_ALIGNMENT, RISK_LEVEL } = require_contracts();
     function defaultCandidateActions(item, evidence) {
@@ -444,9 +444,9 @@ var require_agent_planner = __commonJS({
   }
 });
 
-// ../tcim/modules/gate/decision_gate.js
+// tcim/modules/gate/decision_gate.js
 var require_decision_gate = __commonJS({
-  "../tcim/modules/gate/decision_gate.js"(exports, module2) {
+  "tcim/modules/gate/decision_gate.js"(exports, module2) {
     "use strict";
     var { TABLE_ALIGNMENT, POLICY_CLASS, RISK_LEVEL } = require_contracts();
     var JUDGE_RE2 = /能力|人格|动机|心理|性格|智力水平|属于.{0,3}(高|中|低)能力/;
@@ -518,9 +518,9 @@ var require_decision_gate = __commonJS({
   }
 });
 
-// ../tcim/modules/context/challenge_queue.js
+// tcim/modules/context/challenge_queue.js
 var require_challenge_queue = __commonJS({
-  "../tcim/modules/context/challenge_queue.js"(exports, module2) {
+  "tcim/modules/context/challenge_queue.js"(exports, module2) {
     "use strict";
     var { TABLE_ALIGNMENT } = require_contracts();
     var _queueId = 0;
@@ -575,9 +575,9 @@ var require_challenge_queue = __commonJS({
   }
 });
 
-// ../tcim/modules/ontology/evidence_updater.js
+// tcim/modules/ontology/evidence_updater.js
 var require_evidence_updater = __commonJS({
-  "../tcim/modules/ontology/evidence_updater.js"(exports, module2) {
+  "tcim/modules/ontology/evidence_updater.js"(exports, module2) {
     "use strict";
     var SYNONYMS2 = {
       \u5E7C\u513F: "\u5E7C\u513F",
@@ -840,9 +840,9 @@ var require_evidence_updater = __commonJS({
   }
 });
 
-// ../tcim/modules/prdm/prdm_v2.js
+// tcim/modules/prdm/prdm_v2.js
 var require_prdm_v2 = __commonJS({
-  "../tcim/modules/prdm/prdm_v2.js"(exports, module2) {
+  "tcim/modules/prdm/prdm_v2.js"(exports, module2) {
     "use strict";
     var VERSION = "2026-08-24-prdm-v0.2";
     var FORBIDDEN_OBS = ["next_target_slot", "recommended_action_type", "stop_decision", "personality_label", "ability_label", "psychological_diagnosis"];
@@ -979,9 +979,9 @@ var require_prdm_v2 = __commonJS({
   }
 });
 
-// ../tcim/modules/rag/knowledge_need.js
+// tcim/modules/rag/knowledge_need.js
 var require_knowledge_need = __commonJS({
-  "../tcim/modules/rag/knowledge_need.js"(exports, module2) {
+  "tcim/modules/rag/knowledge_need.js"(exports, module2) {
     "use strict";
     var ROUTES = ["R0", "R1", "R2", "R3"];
     var PHASE_TEACHER_FACING = { DIAGNOSE_INTERNAL: false, REFLECT: true, SUPPORT: true };
@@ -1045,7 +1045,7 @@ var require_knowledge_need = __commonJS({
   }
 });
 
-// src/core/tcim/engine.js
+// web/src/core/tcim/engine.js
 var engine_exports = {};
 __export(engine_exports, {
   checkConstraints: () => checkConstraints,
@@ -1056,11 +1056,12 @@ __export(engine_exports, {
   processTeacherTurn: () => processTeacherTurn,
   setSemanticMode: () => setSemanticMode,
   setSemanticProvider: () => setSemanticProvider,
+  setV2Enabled: () => setV2Enabled,
   tcimData: () => tcimData
 });
 module.exports = __toCommonJS(engine_exports);
 
-// src/generated/tcim-data.js
+// web/src/generated/tcim-data.js
 var TCIM_DATA = {
   "version": "2026-08-21-tcim-v0.1-ai-draft",
   "common": {
@@ -6529,7 +6530,7 @@ var TCIM_DATA = {
   }
 };
 
-// src/core/tcim/engine.js
+// web/src/core/tcim/engine.js
 var beliefState = __toESM(require_belief_state(), 1);
 var teacherModel = __toESM(require_teacher_model(), 1);
 var agentPlanner = __toESM(require_agent_planner(), 1);
@@ -6597,6 +6598,9 @@ function getSemanticMode() {
 }
 function isV2Enabled() {
   return V2_ENABLED;
+}
+function setV2Enabled(v) {
+  V2_ENABLED = !!v;
 }
 function setSemanticProvider(provider) {
   semanticProvider = typeof provider === "function" ? provider : null;

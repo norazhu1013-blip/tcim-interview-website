@@ -9,11 +9,17 @@
 //   t.next(teacherText)                             // 后续轮（传教师最新原话）
 //   t.session()                                     // 取引擎会话（含 history/replay/evidence，供回看）
 const tcim = require('./tcim/engine.js');
+const tcimSemantic = require('./tcimSemantic.js');
 
 let _engine = null;
 
 function init(itemId, ranking, processTags, pretest) {
   const tags = (processTags || []).filter(Boolean);
+  // 对齐 web（VITE_TCIM_V2=1 + VITE_TCIM_SEMANTIC_MODE=fallback_allowed）：
+  // 启用 V0.2 双状态链 + 语义层(A01 LLM 经 gsyg_semanticProbe；失败降级 bigram)。
+  tcim.setV2Enabled(true);
+  tcim.setSemanticMode('fallback_allowed');
+  tcim.setSemanticProvider(tcimSemantic.makeSemanticProvider());
   // 与 web 一致：前测完整资料进 TurnContext，只作 prior（不确定性/优先级），不填能力等级
   _engine = tcim.initTcisSession(itemId, ranking || [], tags, pretest || {});
   return _engine;
