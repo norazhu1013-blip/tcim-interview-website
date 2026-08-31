@@ -1,7 +1,8 @@
-// P8 访谈对话（规则版）
+// P8 访谈对话（TCIM 确定性访谈；与 web 端同源，见 utils/tcimInterview.js）
 const store = require('../../utils/store.js');
 const { ITEMS } = require('../../data/questions.js');
 const interview = require('../../utils/interview.js');
+const tcimUtil = require('../../utils/tcimInterview.js');
 
 const LIMIT_MS = 10 * 60 * 1000; // 单情境 10 分钟
 
@@ -215,18 +216,31 @@ Page({
 
   /* -------- 实时访谈 -------- */
   startLive(itemId, ranking) {
-    const built = interview.buildScriptQueue(itemId, ranking);
-    this._queue = built.queue; // 规则版脚本序列（LLM 不可用时的兜底）
-    this._qi = -1;
     this._ledger = {};
     this._pendingE = []; // 教师回答当前问题时应计入的证据点
     this._ranking = ranking.slice();
-    this._mode = null; // 'llm' | 'rule'，首轮探测决定
-    this._stage = 'S1_CONTEXT'; // v2 阶段:S1→S2→S3→S4
+    this._mode = 'tcim'; // 全量 TCIM 确定性访谈（与 web 同源引擎）
+    this._stage = 'S1_CONTEXT'; // 保留字段(引擎内部管理阶段)
+    let proc = null;
     try {
-      const proc = require('../../utils/process.js').computeProcess((this._session.answers || {})[itemId]);
+      proc = require('../../utils/process.js').computeProcess((this._session.answers || {})[itemId]);
       this._procTags = proc.tags || [];
     } catch (e) { this._procTags = []; }
+    // 全量 TCIM：初始化本情境确定性引擎（前测资料只作 prior，不填能力等级）
+    try {
+      const sc = (this._session.scores) || {};
+      const prof = (this._session.profile) || {};
+      tcimUtil.init(itemId, ranking, this._procTags, {
+        mean: (typeof sc.mean === 'number' ? sc.mean : null),
+        total: (typeof sc.total === 'number' ? sc.total : null),
+        teachingYears: prof.teachingYears || '',
+        modificationCount: (proc && proc.modificationCount) || 0,
+        durationMs: (proc && proc.durationMs) || 0,
+        firstSwing: (proc && proc.firstSwing) || null,
+        lastSwing: (proc && proc.lastSwing) || null,
+        oscillation: (proc && proc.oscillation) || null
+      });
+    } catch (e) { console.error('[tcim] init failed', e); }
     // v1.2:从 session.selection.final 拿出本题的完整 task_card(gsyg_selectFinal 预生成)。
     // 若为老 v1.1 会缺 task_card,降级发 seed(云函数会现场拼)。
     try {
@@ -269,43 +283,27 @@ Page({
     const remain = LIMIT_MS - (Date.now() - this._startTs);
     if (remain <= 60 * 1000 || this._noNew) { this.finalize(); return; }
 
-    if (this._mode !== 'rule') {
-      this.setData({ thinking: true });
-      const ctx = {
-        sessionId: this.data.sid,
-        itemId: this.data.itemId,
-        itemContext: { stem: this.data.q.stem, options: this.data.q.options, title: this.data.q.title },
-        teacherRanking: this._ranking,
-        processTags: this._procTags,
-        // v1.2:优先发完整 taskCard(gsyg_selectFinal 预生成);缺失时发 seed 让云函数现场拼。
-        taskCard: this._taskCard || null,
-        taskCardSeed: this._taskCardSeed || null,
-        stage: this._stage || 'S1_CONTEXT',
-        // v1 老字段(taskCardSeed 缺失时云函数回退用),保留一段时间兼容
-        kbSlice: interview.kbSlice(this.data.itemId),
-        history: this.data.messages.map((m) => ({ role: m.role, text: m.text })),
-        remainingMs: remain
-      };
-      let r = null;
-      try { r = await interview.llmNextQuestion(ctx); } catch (e) { r = null; }
+    // 全量 TCIM 确定性访谈：首问 first()，后续 next(教师最新原话)。不调用云 LLM / 规则脚本队列。
+    const teacherMsgs = this.data.messages.filter((m) => m.role === 'me').map((m) => String(m.text).trim());
+    const lastTeacher = teacherMsgs.length ? teacherMsgs[teacherMsgs.length - 1] : '';
+    this.setData({ thinking: true });
+    try {
+      const r = lastTeacher ? await tcimUtil.next(lastTeacher) : tcimUtil.first();
       this.setData({ thinking: false });
-      if (r) {
-        this._mode = 'llm';
-        this._pendingE = r.evidenceHint || [];
-        if (r.nextStage) this._stage = r.nextStage;
-        if (r.done) { if (r.question) this.pushMsg('ai', r.question); this.finalize(true); return; }
-        this.pushMsg('ai', r.question);
+      if (r.question) this.pushMsg('ai', r.question);
+      if (r.done) {
+        // TCIM 引擎已产出收束语(已 push)，skipStop 避免再叠旧 stopScript
+        this.finalize(true);
         return;
       }
-      this._mode = 'rule'; // 降级
+      this._pendingE = [];
+      this.persist(false); // 让 turns 包含本轮 AI 问句
+      return;
+    } catch (e) {
+      this.setData({ thinking: false });
+      console.error('[tcim] engine error', e);
+      this.finalize();
     }
-
-    // 规则版脚本队列
-    this._qi += 1;
-    if (this._qi >= this._queue.length) { this.finalize(); return; }
-    const item = this._queue[this._qi];
-    this._pendingE = item.E || [];
-    this.pushMsg('ai', item.q);
   },
 
   onInput(e) { this.setData({ input: e.detail.value }); },
@@ -362,11 +360,16 @@ Page({
 
   finalize(skipStop) {
     if (this.data.done) return;
-    if (!skipStop) {
+    const isTcim = this._mode === 'tcim';
+    // TCIM：引擎自然产出收束语，不再叠旧 13 表 stopScript（时间到也由 toast 提示）
+    if (!skipStop && !isTcim) {
       const stop = interview.stopScript(this.data.itemId);
       this.pushMsg('ai', stop.q);
     }
-    const coding = interview.codeLevel(this.data.itemId, Object.keys(this._ledger || {}));
+    // TCIM：证据在引擎会话里(已持久化)，不套用旧 E 码 codeLevel，避免误标"低"
+    const coding = isTcim
+      ? (((this._session.interview || {})[this.data.itemId] || {}).coding || null)
+      : interview.codeLevel(this.data.itemId, Object.keys(this._ledger || {}));
     this.setData({ done: true });
     this.persist(true, coding);
 
@@ -396,7 +399,8 @@ Page({
       submittedAt: isDone ? Date.now() : (prev.submittedAt || null),
       turns: turns,
       ledger: Object.keys(this._ledger || {}),
-      coding: coding || prev.coding || null
+      coding: coding || prev.coding || null,
+      tcimSession: tcimUtil.session() || null // TCIM 引擎会话(含 evidence/replay)，供研究/回看
     };
     store.saveInterview(this.data.sid, this.data.itemId, obj);
     this._session = store.getSession(this.data.sid);

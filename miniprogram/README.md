@@ -40,7 +40,9 @@
    │  ├─ store.js          本地存储层（wx.setStorageSync）：profile / session / interview
    │  ├─ scoring.js        确定性查表评分 + 派生统计 + R/P/G 自动筛选（移植 demo doSelect）
    │  ├─ process.js        过程指标：move_log 回放 / 首末位摇摆 / 路径振荡 / P-IVI（移植 demo）
-   │  ├─ interview.js      访谈规则引擎：命中触发规则→脚本序列→证据账本→锚点编码
+   │  ├─ interview.js      访谈（legacy 规则/LLM 脚本,已不用于 P8,保留兼容）
+   │  ├─ tcimInterview.js  TCIM 确定性访谈包装:init/first/next,驱动本机 TCIM 引擎(与 web 同源)
+   │  ├─ tcim/engine.js    web 引擎打包产物(自包含 CJS):证据/Orchestrator/PRDM/Generator,由 tools/build_miniprogram_tcim.mjs 生成
    │  └─ api.js            3 个上报封装（wx.cloud.callFunction 调云函数，本地优先、失败入 pending）
    └─ pages/               # 逐页对照 prototype 的 P0–P9
       login / profile / home / exam / submit / score / select / review / interviewList / interview / done
