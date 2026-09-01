@@ -8,7 +8,7 @@ assert.equal(TCIM_RELEASE.runtimeDatasetId, runtime.datasetId)
 assert.equal(TCIM_RELEASE.runtimeSchemaVersion, runtime.schemaVersion)
 assert.equal(TCIM_RELEASE.runtimeConfigFingerprint, runtime.configFingerprint)
 assert.match(TCIM_RELEASE.releaseId, /^TCIM-WEB-/)
-assert.match(TCIM_RELEASE.expectedDialoguePromptVersion, /r6-two-warmth-pressure-rhythm$/)
+assert.match(TCIM_RELEASE.expectedDialoguePromptVersion, /r7-neutral-peer-fast$/)
 
 const snapshot = currentReleaseSnapshot(123456)
 assert.equal(snapshot.capturedAt, 123456)

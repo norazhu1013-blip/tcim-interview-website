@@ -17,10 +17,10 @@ test('static card is in the system prefix while dynamic dialogue stays in user i
     ], evidence_summary: { current: [] },
     dialogue_progress_state: {
       schemaVersion: 'dialogue-agent.progress-state/v1', itemId: 'Q1', version: 3, phase: 'DEEPENING',
-      questionLedger: [{ action: 'ASK', questionText: '哪一个现场线索支持您的判断？', goalLabel: '澄清现场线索' }],
-      openThreads: [{ openThreadId: 'risk-thread', status: 'ACTIVE', statement: '安全与游戏延续' }],
-      coveredCues: [{ span: '地面是否湿滑', sourceTurnId: 'turn-1' }],
-      stagnation: { score: 2, consecutiveSimilarGoals: 2, repeatedQuestionCount: 1 }
+      questionLedger: [{ action: 'ASK', questionText: '哪一个现场线索支持您的判断？', goalLabel: '澄清现场线索', rationale: '不应重复发送', answerExcerpt: '不应重复发送' }],
+      openThreads: [{ openThreadId: 'risk-thread', status: 'ACTIVE', statement: '安全与游戏延续', rationale: '不应重复发送' }],
+      coveredCues: [{ span: '地面是否湿滑', sourceTurnId: 'turn-1', formalEvidenceIds: ['不应重复发送'] }],
+      stagnation: { score: 2, consecutiveSimilarGoals: 2, repeatedQuestionCount: 1, lastQuestionSemanticKey: '不应重复发送' }
     }
   });
   assert.match(prompts.system, /dataset-config-v7/);
@@ -32,6 +32,7 @@ test('static card is in the system prefix while dynamic dialogue stays in user i
   assert.match(prompts.user, /risk-thread/);
   assert.match(prompts.user, /地面是否湿滑/);
   assert.match(prompts.user, /consecutiveSimilarGoals/);
+  assert.doesNotMatch(prompts.user, /private-session|不应重复发送/);
   assert.match(prompts.system, /不得复问同一问句/);
   assert.match(prompts.system, /stagnation\.score/);
   assert.match(prompts.promptCacheKey, /^tcim-dialogue:[a-f0-9]{48}$/);

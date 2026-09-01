@@ -9,11 +9,12 @@
 
 ## AI 访谈口径
 
-- R6.1 网页使用 **Dialogue Agent 主导＋新五表 V0.2.1＋Evidence State**；评分和 R/P/G 筛题仍为确定性程序，AI 不参与评分。
+- R6.2 网页使用 **Dialogue Agent 主导＋新五表 V0.2.1＋Evidence State**；评分和 R/P/G 筛题仍为确定性程序，AI 不参与评分。
 - 网页只经现有账号网关调用 `gsyg_dialogueAgent`。教师不能选择模型、输入密钥或直接访问模型服务；provider/model 由云端配置并锁定到整次测评。
-- Dialogue Agent、两次具体肯定、挑战后的舒缓轮、整体理解问题和 Evidence 来源隔离均来自冻结提交；云端适配层不重写这些逻辑。
+- Dialogue Agent 采用中性同行口吻，不设置表扬次数，不评价教师的诚实、人格或回答质量；挑战后的舒缓轮、整体理解问题和 Evidence 来源隔离继续保留。
+- 前台生成只保留最近必要上下文，最多调用模型两次；可安全分离的评价式前缀由程序直接删除，不为删一句话增加模型等待。
 - 模型调用失败时，网页保留已有对话并显示“重新生成 / 结束本情境”，不会在后台切换成固定专业问题。
-- 小程序原有 `gsyg_interviewChat` 路径继续保留，网页 R6.1 不用它替代 Dialogue Agent。
+- 小程序原有 `gsyg_interviewChat` 路径继续保留，网页 R6.2 不用它替代 Dialogue Agent。
 
 ## 本地运行
 
@@ -44,7 +45,7 @@ VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 VITE_CLOUDBASE_REGION=ap-shanghai
 VITE_LOCAL_RESEARCH_MODE=0
 VITE_TCIM_COMPARISON_ARCHITECTURE=dialogue_agent_new_five_tables_evidence_state
-VITE_TCIM_RELEASE_ID=TCIM-WEB-2026.08.30-R6.1
+VITE_TCIM_RELEASE_ID=TCIM-WEB-2026.09.01-R6.2
 ```
 
 登录前需要在 CloudBase 控制台启用「用户名密码登录」和邮箱验证码注册，并在环境安全配置中加入网页域名。详见 `cloudfunctions/gsyg_webGateway/README.md`。

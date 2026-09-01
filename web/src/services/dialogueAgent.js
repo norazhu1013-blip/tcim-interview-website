@@ -194,20 +194,16 @@ export function compactDialogueProgressState(state = {}) {
     version: Number(state.version || 0),
     phase: state.phase || 'OPENING',
     questionLedger: (state.questionLedger || []).slice(-6).map((entry) => pick(entry, [
-      'questionId', 'turnId', 'action', 'questionText', 'goalLabel', 'rationale', 'openThreadId',
-      'phase', 'answerStatus', 'answerTurnId', 'answerExcerpt', 'understanding', 'workingHypotheses'
+      'action', 'questionText', 'goalLabel', 'openThreadId', 'phase', 'answerStatus'
     ])),
     openThreads: (state.openThreads || []).slice(-4).map((thread) => pick(thread, [
-      'openThreadId', 'statement', 'rationale', 'status', 'originTurnId', 'lastTouchedTurnId',
-      'touchCount', 'consultedPolicyIds', 'hypothesisIds', 'lastTeacherTurnId'
+      'openThreadId', 'statement', 'status', 'touchCount'
     ])),
-    coveredCues: (state.coveredCues || []).slice(-8).map((cue) => pick(cue, [
-      'cueId', 'sourceTurnId', 'span', 'meaning', 'confidence', 'sourceKind', 'openThreadId',
-      'hypothesisIds', 'formalEvidenceIds'
+    coveredCues: (state.coveredCues || []).slice(-6).map((cue) => pick(cue, [
+      'span', 'meaning', 'sourceKind', 'openThreadId'
     ])),
     stagnation: pick(state.stagnation, [
-      'score', 'consecutiveSimilarGoals', 'repeatedQuestionCount', 'lastQuestionSemanticKey',
-      'lastProgressTurnId', 'reasonCodes'
+      'score', 'consecutiveSimilarGoals', 'repeatedQuestionCount', 'reasonCodes'
     ])
   }
 }

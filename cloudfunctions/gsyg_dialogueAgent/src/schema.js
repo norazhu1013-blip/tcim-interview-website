@@ -127,6 +127,7 @@ const DUPLICATE_QUESTION_ERROR = 'duplicate_question';
 const LEADING_QUESTION_ERROR = 'leading_confirmation_question';
 const FORMULAIC_RESTATEMENT_ERROR = 'formulaic_restatement_before_question';
 const EVALUATIVE_PRAISE_ERROR = 'evaluative_praise_before_question';
+const MISPLACED_APOLOGY_ERROR = 'misplaced_apology_before_question';
 const WARM_AFFIRMATION_BUDGET_ERROR = 'warm_affirmation_outside_budget';
 const AI_SUPPLIED_OPTIONS_ERROR = 'ai_supplied_answer_options_before_open_elicitation';
 const INTEGRATIVE_QUALITY_ERROR = 'integrative_question_lacks_global_judgment';
@@ -135,10 +136,11 @@ const CONSECUTIVE_CHALLENGE_ERROR = 'challenge_question_without_relief_turn';
 const LEADING_CONFIRMATION_RE = /(您|你)(是不是也|是否也|同意|也认为|也觉得).{0,30}[?？]|(这样|这么做|我说的).{0,16}(对吗|好吗|是吗)[?？]|(正确做法|更好的做法|应该就是).{0,30}[?？]/i;
 const FORMULAIC_RESTATEMENT_OPENING_RE = /^(?:(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到))|(?:明白|好的|嗯|原来如此)[，,]\s*您|您(?:一下就|选择|希望|说要|会看|觉得|从|认为|想把|要先|是根据))/u;
 const RELATIONAL_MICROCUE_OPENING_RE = /^(?:(?:嗯|明白|确实|这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在|不容易|可以理解)|[^?？。；]{0,24}(?:确实|不容易|不好拿捏|需要拿捏|需要掂量|要顾|都要顾))/u;
-// 用户研究允许每个情境在程序预算内出现两次具体、克制的肯定。这些词只
-// 承认本轮表达的细致程度或所作区分，不得升级为能力、对错或人格评价。
+// 保留这一识别器只为兼容旧 trace / 测试数据；R6.2 起不再安排肯定配额，
+// 这些表达也按评价式前缀处理，不再向教师展示。
 const WARM_AFFIRMATION_RE = /(?:很难得|很细致|很有分辨|很生动|很实际)/u;
-const PROHIBITED_PRAISE_RE = /(?:很成熟|很到位|很合理|很妥当|很恰当|很稳|很不错|挺好|很好|很清楚|很准确|很敏锐|好(?:的)?起点|非常好|很专业|很全面|考虑得很周到|很有深度|真不错|做得很好|回答得很好|想得很周全|特别棒|能力很强|水平很高|回答正确|答得对)/u;
+const PROHIBITED_PRAISE_RE = /(?:很难得|很真实|很灵活|很细(?:致)?|很有分辨|很生动|很实际|很成熟|很到位|很合理|很妥当|很恰当|很稳|很不错|挺好|很好|很清楚|很准确|很敏锐|好(?:的)?起点|非常好|很专业|很全面|考虑得很周到|很有深度|真不错|做得很好|回答得很好|想得很周全|特别棒|能力很强|水平很高|回答正确|答得对|愿意(?:先)?(?:坦白|承认))/u;
+const MISPLACED_APOLOGY_RE = /(?:抱歉|对不起|不好意思|是我(?:理解错了|误解了|假设过头了|想多了|说错了))/u;
 const AI_SUPPLIED_OPTIONS_RE = /(?:比如|例如)[^?？]{0,90}(?:、|或者|或是|还是)[^?？]*[?？]|(?:可能是|原因是|会不会是)[^?？]{1,48}(?:、|或者|或是)[^?？]{1,48}(?:还是|或)[^?？]{1,48}[?？]|(?:您|你)(?:会|是想|更倾向于)[^?？]{2,48}(?:还是|或者|或是)[^?？]{2,48}[?？]/u;
 const INTEGRATIVE_DECISION_RE = /(?:判断|决定|依据|标准|取舍|平衡|兼顾|改变|调整|坚持|例外|边界|信号)/u;
 const INTEGRATIVE_SCOPE_RE = /(?:整体|综合|放在一起|同时|之间|回过来看|回到这个情境|最看重|最关键|何时|什么时候|什么情况下|哪些|什么会|后续|最终)/u;
@@ -244,6 +246,13 @@ function hasEvaluativePraise(value) {
   return PROHIBITED_PRAISE_RE.test(visibleLead);
 }
 
+function hasMisplacedApology(value) {
+  const text = String(value || '').trim();
+  const questionIndex = text.search(/[?？]/u);
+  const visibleLead = questionIndex < 0 ? text : text.slice(0, questionIndex);
+  return MISPLACED_APOLOGY_RE.test(visibleLead);
+}
+
 function hasWarmAffirmation(value) {
   const text = String(value || '').trim();
   const questionIndex = text.search(/[?？]/u);
@@ -262,28 +271,6 @@ function warmAffirmationPrefix(value) {
   return prefix.length <= 24 && WARM_AFFIRMATION_RE.test(prefix) ? prefix : '';
 }
 
-/**
- * 两个预约肯定轮次属于会话节律，而不是让模型自由猜的写作偏好。模型若已
- * 自然生成具体肯定则保持原样；若遗漏，程序依据当前原话补一条极短肯定，
- * 不增加模型调用，也不改变问句或Evidence来源。
- */
-function normalizeScheduledWarmth(value, context = {}) {
-  if (!value || value.action !== 'ASK' || !context.required || hasWarmAffirmation(value.visible_text)) {
-    return { value, adjusted: false, addedPrefix: '' };
-  }
-  const teacherTurn = String(context.teacherTurn || '');
-  const warmthIndex = Number(context.warmAffirmationCount || 0);
-  let addedPrefix = '这一点说得很细致。';
-  if (/(?:区别|不同|区分|分清|比较|原因)/u.test(teacherTurn)) addedPrefix = '这个区分很有分辨。';
-  else if (/(?:不确定|可能|再看看|先等等|保留|未必)/u.test(teacherTurn)) addedPrefix = '愿意先保留判断，很难得。';
-  else if (warmthIndex >= 1 && /(?:观察|留意|表现|表情|动作|细节)/u.test(teacherTurn)) addedPrefix = '您对这些细节看得很细致。';
-  return {
-    value: { ...value, visible_text: `${addedPrefix}${String(value.visible_text || '').trim()}` },
-    adjusted: true,
-    addedPrefix
-  };
-}
-
 function normalizeBroadPraisePrefix(value) {
   if (!value || value.action !== 'ASK') return { value, adjusted: false, removedPrefix: '' };
   const text = String(value.visible_text || '').trim();
@@ -291,6 +278,27 @@ function normalizeBroadPraisePrefix(value) {
   if (questionIndex < 0) return { value, adjusted: false, removedPrefix: '' };
   const lead = text.slice(0, questionIndex);
   if (!PROHIBITED_PRAISE_RE.test(lead)) return { value, adjusted: false, removedPrefix: '' };
+  const boundaries = [...lead.matchAll(/[。！!；;]/gu)];
+  if (!boundaries.length) return { value, adjusted: false, removedPrefix: '' };
+  const boundary = boundaries[boundaries.length - 1].index;
+  const remainder = text.slice(boundary + 1).trim();
+  if ((remainder.match(/[?？]/gu) || []).length !== 1 || remainder.length < 6) {
+    return { value, adjusted: false, removedPrefix: '' };
+  }
+  return {
+    value: { ...value, visible_text: remainder },
+    adjusted: true,
+    removedPrefix: text.slice(0, boundary).trim()
+  };
+}
+
+function normalizeMisplacedApologyPrefix(value) {
+  if (!value || value.action !== 'ASK') return { value, adjusted: false, removedPrefix: '' };
+  const text = String(value.visible_text || '').trim();
+  const questionIndex = text.search(/[?？]/u);
+  if (questionIndex < 0) return { value, adjusted: false, removedPrefix: '' };
+  const lead = text.slice(0, questionIndex);
+  if (!MISPLACED_APOLOGY_RE.test(lead)) return { value, adjusted: false, removedPrefix: '' };
   const boundaries = [...lead.matchAll(/[。！!；;]/gu)];
   if (!boundaries.length) return { value, adjusted: false, removedPrefix: '' };
   const boundary = boundaries[boundaries.length - 1].index;
@@ -601,6 +609,9 @@ function validateDialogueOutput(value, context = {}) {
     if (hasEvaluativePraise(visibleText)) {
       errors.push(`${EVALUATIVE_PRAISE_ERROR}: broad praise must not grade the teacher's answer or ability`);
     }
+    if (hasMisplacedApology(visibleText)) {
+      errors.push(`${MISPLACED_APOLOGY_ERROR}: calibrate the premise neutrally instead of apologizing or self-blaming`);
+    }
     const warmAffirmationObserved = hasWarmAffirmation(visibleText);
     if (warmAffirmationObserved && !context.warmAffirmationAllowed) {
       errors.push(`${WARM_AFFIRMATION_BUDGET_ERROR}: a concrete affirmation is only allowed on one of the two scheduled turns`);
@@ -645,6 +656,7 @@ function assessQuestionQuality(value, context = {}) {
     relationalCuePrefix: relationalMicrocuePrefix(text) || warmAffirmationPrefix(text),
     warmAffirmationObserved: hasWarmAffirmation(text),
     broadPraiseAvoided: !hasEvaluativePraise(text),
+    misplacedApologyAvoided: !hasMisplacedApology(text),
     nonEvaluativeWarmth: !hasEvaluativePraise(text)
       && (!hasWarmAffirmation(text) || Boolean(context.warmAffirmationAllowed)),
     openBeforeScaffold: Boolean(context.allowScaffoldedOptions) || !hasAiSuppliedOptions(text),
@@ -662,6 +674,7 @@ function assessQuestionQuality(value, context = {}) {
       && signals.novel
       && signals.contingentOnTeacherTurn
       && signals.nonEvaluativeWarmth
+      && signals.misplacedApologyAvoided
       && signals.openBeforeScaffold
       && signals.integrativeEnough
       && signals.pressurePacingRespected
@@ -734,6 +747,7 @@ module.exports = {
   LEADING_QUESTION_ERROR,
   FORMULAIC_RESTATEMENT_ERROR,
   EVALUATIVE_PRAISE_ERROR,
+  MISPLACED_APOLOGY_ERROR,
   WARM_AFFIRMATION_BUDGET_ERROR,
   AI_SUPPLIED_OPTIONS_ERROR,
   INTEGRATIVE_QUALITY_ERROR,
@@ -744,9 +758,10 @@ module.exports = {
   exactTeacherQuote,
   normalizeDialogueGrounding,
   normalizeBroadPraisePrefix,
-  normalizeScheduledWarmth,
+  normalizeMisplacedApologyPrefix,
   relationalMicrocuePrefix,
   hasEvaluativePraise,
+  hasMisplacedApology,
   hasWarmAffirmation,
   warmAffirmationPrefix,
   hasAiSuppliedOptions,

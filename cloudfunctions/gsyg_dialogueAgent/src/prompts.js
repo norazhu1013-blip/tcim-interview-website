@@ -1,19 +1,21 @@
 'use strict';
 
 const crypto = require('crypto');
-const { hasWarmAffirmation, classifyQuestionPressure } = require('./schema');
+const { classifyQuestionPressure } = require('./schema');
 
-const PROMPT_VERSION = 'tcim-dialogue-v3-low-latency-2026-08-30-r6-two-warmth-pressure-rhythm';
+const PROMPT_VERSION = 'tcim-dialogue-v3-low-latency-2026-09-01-r7-neutral-peer-fast';
 
 const EXPLICIT_REPAIR_RE = /(?:不是.{0,8}(?:意思|说)|我的意思是|我说的是|你没理解|没听懂|理解错|误解|换个说法|重新说|不是这样)/u;
+const HYPOTHETICAL_PREMISE_RE = /(?:(?:题目|情境).{0,8}(?:假设|设定)|没有遇到过?完全相同|并非真实经历)/u;
+const PREMISE_RESISTANCE_RE = /(?:(?:现实|实际|真实情况).{0,12}(?:不会|不可能|很少|不存在)|(?:题目|情境).{0,10}(?:不合理|不成立|有问题|太假)|无法(?:按这个|这样)?判断)/u;
+const PREMISE_OPT_OUT_RE = /(?:(?:不想|不愿意|没法|无法).{0,8}(?:假设|回答|讨论)|(?:这个|这题).{0,8}(?:没法回答|不想回答))/u;
+const SUBSTANTIVE_JUDGMENT_RE = /(?:我会|我可能|我通常|我一般|类似情况|类似经历|平时|以前|有一次|先.{0,12}(?:看|问|听|观察|了解)|观察|留意|判断|根据|决定|考虑|取舍|调整|介入|等待|支持)/u;
 const FORMULAIC_RESTATEMENT_RE = /^(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到))/u;
 const RELATIONAL_CUE_RE = /^(?:(?:嗯|明白|确实|这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在|不容易|可以理解)|[^?？。；]{0,24}(?:确实|不容易|不好拿捏|需要拿捏|需要掂量|要顾|都要顾))/u;
 const COMPLEXITY_RE = /(?:难|纠结|担心|顾虑|不确定|拿不准|矛盾|两难|但是|不过|既要|又要|同时|取舍|权衡|冲突)/u;
 const SCAFFOLD_REQUEST_RE = /(?:不清楚|不明白|没听懂|不知道(?:怎么|如何)?回答|具体问什么|解释一下|说明一下|举个例子|换个问法)/u;
 const OPTION_SUGGESTION_RE = /(?:比如|例如)[^?？]{0,90}(?:、|或者|或是|还是)|(?:可能是|原因是|会不会是)[^?？]{1,48}(?:、|或者|或是)[^?？]{1,48}(?:还是|或)[^?？]{1,48}[?？]|(?:您|你)(?:会|是想|更倾向于)[^?？]{2,48}(?:还是|或者|或是)[^?？]{2,48}[?？]/u;
 const EXPLANATION_RE = /(?:我是指|我的意思是|换句话说|也可以理解为|这里说的.{0,16}是指|更具体地说)/u;
-const SUBSTANTIVE_TURN_RE = /(?:观察|留意|判断|根据|因为|如果|时候|先|再|调整|回应|支持|原因|表现|信号|区别|不同|取舍|经验|平时|孩子|幼儿)/u;
-
 function hasVisiblePreface(value) {
   const text = String(value || '').trim();
   const questionIndex = text.search(/[?？]/u);
@@ -56,10 +58,10 @@ const FAST_SYSTEM_PROMPT = [
   '五表运行卡是专业地图和边界，不是标准答案或必问清单。由你决定如何理解、承接、转向或收束。',
   '默认直接、自然地接着教师刚才的内容问下去，不采用每轮“先复述/核实—再提问”的固定格式。ASK 必须且只能有一个问号，visible_text 不超过140字。',
   '能直接问就直接问。避免“您希望……。您怎么判断……？”“您选择……。接下来……”这类先把教师原话改写一遍、再提问的两句式。可偶尔使用“嗯”“明白”等极短承接，但不得每轮重复。',
-  '面对成年专业教师，采用同行式、尊重、克制而有人情味的口吻，不幼态化、不治疗化、不居高临下。关系回应只肯定其思考、观察、取舍或经验被听见，不判定答案正确或能力优秀。',
-  '每个情境把温暖肯定控制为目标2次、最多2次。只有 frontstage_response_style.warm_affirmation_required=true 时，才在问题前用一句4—20字的具体肯定，可用“这一点说得很细致”“这个区别很有分辨”“愿意保留这种不确定性，很难得”等；肯定本轮表达、观察或区分，不评价能力、对错或人格。该字段为false时不得自行增加此类肯定。',
-  '除这两个预约轮次外，frontstage_response_style.relational_move 不为 NONE 时，可用零到一句4—20字的中性微关系回应，例如承认情境难拿捏、说明已听见其关切；随后仍只问一个问题。不得使用“很成熟、很专业、非常好、太棒了、好的起点”等宽泛表扬，不要虚构教师情绪。',
-  '关系温度来自准确承接、两次适量肯定和允许教师保留复杂性，不来自每轮表扬。普通关系承接仍遵守冷却，不能变成新模板。',
+  '面对成年专业教师，采用同行式、尊重、克制而有人情味的口吻，不幼态化、不治疗化、不居高临下。温度来自问题真正接得上和允许复杂性，不来自评价教师。',
+  '不要评价教师的表达、诚实、人格、能力或做法质量。禁止“很难得、很真实、很灵活、很细致、很有分辨、很稳、很专业”等表扬，也不要说教师“愿意坦白/承认”。',
+  'frontstage_response_style.relational_move 不为 NONE 时，可用零到一句4—20字的中性承接，例如“明白”“这里确实需要取舍”；随后仍只问一个问题。不要为了显得温暖强行加前缀。',
+  '教师提到“这是题目假设/没有完全相同经历”时，不要机械套一句确认。先判断这句话的作用：若后面已经给出判断，直接跟随其实质内容；若只是说明经验边界，才中性确认按假设情境或类似经验讨论；若认为前提不成立，开放询问哪个条件需要改写；若不愿或无法继续，降低负担、允许换角度或收束。不要立即道歉、自责或说“是我假设过头了”。教师纠正了你对其原话的理解时，才简短修正理解。以上情况都不得描述成教师的坦白、诚实或勇气。',
   '关系承接已经点出某个关切或取舍后，紧随其后的问题不要再次换词重复同一内容；直接问更具体的行动、观察、条件或理由。',
   'teacher_quote 与内部理解字段用于后台审计，不要求也不应默认复制到 visible_text。让教师感到被理解，主要靠问题确实接得上，而不是把教师的话换一种说法再说一遍。',
   '只有教师明确纠正你、原话确有两种关键理解，或误解会显著改变后续方向时，才用一句很短的理解修复；普通轮次不要习惯性以“我理解/听起来/也就是说/您的意思是/您说或您刚才说”开头。',
@@ -105,7 +107,7 @@ const SYSTEM_PROMPT = [
   '1. 让教师感到其具体处境和意思被认真理解、被尊重，并愿意继续展开；相关而自然的下一问本身就是理解，不要求每轮套用共情句或复述句。',
   '2. 默认不复述、不核实，直接提出接得上教师原话的简短问题。只有发生纠正、关键歧义或理解修复确有必要时，才用零到一句短承接；不得空泛夸奖、表演性共情、说教或替教师总结成其未表达的立场。',
   '3. 教师纠正你时先接受纠正并修订理解。出现连续短答、重复、疲劳或不愿继续时，应减轻问题负担、换成更具体的问法或收束。',
-  '4. 每个情境只在运行时预约的两个轮次使用一次具体肯定，如“这一点说得很细致”“这个区别很有分辨”“愿意保留不确定性，很难得”；它只回应当前表达，不证明能力、对错或人格。其他轮次需要温度时用“这里确实需要取舍”等中性短承接。始终禁止“很专业、非常好、好的起点、能力很强”等宽泛评分。',
+  '4. 不设置表扬次数或肯定配额。不得使用“很难得、很真实、很灵活、很细致、很有分辨、很稳、很专业”等话评价教师；需要承接时只用“明白”“这里确实需要取舍”等中性短句。',
   '5. 问题强度必须有张有弛。反事实、失败情形、例外、底线和改变立场类挑战问题每题通常不超过两次，且挑战之后至少有一个低负担轮次；低负担轮次仍可获得专业证据，但优先问真实经验、观察细节、当时过程或自由补充。',
   '6. 三次访谈不是对教师能力的穷尽测量。允许未问领域保持UNKNOWN，不为了补齐表格而步步紧逼。',
   '',
@@ -145,11 +147,33 @@ function compactProgressState(value) {
     itemId: String(state.itemId || ''),
     version: Number(state.version || 0),
     phase: String(state.phase || 'OPENING'),
-    questionLedger: (Array.isArray(state.questionLedger) ? state.questionLedger : []).slice(-12),
-    openThreads: (Array.isArray(state.openThreads) ? state.openThreads : []).slice(-12),
-    coveredCues: (Array.isArray(state.coveredCues) ? state.coveredCues : []).slice(-20),
+    questionLedger: (Array.isArray(state.questionLedger) ? state.questionLedger : []).slice(-8).map((entry) => ({
+      action: String(entry?.action || ''),
+      questionText: String(entry?.questionText || ''),
+      goalLabel: String(entry?.goalLabel || ''),
+      openThreadId: String(entry?.openThreadId || ''),
+      phase: String(entry?.phase || ''),
+      answerStatus: String(entry?.answerStatus || '')
+    })),
+    openThreads: (Array.isArray(state.openThreads) ? state.openThreads : []).slice(-4).map((thread) => ({
+      openThreadId: String(thread?.openThreadId || ''),
+      statement: String(thread?.statement || ''),
+      status: String(thread?.status || ''),
+      touchCount: Number(thread?.touchCount || 0)
+    })),
+    coveredCues: (Array.isArray(state.coveredCues) ? state.coveredCues : []).slice(-6).map((cue) => ({
+      span: String(cue?.span || ''),
+      meaning: String(cue?.meaning || ''),
+      sourceKind: String(cue?.sourceKind || ''),
+      openThreadId: String(cue?.openThreadId || '')
+    })),
     stagnation: state.stagnation && typeof state.stagnation === 'object' && !Array.isArray(state.stagnation)
-      ? state.stagnation
+      ? {
+          score: Number(state.stagnation.score || 0),
+          consecutiveSimilarGoals: Number(state.stagnation.consecutiveSimilarGoals || 0),
+          repeatedQuestionCount: Number(state.stagnation.repeatedQuestionCount || 0),
+          reasonCodes: Array.isArray(state.stagnation.reasonCodes) ? state.stagnation.reasonCodes.slice(-3) : []
+        }
       : {}
   };
 }
@@ -180,6 +204,16 @@ function acceptedAssistantQuestions(history, progressState) {
 
 function frontstageResponseStyle(teacherTurn, history, progressState = {}, options = {}) {
   const explicitRepair = EXPLICIT_REPAIR_RE.test(teacherTurn);
+  const premiseDetected = HYPOTHETICAL_PREMISE_RE.test(teacherTurn);
+  const premiseHandling = !premiseDetected
+    ? 'NONE'
+    : PREMISE_OPT_OUT_RE.test(teacherTurn)
+      ? 'OFFER_REFRAME_OR_CLOSE'
+      : PREMISE_RESISTANCE_RE.test(teacherTurn)
+        ? 'EXAMINE_PREMISE'
+        : SUBSTANTIVE_JUDGMENT_RE.test(teacherTurn)
+          ? 'FOLLOW_SUBSTANCE'
+          : 'CALIBRATE_PREMISE';
   const explicitScaffoldRequest = SCAFFOLD_REQUEST_RE.test(teacherTurn);
   const recentTeacherTurn = [...history].reverse().find((turn) => turn.role === 'teacher');
   const repeatedShortAnswers = String(teacherTurn || '').trim().length <= 12
@@ -195,29 +229,50 @@ function frontstageResponseStyle(teacherTurn, history, progressState = {}, optio
   const recentRelationalCues = recentAssistantTurns
     .filter((turn) => RELATIONAL_CUE_RE.test(turn.text.trim()) || hasVisiblePreface(turn.text)).length;
   const acceptedQuestions = acceptedAssistantQuestions(history, progressState);
-  const warmAffirmationCount = acceptedQuestions.filter((text) => hasWarmAffirmation(text)).length;
   const challengeQuestionCount = acceptedQuestions
     .filter((text) => classifyQuestionPressure(text) === 'CHALLENGE').length;
   const lastQuestionPressure = acceptedQuestions.length
     ? classifyQuestionPressure(acceptedQuestions[acceptedQuestions.length - 1])
     : 'NONE';
-  const substantiveTurn = String(teacherTurn || '').trim().length >= 16 && SUBSTANTIVE_TURN_RE.test(teacherTurn);
-  const firstWarmthDue = warmAffirmationCount === 0 && acceptedQuestions.length >= 1 && substantiveTurn;
-  const secondWarmthDue = warmAffirmationCount === 1 && acceptedQuestions.length >= 4 && substantiveTurn;
-  const warmAffirmationRequired = !explicitRepair && (firstWarmthDue || secondWarmthDue);
   const mustRelaxPressure = lastQuestionPressure === 'CHALLENGE'
-    || challengeQuestionCount >= 2
-    || warmAffirmationRequired;
+    || challengeQuestionCount >= 2;
   let relationalMove = 'NONE';
-  if (explicitRepair) relationalMove = 'REPAIR';
-  else if (warmAffirmationRequired) relationalMove = 'AFFIRM_SPECIFICITY';
+  if (premiseHandling === 'CALIBRATE_PREMISE') relationalMove = 'CALIBRATE_PREMISE';
+  else if (premiseHandling === 'EXAMINE_PREMISE') relationalMove = 'EXAMINE_PREMISE';
+  else if (premiseHandling === 'OFFER_REFRAME_OR_CLOSE') relationalMove = 'REDUCE_OR_CLOSE';
+  else if (explicitRepair) relationalMove = 'REPAIR';
   else if (recentRelationalCues === 0 && COMPLEXITY_RE.test(teacherTurn)) relationalMove = 'VALIDATE_COMPLEXITY';
   else if (recentRelationalCues === 0 && recentAssistantTurns.length >= 2 && String(teacherTurn || '').trim().length >= 28) relationalMove = 'ACKNOWLEDGE_PERSPECTIVE';
   return {
-    mode: explicitRepair ? 'REPAIR_IF_NEEDED' : 'NATURAL_CONTINUE',
-    default_visible_move: explicitRepair
-      ? '先简短接受纠正；只在必要时核对一个关键区别，然后继续'
-      : '直接提出与本轮内容相关的自然追问，不先复述或核实',
+    mode: premiseHandling === 'FOLLOW_SUBSTANCE'
+      ? 'NATURAL_CONTINUE'
+      : premiseHandling === 'NONE'
+        ? explicitRepair ? 'REPAIR_IF_NEEDED' : 'NATURAL_CONTINUE'
+        : premiseHandling,
+    premise_handling: {
+      detected: premiseDetected,
+      move: premiseHandling,
+      guidance: premiseHandling === 'FOLLOW_SUBSTANCE'
+        ? '老师已经在假设边界后给出实质判断；忽略元说明，直接承接判断中的新区别、依据或行动'
+        : premiseHandling === 'EXAMINE_PREMISE'
+          ? '开放询问哪个条件不成立或怎样改写才更接近现实，不为原题辩护'
+          : premiseHandling === 'OFFER_REFRAME_OR_CLOSE'
+            ? '不强迫想象；可降低负担、换成可回答角度，仍不愿继续时收束'
+            : premiseHandling === 'CALIBRATE_PREMISE'
+              ? '中性确认按假设情境或类似经验讨论，不道歉、不自责、不评价'
+              : '无须处理假设前提'
+    },
+    default_visible_move: premiseHandling === 'FOLLOW_SUBSTANCE'
+      ? '直接承接老师已经给出的实质判断，不再回应“这是假设”本身'
+      : premiseHandling === 'EXAMINE_PREMISE'
+        ? '把老师对前提的质疑当作信息，开放询问需要改写的条件'
+        : premiseHandling === 'OFFER_REFRAME_OR_CLOSE'
+          ? '不强迫回答；降低负担、换角度或收束'
+          : premiseHandling === 'CALIBRATE_PREMISE'
+            ? '中性确认按假设情境或类似经验讨论；不道歉、不自责、不评价'
+            : explicitRepair
+              ? '先简短接受纠正；只在必要时核对一个关键区别，然后继续'
+              : '直接提出与本轮内容相关的自然追问，不先复述或核实',
     internal_quote_is_not_visible_script: true,
     avoid_formulaic_openings: ['我理解', '听起来', '也就是说', '您的意思是', '您说', '您刚才说'],
     recent_formulaic_restatement_count: recentFormulaicRestatements,
@@ -226,14 +281,6 @@ function frontstageResponseStyle(teacherTurn, history, progressState = {}, optio
     relational_cue_budget: relationalMove === 'NONE' ? 0 : 1,
     relational_cue_max_chars: 20,
     recent_relational_cue_count: recentRelationalCues,
-    warm_affirmation_target_per_scenario: 2,
-    warm_affirmation_count: warmAffirmationCount,
-    warm_affirmations_remaining: Math.max(0, 2 - warmAffirmationCount),
-    warm_affirmation_allowed: warmAffirmationRequired,
-    warm_affirmation_required: warmAffirmationRequired,
-    warm_affirmation_guidance: warmAffirmationRequired
-      ? '先用一句4—20字、针对本轮表达的具体肯定，可用“很细致/很有分辨/很难得”；不得评价能力、对错或人格，然后提出一个较低负担的问题'
-      : '本轮不增加评价式肯定；保持自然直接',
     pressure_pacing: {
       last_question_pressure: lastQuestionPressure,
       challenge_question_count: challengeQuestionCount,
@@ -253,17 +300,19 @@ function frontstageResponseStyle(teacherTurn, history, progressState = {}, optio
         : stalled
           ? 'DIALOGUE_STAGNATION'
           : 'OPEN_FIRST',
-    scaffold_sequence: ['OPEN_QUESTION', 'CLARIFY_WORDING', 'SCAFFOLD_WITH_EXAMPLES_ONLY_IF_NEEDED'],
-    relational_guidance: relationalMove === 'REPAIR'
-      ? '简短接受教师纠正，不辩解，然后继续'
-      : relationalMove === 'AFFIRM_SPECIFICITY'
-        ? '用一句具体、克制的肯定承认本轮表达的细致或区分，随后问一个较低负担的问题'
-      : relationalMove === 'VALIDATE_COMPLEXITY'
-        ? '承认情境或取舍不容易，但不判断教师答案正确'
-        : relationalMove === 'ACKNOWLEDGE_PERSPECTIVE'
-          ? '用中性语言说明已听见其考虑或观察，不评价回答质量'
-          : '直接自然追问，不额外添加客套话',
-    prohibited_relational_moves: ['超过两次肯定', '宽泛夸奖', '对错判断', '能力判定', '虚构情绪', '连续多句安慰', '详细复述教师原话', '关系句和问题重复同一内容'],
+    relational_guidance: relationalMove === 'CALIBRATE_PREMISE'
+      ? '中性校准为假设情境或类似经验，不说抱歉，不把责任或品质放在任何一方'
+      : relationalMove === 'EXAMINE_PREMISE'
+        ? '邀请老师指出不成立的条件或提出更贴近现实的改写，不维护题目'
+        : relationalMove === 'REDUCE_OR_CLOSE'
+          ? '不强迫老师继续想象；换成更可回答的角度，或在仍不愿继续时收束'
+      : relationalMove === 'REPAIR'
+        ? '简短接受教师纠正，不辩解，然后继续'
+        : relationalMove === 'VALIDATE_COMPLEXITY'
+          ? '承认情境或取舍不容易，但不判断教师答案正确'
+          : relationalMove === 'ACKNOWLEDGE_PERSPECTIVE'
+            ? '用中性语言说明已听见其考虑或观察，不评价回答质量'
+            : '直接自然追问，不额外添加客套话',
     question_mode: String(options.questionMode || 'NORMAL')
   };
 }
@@ -281,20 +330,20 @@ function buildPromptCacheKey(input) {
 function buildPrompts(input, options = {}) {
   const phase = input.phase === 'first' ? 'first' : 'next';
   const questionMode = String(input.runtime_limits?.question_mode || 'NORMAL');
-  // 整体问题每题只出现一次，允许多带几轮历史来真正综合；普通轮次保持紧凑。
+  // 提问账本已保留全程问句，因此可见历史只带最近交互；整体问题多带几轮
+  // 用于综合，但不再重复十四轮原文。
+  const configuredHistoryTurns = Math.max(2, Number(options.maxHistoryTurns || 8));
   const maxHistoryTurns = questionMode === 'INTEGRATIVE_SYNTHESIS'
-    ? Math.max(options.maxHistoryTurns || 8, 14)
-    : (options.maxHistoryTurns || 8);
+    ? Math.min(configuredHistoryTurns, 8)
+    : Math.min(configuredHistoryTurns, 4);
   const history = normalizeHistory(input.history, maxHistoryTurns);
   const dialogueProgressState = compactProgressState(input.dialogue_progress_state);
-  const recentQuestions = uniqueRecentQuestions(history, dialogueProgressState, 5);
+  const recentQuestions = uniqueRecentQuestions(history, dialogueProgressState, 4);
   const teacherTurn = phase === 'next' ? String(input.teacher_turn || '').trim() : '';
   const responseStyle = frontstageResponseStyle(teacherTurn, history, dialogueProgressState, { questionMode });
   const payload = {
     phase,
-    session_id: input.session_id || '',
     item_id: input.item_id || '',
-    teacher_context: input.teacher_context || {},
     evidence_summary: input.evidence_summary || {},
     dialogue_progress_state: dialogueProgressState,
     interview_utility_state: input.interview_utility_state || {},
@@ -309,7 +358,7 @@ function buildPrompts(input, options = {}) {
     ? '这是首问。先用题目、教师排序与编译卡形成内部理解，选择最能打开教师真实判断的一处进入；不要声称教师已说过任何话。'
     : questionMode === 'INTEGRATIVE_SYNTHESIS'
       ? '这是本题最后一个新问题。综合完整可见历史、教师自己的具体证据、尚未澄清的关键区别与情境目标，优先选择一个能显示其整体判断、条件权衡、边界意识或调整依据的问题。用教师当前的语言自然地直接问，不先展示总结，不多问合一，不拔高成抽象理论，不暗示标准答案。教师回答后程序将收尾。'
-      : '这是后续轮。先在内部准确理解当前教师原话，再结合历史、Evidence 摘要和编译卡决定是深化、转向、必要的澄清还是结束。默认直接自然追问，不把内部理解写成每轮固定的复述核实。严格执行 frontstage_response_style 中的两次肯定预算和 pressure_pacing：预约肯定轮次要有一句具体肯定；RELAX 轮次不得继续挑战。若两者都未预约，就直接自然提问。';
+      : '这是后续轮。先在内部准确理解当前教师原话，再结合历史、Evidence 摘要和编译卡决定是深化、转向、必要的澄清还是结束。默认直接自然追问，不把内部理解写成每轮固定的复述核实，也不评价教师。严格执行 pressure_pacing：RELAX 轮次不得继续挑战。';
 
   return {
     system: `${FAST_SYSTEM_PROMPT}\n\n【本题轻量运行卡】\n${JSON.stringify(input.compiled_card)}`,

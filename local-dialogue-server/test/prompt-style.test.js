@@ -25,6 +25,40 @@ test('explicit teacher correction allows a brief repair without making repair th
   assert.equal(style.internal_quote_is_not_visible_script, true);
 });
 
+test('a bare hypothetical boundary is calibrated neutrally rather than praised or apologized for', () => {
+  const style = frontstageResponseStyle('这是题目假设的情境，我没有遇到过完全相同的经历。', []);
+  assert.equal(style.mode, 'CALIBRATE_PREMISE');
+  assert.equal(style.relational_move, 'CALIBRATE_PREMISE');
+  assert.match(style.relational_guidance, /中性校准/);
+  assert.doesNotMatch(style.relational_guidance, /坦白|诚实|很真实/u);
+  assert.match(style.default_visible_move, /不道歉、不自责/);
+});
+
+test('a hypothetical caveat followed by a substantive answer is followed directly', () => {
+  const style = frontstageResponseStyle(
+    '这是题目假设的情境，我没有遇到过完全相同的经历。类似情况下，我会先观察孩子是在偏离计划，还是发展出了新的玩法。',
+    []
+  );
+  assert.equal(style.mode, 'NATURAL_CONTINUE');
+  assert.equal(style.premise_handling.move, 'FOLLOW_SUBSTANCE');
+  assert.equal(style.relational_move, 'NONE');
+  assert.match(style.default_visible_move, /直接承接.*实质判断/);
+});
+
+test('an unrealistic premise is opened for revision instead of defended', () => {
+  const style = frontstageResponseStyle('这是题目假设，但现实中不会出现这种情况，整个前提不成立。', []);
+  assert.equal(style.mode, 'EXAMINE_PREMISE');
+  assert.equal(style.relational_move, 'EXAMINE_PREMISE');
+  assert.match(style.premise_handling.guidance, /哪个条件不成立|怎样改写/);
+});
+
+test('a teacher may decline hypothetical discussion without being forced to invent experience', () => {
+  const style = frontstageResponseStyle('这是题目假设，我没法按这个假设回答，也不想继续讨论。', []);
+  assert.equal(style.mode, 'OFFER_REFRAME_OR_CLOSE');
+  assert.equal(style.relational_move, 'REDUCE_OR_CLOSE');
+  assert.match(style.premise_handling.guidance, /不强迫想象/);
+});
+
 test('a substantive tension invites one brief relational microcue', () => {
   const style = frontstageResponseStyle('不能伤害幼儿游戏的兴趣，但是教育也要有秩序。', []);
   assert.equal(style.relational_move, 'VALIDATE_COMPLEXITY');
@@ -41,43 +75,33 @@ test('relational microcues have a cooldown and do not become a new template', ()
   assert.equal(style.relational_cue_budget, 0);
 });
 
-test('the first substantive answer schedules one specific affirmation rather than generic praise', () => {
+test('a substantive answer never schedules evaluative praise', () => {
   const style = frontstageResponseStyle('我会根据她平时的兴趣和能力，再决定是否继续提供材料。', [
-    { role: 'assistant', text: '这个取舍确实不容易。您最先会看什么？' },
+    { role: 'assistant', text: '您最先会看什么？' },
     { role: 'assistant', text: '什么变化会让您调整做法？' }
   ]);
-  assert.equal(style.relational_move, 'AFFIRM_SPECIFICITY');
-  assert.equal(style.relational_cue_budget, 1);
-  assert.equal(style.warm_affirmation_required, true);
-  assert.equal(style.warm_affirmation_count, 0);
+  assert.equal(style.relational_move, 'NONE');
+  assert.equal(style.relational_cue_budget, 0);
+  assert.equal(style.warm_affirmation_required, undefined);
+  assert.equal(style.warm_affirmation_allowed, undefined);
   assert.equal(style.support_level, 'OPEN_FIRST');
 });
 
-test('controlled warmth is scheduled twice per scenario and then exhausted', () => {
+test('old praise in history does not create a new warmth quota', () => {
   const questionLedger = [
     { action: 'ASK', questionText: '您在现场会先做什么？' },
     { action: 'ASK', questionText: '这个观察说得很细致。您当时最先留意什么？' },
     { action: 'ASK', questionText: '您平时通常会怎样继续观察？' },
     { action: 'ASK', questionText: '从您的经验看，哪些表现最值得留意？' }
   ];
-  const second = frontstageResponseStyle(
+  const style = frontstageResponseStyle(
     '我会根据孩子后面的表现，再调整支持的程度。',
     [],
     { questionLedger }
   );
-  assert.equal(second.warm_affirmation_count, 1);
-  assert.equal(second.warm_affirmation_required, true);
-  assert.equal(second.warm_affirmations_remaining, 1);
-
-  questionLedger.push({ action: 'ASK', questionText: '这个区别很有分辨。回到当时，您还注意到了什么？' });
-  const exhausted = frontstageResponseStyle(
-    '我会根据孩子后面的表现，再调整支持的程度。',
-    [],
-    { questionLedger }
-  );
-  assert.equal(exhausted.warm_affirmation_count, 2);
-  assert.equal(exhausted.warm_affirmation_required, false);
-  assert.equal(exhausted.warm_affirmations_remaining, 0);
+  assert.equal(style.warm_affirmation_count, undefined);
+  assert.equal(style.warm_affirmation_required, undefined);
+  assert.equal(style.warm_affirmation_allowed, undefined);
 });
 
 test('a challenge question forces a lower-pressure relief turn and challenges are capped', () => {
@@ -148,7 +172,7 @@ test('integrative mode asks one final scenario-grounded synthesis question', () 
   assert.match(prompts.user, /最后一个新问题/);
   assert.match(prompts.user, /不先展示总结/);
   assert.match(prompts.system, /最能区分能力表现/);
-  assert.equal(prompts.history.length, 14);
-  assert.equal(prompts.history[0].text, '第3轮问题？');
+  assert.equal(prompts.history.length, 8);
+  assert.equal(prompts.history[0].text, '第9轮问题？');
   assert.match(prompts.user, /整体判断、条件权衡、边界意识或调整依据/);
 });

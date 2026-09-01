@@ -17,7 +17,7 @@ const {
   normalizeDialogueGrounding,
   normalizeNaturalQuestionOutput,
   normalizeBroadPraisePrefix,
-  normalizeScheduledWarmth,
+  normalizeMisplacedApologyPrefix,
   assessQuestionQuality,
   collectDialoguePolicyIndex
 } = require('./schema');
@@ -75,7 +75,7 @@ function validateProviderLock(input, provider) {
   }
 }
 
-function questionCorrectionUser(originalUser, rejectedOutput, history, validation, generationAttempt = 1) {
+function questionCorrectionUser(originalUser, rejectedOutput, history, validation, generationAttempt = 1, maxGenerationAttempts = 2) {
   const rejectedQuestion = String(rejectedOutput && rejectedOutput.visible_text || '').trim();
   const recentQuestions = recentAssistantQuestions(history, 5);
   const integrativeCorrection = (validation?.errors || []).some((error) => /integrative_question_lacks_global_judgment/.test(error))
@@ -95,10 +95,10 @@ function questionCorrectionUser(originalUser, rejectedOutput, history, validatio
     '4. action=ASK 时仍只能有一个问题。',
     '5. 不要先改写教师刚才的意思再提问；能直接问就直接问。',
     '6. 可以有一句很短的关系承接，但不能只靠更换“明白/确实”等开头掩盖同一个问题。',
-    '7. 不要用“很难得、很细致、很有分辨、很生动、很实际、很成熟、很到位、好的起点”等话给教师的回答打分。',
+    '7. 不要用“很难得、很真实、很灵活、很细致、很有分辨、很稳、很专业”等话给教师的回答打分，也不要把教师的纠正说成“愿意坦白/承认”。指出假设情境时中性校准，不要说“抱歉/对不起/是我理解错了/是我假设过头了”。',
     '8. 先让教师自己提出原因、类别或标准；除非教师明确要求解释，不要在问句里先列“比如……”或“是A还是B”。',
     integrativeCorrection,
-    generationAttempt >= 2 ? '10. 这是最后一次自动恢复；若没有新的安全问题，请 action=CLOSE，用简短、温和、无问号的陈述收束。' : ''
+    generationAttempt >= maxGenerationAttempts - 1 ? '10. 下一候选是最后一次自动恢复；若没有新的安全问题，请 action=CLOSE，用简短、中性、无问号的陈述收束。' : ''
   ].join('\n');
 }
 
@@ -123,6 +123,11 @@ function createDialogueAgent(options = {}) {
   const evidenceReasoningEffort = String(options.evidenceReasoningEffort || env.TCIM_EVIDENCE_REASONING_EFFORT || 'medium');
   const fastMaxOutputTokens = positiveInt(options.fastMaxOutputTokens || env.TCIM_DIALOGUE_FAST_MAX_OUTPUT_TOKENS, 500);
   const evidenceMaxOutputTokens = positiveInt(options.evidenceMaxOutputTokens || env.TCIM_EVIDENCE_MAX_OUTPUT_TOKENS, 1600);
+  // 单轮最多两次上游调用，避免一个不合格问句把可见等待放大到三倍。
+  const maxGenerationAttempts = Math.min(2, positiveInt(
+    options.maxGenerationAttempts || env.TCIM_DIALOGUE_MAX_GENERATION_ATTEMPTS,
+    2
+  ));
 
   function assertProvider(provider) {
     if (!provider || typeof provider !== 'object' || typeof provider.generate !== 'function') {
@@ -218,6 +223,7 @@ function createDialogueAgent(options = {}) {
       const input = validateInput(rawInput, forcedPhase);
       validateProviderLock(input, provider);
       const prompts = buildPrompts(input, { maxHistoryTurns });
+      const allowVisibleRepair = prompts.responseStyle?.mode !== 'NATURAL_CONTINUE';
       const controller = new AbortController();
       const externalSignal = runOptions.signal;
       let abortedByClient = Boolean(externalSignal && externalSignal.aborted);
@@ -239,9 +245,9 @@ function createDialogueAgent(options = {}) {
         let generated;
         let validated;
         let userPrompt = prompts.user;
-        // 可见问句或结构化字段未通过时，给模型有界的自动恢复机会。第三个候选
-        // 仍失败才暂停，避免一次偶发格式偏差中断整场，同时防止无界重试。
-        for (let generationAttempt = 1; generationAttempt <= 3; generationAttempt += 1) {
+        // 可见问句或结构化字段未通过时只允许一次自动恢复；第二个候选仍失败
+        // 就暂停，避免一次问题把教师的可见等待放大到三倍。
+        for (let generationAttempt = 1; generationAttempt <= maxGenerationAttempts; generationAttempt += 1) {
           generated = await provider.generate({
             system: prompts.system,
             user: userPrompt,
@@ -275,28 +281,24 @@ function createDialogueAgent(options = {}) {
           });
           const naturalized = normalizeNaturalQuestionOutput(generated.output, {
             phase: prompts.phase,
-            allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED'
+            allowVisibleRepair
           });
           generated.output = naturalized.value;
           if (naturalized.adjusted) styleAdjustments.push({
             type: 'REMOVED_FORMULAIC_RESTATEMENT_PREFIX',
             removed_prefix: naturalized.removedPrefix
           });
+          const deApologized = normalizeMisplacedApologyPrefix(generated.output);
+          generated.output = deApologized.value;
+          if (deApologized.adjusted) styleAdjustments.push({
+            type: 'REMOVED_MISPLACED_APOLOGY_PREFIX',
+            removed_prefix: deApologized.removedPrefix
+          });
           const dePraised = normalizeBroadPraisePrefix(generated.output);
           generated.output = dePraised.value;
           if (dePraised.adjusted) styleAdjustments.push({
             type: 'REMOVED_BROAD_PRAISE_PREFIX',
             removed_prefix: dePraised.removedPrefix
-          });
-          const warmed = normalizeScheduledWarmth(generated.output, {
-            required: Boolean(prompts.responseStyle?.warm_affirmation_required),
-            teacherTurn: prompts.teacherTurn,
-            warmAffirmationCount: Number(prompts.responseStyle?.warm_affirmation_count || 0)
-          });
-          generated.output = warmed.value;
-          if (warmed.adjusted) styleAdjustments.push({
-            type: 'ADDED_SCHEDULED_WARM_AFFIRMATION',
-            added_prefix: warmed.addedPrefix
           });
           const knownDialoguePolicies = collectDialoguePolicyIndex(input.compiled_card).all;
           generated.output.direction.consulted_policy_ids = generated.output.direction.consulted_policy_ids
@@ -307,7 +309,7 @@ function createDialogueAgent(options = {}) {
             history: prompts.repetitionHistory,
             compiledCard: input.compiled_card,
             maxQuestionChars,
-            allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED',
+            allowVisibleRepair,
             allowScaffoldedOptions: prompts.responseStyle?.support_level === 'SCAFFOLD_ALLOWED',
             questionMode: prompts.questionMode,
             relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE',
@@ -316,8 +318,15 @@ function createDialogueAgent(options = {}) {
             mustRelaxPressure: Boolean(prompts.responseStyle?.pressure_pacing?.must_relax)
           });
           if (validated.ok) break;
-          if (generationAttempt < 3) {
-            userPrompt = questionCorrectionUser(prompts.user, generated.output, prompts.repetitionHistory, validated, generationAttempt);
+          if (generationAttempt < maxGenerationAttempts) {
+            userPrompt = questionCorrectionUser(
+              prompts.user,
+              generated.output,
+              prompts.repetitionHistory,
+              validated,
+              generationAttempt,
+              maxGenerationAttempts
+            );
             continue;
           }
           break;
@@ -341,7 +350,7 @@ function createDialogueAgent(options = {}) {
           teacherTurn: prompts.teacherTurn,
           history: prompts.repetitionHistory,
           maxQuestionChars,
-          allowVisibleRepair: prompts.responseStyle?.mode === 'REPAIR_IF_NEEDED',
+          allowVisibleRepair,
           allowScaffoldedOptions: prompts.responseStyle?.support_level === 'SCAFFOLD_ALLOWED',
           questionMode: prompts.questionMode,
           relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE',
@@ -382,6 +391,7 @@ function createDialogueAgent(options = {}) {
             relational_microcue_observed: Boolean(qualitySignals.relationalMicrocueObserved),
             relational_cue_prefix: qualitySignals.relationalCuePrefix || '',
             generation_attempts: attempts.length,
+            max_generation_attempts: maxGenerationAttempts,
             visible_style_adjusted: styleAdjustments.length > 0,
             style_adjustments: styleAdjustments,
             question_quality: qualitySignals,

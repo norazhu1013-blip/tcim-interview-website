@@ -242,13 +242,18 @@ function createBuiltInMockProvider() {
     ready: true,
     async generate({ phase, itemId, history, teacherTurn, dialogueProgressState }) {
       const first = phase === 'first';
-      const priorAssistantQuestions = (Array.isArray(history) ? history : [])
+      const assistantQuestionTexts = (Array.isArray(history) ? history : [])
         .filter((turn) => turn && ['assistant', 'ai', 'agent'].includes(turn.role) && /[?？]/.test(String(turn.text || turn.content || '')))
-        .length;
+        .map((turn) => String(turn.text || turn.content || '').trim());
+      const priorAssistantQuestions = assistantQuestionTexts.length;
+      const inferredNextStage = assistantQuestionTexts.reduce((highest, question) => {
+        const matchedStage = MOCK_QUESTION_STAGES.findIndex((choices) => choices.includes(question));
+        return matchedStage < 0 ? highest : Math.max(highest, matchedStage + 1);
+      }, 0);
       const ledgerQuestions = (Array.isArray(dialogueProgressState && dialogueProgressState.questionLedger)
         ? dialogueProgressState.questionLedger
         : []).filter((entry) => entry && entry.action === 'ASK').length;
-      const stage = first ? 0 : Math.max(1, priorAssistantQuestions, ledgerQuestions);
+      const stage = first ? 0 : Math.max(1, priorAssistantQuestions, ledgerQuestions, inferredNextStage);
       const shouldClose = stage >= MOCK_QUESTION_STAGES.length;
       const itemSeed = mockItemSeed(itemId);
       const choices = shouldClose ? null : MOCK_QUESTION_STAGES[stage];
