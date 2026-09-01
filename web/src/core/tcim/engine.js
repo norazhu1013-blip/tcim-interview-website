@@ -465,11 +465,14 @@ function countQuestionMarks(text) {
  * Constraint Checker：对 Generator 产出的教师可见问题做硬约束检查。
  * 返回 { ok, issues[] }。不改变专业行动；只要求重写。
  */
-export function checkConstraints(question, actionPlan, askedHistory) {
+export function checkConstraints(question, actionPlan, askedHistory, allowedPreset) {
   const issues = []
   const q = String(question || '').trim()
   if (!q) issues.push('empty_question')
-  if (countQuestionMarks(q) > 1) issues.push('multi_question')
+  // 研究团队表4 预设的「区分性双问法」是专业措辞（如 Q2-S3 “…分别意味着什么？您会怎么区分？”），
+  // 是数据源给的合法模板；对其放行多问号，避免误判为 multi_question。普通生成/兜底问句不在此列。
+  const isAllowedPreset = allowedPreset && allowedPreset.has(String(q).replace(/\s+/g, ''))
+  if (countQuestionMarks(q) > 1 && !isAllowedPreset) issues.push('multi_question')
   if (q.length > 120) issues.push('too_long')
   for (const p of LEAK_PATTERNS) if (p.test(q)) issues.push('leak_internal:' + p.source)
   for (const p of EVALUATIVE_PATTERNS) if (p.test(q)) issues.push('evaluative:' + p.source)
@@ -754,7 +757,12 @@ export async function processTeacherTurn(session, teacherTurn) {
   // A08 Generator 是唯一教师可见文本点；PRDM(prdm) 只提供互动参数，不做措辞改写。
   const genText = gen.question || ''
   const priorQuestions = session.history.filter((h) => h.role === 'ai').map((h) => h.text)
-  const checked = checkConstraints(genText, actionPlan, priorQuestions)
+  // 研究团队表4 预设「区分性双问法」模板白名单：命中则不判 multi_question
+  const allowedPreset = new Set()
+  for (const pr of ((TCIM_DATA.items[session.itemId] && TCIM_DATA.items[session.itemId].probe && TCIM_DATA.items[session.itemId].probe.probes) || [])) {
+    for (const q of [pr.typical_question, pr.followup_question]) if (q) allowedPreset.add(String(q).replace(/\s+/g, ''))
+  }
+  const checked = checkConstraints(genText, actionPlan, priorQuestions, allowedPreset)
   let finalQuestion = genText
   let constraintResult = checked.ok ? 'pass' : 'rewritten'
   if (!checked.ok) {

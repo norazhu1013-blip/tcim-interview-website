@@ -8,7 +8,7 @@
  *   - 首问来自表4 的「典型非诱导问法」（若存在），不泄露标准答案。
  *   - 无 LLM 依赖（纯前端确定性）。
  */
-import { initTcisSession, processTeacherTurn, tcimData } from './engine.js'
+import { initTcisSession, processTeacherTurn, tcimData, checkConstraints } from './engine.js'
 
 const SAMPLE_ANSWERS = [
   '我会先看看地面湿不滑，篮球架附近有没有别的孩子，水桶会不会把设备弄坏。如果只是少量接水，我会让他们再玩一会儿。',
@@ -203,6 +203,29 @@ for (const [itemId, answer] of Object.entries(tcimData.items)) {
       failures += 1
     } else {
       console.log('✓ 修复能力不误判正常回答')
+    }
+  }
+
+  // 1) multi-question 误判修复：研究团队表4「区分性双问法」是合法措辞，不该被拦截
+  {
+    const DOUBLE = '这种反复求助可能分别意味着什么？您会怎么区分？' // Q2-S3 typical，2 问号
+    const allowed = new Set([DOUBLE.replace(/\s+/g, '')])
+    let c = checkConstraints(DOUBLE, {}, [], allowed)
+    total += 1
+    if (!c.ok || c.issues.includes('multi_question')) {
+      console.error('✗ 表4双问法被误判: ' + JSON.stringify(c.issues))
+      failures += 1
+    } else {
+      console.log('✓ 表4双问法放行（Q2-S3 专业措辞）')
+    }
+    // 普通双问（非预设）仍应拦
+    let c2 = checkConstraints('您会先看什么？然后再做什么？', {}, [], allowed)
+    total += 1
+    if (c2.ok || !c2.issues.includes('multi_question')) {
+      console.error('✗ 普通双问未拦截')
+      failures += 1
+    } else {
+      console.log('✓ 普通双问仍拦截')
     }
   }
 

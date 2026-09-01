@@ -22,7 +22,9 @@ exports.main = async (event) => {
   if (!sessionId) return { ok: false, error: 'missing_sessionId' };
   try {
     const now = Date.now();
+    const eventUuid = String(event.event_uuid || '').trim();
     const data = {
+      event_uuid: eventUuid,
       openid: actor.id,
       identityType: actor.identityType,
       sessionId: sessionId,
@@ -46,10 +48,20 @@ exports.main = async (event) => {
     if (event.selection && typeof event.selection === 'object') {
       data.selection = event.selection;
     }
-    const existing = await db.collection(COLL).where({ sessionId: sessionId }).limit(1).get();
-    if (existing.data && existing.data.length) {
-      const id = existing.data[0]._id;
-      if (existing.data[0].openid !== actor.id) return { ok: false, error: 'forbidden' };
+    // 事件级幂等：优先按 event_uuid 查重——同一事件(可重试)命中已有记录则更新、不新增，
+    // 避免"一次答题被重复写入成对记录"。无 event_uuid(老端)退回按 sessionId upsert。
+    let existing = null
+    if (eventUuid) {
+      const hit = await db.collection(COLL).where({ event_uuid: eventUuid }).limit(1).get();
+      existing = (hit.data && hit.data.length) ? hit.data[0] : null
+    }
+    if (!existing) {
+      const hit = await db.collection(COLL).where({ sessionId: sessionId }).limit(1).get();
+      existing = (hit.data && hit.data.length) ? hit.data[0] : null
+    }
+    if (existing) {
+      const id = existing._id;
+      if (existing.openid !== actor.id) return { ok: false, error: 'forbidden' };
       await db.collection(COLL).doc(id).update({ data: data });
       return { ok: true, id: id };
     }

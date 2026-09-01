@@ -6967,11 +6967,12 @@ var EVALUATIVE_PATTERNS = [
 function countQuestionMarks(text) {
   return (String(text).match(/[？?]/g) || []).length;
 }
-function checkConstraints(question, actionPlan, askedHistory) {
+function checkConstraints(question, actionPlan, askedHistory, allowedPreset) {
   const issues = [];
   const q = String(question || "").trim();
   if (!q) issues.push("empty_question");
-  if (countQuestionMarks(q) > 1) issues.push("multi_question");
+  const isAllowedPreset = allowedPreset && allowedPreset.has(String(q).replace(/\s+/g, ""));
+  if (countQuestionMarks(q) > 1 && !isAllowedPreset) issues.push("multi_question");
   if (q.length > 120) issues.push("too_long");
   for (const p of LEAK_PATTERNS) if (p.test(q)) issues.push("leak_internal:" + p.source);
   for (const p of EVALUATIVE_PATTERNS) if (p.test(q)) issues.push("evaluative:" + p.source);
@@ -7202,7 +7203,11 @@ async function processTeacherTurn(session, teacherTurn) {
   }
   const genText = gen.question || "";
   const priorQuestions = session.history.filter((h) => h.role === "ai").map((h) => h.text);
-  const checked = checkConstraints(genText, actionPlan, priorQuestions);
+  const allowedPreset = /* @__PURE__ */ new Set();
+  for (const pr of TCIM_DATA.items[session.itemId] && TCIM_DATA.items[session.itemId].probe && TCIM_DATA.items[session.itemId].probe.probes || []) {
+    for (const q of [pr.typical_question, pr.followup_question]) if (q) allowedPreset.add(String(q).replace(/\s+/g, ""));
+  }
+  const checked = checkConstraints(genText, actionPlan, priorQuestions, allowedPreset);
   let finalQuestion = genText;
   let constraintResult = checked.ok ? "pass" : "rewritten";
   if (!checked.ok) {

@@ -4,12 +4,17 @@ export const whoami = () => callGateway('whoami')
 
 export const exportData = (format = 'xlsx') => callGateway('exportData', { format })
 
-export const reportProfile = (profile) => callGateway('reportTeacher', { profile })
+export const reportProfile = (profile) => callGateway('reportTeacher', {
+  profile,
+  event_uuid: profile?.sessionId ? `profile:${profile.sessionId}:${profile.updatedAt || Date.now()}` : ''
+})
 
 export function reportExam(session, profile) {
   const answers = session.answers || {}
   return callGateway('reportSession', {
     sessionId: session.sessionId,
+    // 事件级唯一 id：一次答题可重试多次仍指向同一条，服务端据此去重（防成对重复写入）
+    event_uuid: `${session.sessionId}:exam:${session.submitStatus || 'submitted'}`,
     profile,
     answers,
     scores: session.scores || null,
@@ -61,6 +66,8 @@ export function reportInterview(session) {
   )
   const payload = {
     sessionId: session.sessionId,
+    // 事件级唯一 id：最后一次完整访谈上报的事件标识,服务端据此去重(防成对重复写入)
+    event_uuid: `${session.sessionId}:interview:${session.reportRevision || 0}`,
     studyMode: session.studyMode || 'full_assessment',
     targetItemId: session.targetItemId || null,
     transcripts,

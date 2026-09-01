@@ -21,7 +21,7 @@ exports.main = async (event) => {
   if (!actor.id) return { ok: false, error: 'missing_identity' };
   try {
     const now = Date.now();
-    const payload = { openid: actor.id, identityType: actor.identityType, profile: event.profile || null, updatedAt: now };
+    const payload = { openid: actor.id, identityType: actor.identityType, profile: event.profile || null, updatedAt: now, event_uuid: String(event.event_uuid || '').trim() };
     const existing = await db.collection(COLL).where({ openid: actor.id }).limit(1).get();
     if (existing.data && existing.data.length) {
       const rec = existing.data[0];

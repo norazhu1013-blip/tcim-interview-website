@@ -26,10 +26,12 @@ exports.main = async (event) => {
     const now = Date.now();
     // 乱序保护：客户端每次上报自增 reportRevision；旧 revision 晚到即拒绝覆盖。
     const incomingRevision = Number(event.revision || 0);
+    const eventUuid = String(event.event_uuid || '').trim();
     const data = {
       openid: actor.id,
       identityType: actor.identityType,
       sessionId: sessionId,
+      event_uuid: eventUuid,
       studyMode: event.studyMode === 'single_trial' ? 'single_trial' : 'full_assessment',
       targetItemId: event.studyMode === 'single_trial' && event.targetItemId === 'Q4' ? 'Q4' : null,
       transcripts: event.transcripts || null,
@@ -42,14 +44,23 @@ exports.main = async (event) => {
     const payloadHash = crypto.createHash('sha256')
       .update(JSON.stringify({ sessionId, studyMode: data.studyMode, targetItemId: data.targetItemId, transcripts: data.transcripts, feedback: event.feedback || null }))
       .digest('hex');
-    const existing = await db.collection(COLL).where({ sessionId: sessionId }).limit(1).get();
-    if (existing.data && existing.data.length) {
-      const id = existing.data[0]._id;
-      if (existing.data[0].openid !== actor.id) return { ok: false, error: 'forbidden' };
-      const storedRevision = Number(existing.data[0].reportRevision || 0);
+    // 事件级幂等：优先按 event_uuid 查重,命中则更新该条(不新增),防"同一事件重复写入成对记录"。
+    let existingRows = null
+    if (eventUuid) {
+      const hit = await db.collection(COLL).where({ event_uuid: eventUuid }).limit(1).get();
+      existingRows = hit.data && hit.data.length ? hit.data : null
+    }
+    if (!existingRows) {
+      const hit = await db.collection(COLL).where({ sessionId: sessionId }).limit(1).get();
+      existingRows = hit.data && hit.data.length ? hit.data : null
+    }
+    if (existingRows && existingRows.length) {
+      const id = existingRows[0]._id;
+      if (existingRows[0].openid !== actor.id) return { ok: false, error: 'forbidden' };
+      const storedRevision = Number(existingRows[0].reportRevision || 0);
       if (Number.isFinite(incomingRevision) && incomingRevision > 0 && incomingRevision < storedRevision) {
         // 旧一轮晚到 → 拒绝覆盖,幂等返回现有回执
-        return { ok: true, id, staleRejected: true, serverUpdatedAt: existing.data[0].updatedAt || now, payloadHash: existing.data[0].payloadHash || payloadHash };
+        return { ok: true, id, staleRejected: true, serverUpdatedAt: existingRows[0].updatedAt || now, payloadHash: existingRows[0].payloadHash || payloadHash };
       }
       await db.collection(COLL).doc(id).update({ data: data });
       return { ok: true, id: id, serverRecordId: id, serverUpdatedAt: now, payloadHash };
