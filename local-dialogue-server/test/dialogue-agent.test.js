@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { InputError, createDialogueAgent } = require('../src/dialogue-agent');
 const { ProviderError } = require('../src/providers');
 const { PROMPT_VERSION } = require('../src/prompts');
-const { questionSimilarity, formulaicRestatementPrefix, relationalMicrocuePrefix } = require('../src/schema');
+const { questionSimilarity, formulaicRestatementPrefix, relationalMicrocuePrefix, classifyQuestionPressure } = require('../src/schema');
 const { validOutput, compiledCard } = require('./fixtures');
 
 test('foreground question and background evidence use separate compact model calls', async () => {
@@ -164,10 +164,23 @@ test('observed r1 restatement patterns are recognized while a direct question is
     '您选择先讲解、再示范引导。您希望孩子具体学到什么？',
     '您希望孩子理解规则的重要性。您怎么判断他们是真的理解？',
     '您说要继续观察。接下来会重点看哪些表现？',
+    '刚才您说会先观察他们的意图。接下来会重点看哪些表现？',
+    '您说会从游戏主题里自然引出动作——能说说您曾经怎么引过吗？',
     '您会看他们是否围绕一个目标轮流下。如果他们自定玩法，您会怎样看？',
     '您觉得他们自定玩法就更高级了。这个判断来自哪些平时观察？'
   ]) assert.ok(formulaicRestatementPrefix(text), text);
   assert.equal(formulaicRestatementPrefix('您会看到什么变化，才决定从等待转为靠近？'), null);
+});
+
+test('a neutral conditional follow-up is not misclassified as a challenge', () => {
+  assert.equal(
+    classifyQuestionPressure('如果您判断他们是在探索水流，接下来会怎样支持这个玩法？'),
+    'NEUTRAL'
+  );
+  assert.equal(
+    classifyQuestionPressure('如果孩子还是拒绝参与，您会怎么办？'),
+    'CHALLENGE'
+  );
 });
 
 test('follow-up audit quote is deterministically repaired from the current teacher turn', async () => {
@@ -439,6 +452,44 @@ test('AI may not supply answer categories before an open elicitation', async () 
   assert.equal(result.trace.question_quality.openBeforeScaffold, true);
 });
 
+test('one question mark may not hide two competing question intents', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: calls === 1
+          ? '您会怎样判断要不要介入，还是会看哪些迹象？'
+          : '哪些迹象会让您决定介入？',
+        understanding: { teacher_quote: '我会继续观察', meaning: '教师继续观察', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(), teacher_turn: '我会继续观察孩子的变化。'
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.visible_text, '哪些迹象会让您决定介入？');
+});
+
+test('evaluative praise in a closing is replaced with a neutral closing', async () => {
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => ({ output: validOutput({
+      action: 'CLOSE',
+      visible_text: '您的做法已经说得很完整。谢谢您，这个问题就到这里。',
+      completion_recommendation: { recommended: true, reason: '教师表示不再补充' },
+      understanding: { teacher_quote: '没有其他需要补充', meaning: '教师希望结束', confidence: 'HIGH' }
+    }) })
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(), teacher_turn: '没有其他需要补充了。'
+  });
+  assert.equal(result.visible_text, '谢谢您的分享，本情境访谈先到这里。');
+  assert.ok(result.trace.style_adjustments.some((entry) => entry.type === 'REMOVED_BROAD_PRAISE_PREFIX'));
+});
+
 test('integrative mode rejects a local branch and requires an overall judgment question', async () => {
   let calls = 0;
   const provider = {
@@ -462,6 +513,29 @@ test('integrative mode rejects a local branch and requires an overall judgment q
   });
   assert.equal(calls, 2);
   assert.equal(result.trace.question_mode, 'INTEGRATIVE_SYNTHESIS');
+  assert.equal(result.trace.question_quality.integrativeEnough, true);
+});
+
+test('integrative mode uses a safe wrap-up question instead of pausing after two weak candidates', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: '接下来您会先提供哪一种材料？',
+        understanding: { teacher_quote: '我会继续支持', meaning: '教师准备继续支持', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(), teacher_turn: '我会继续支持孩子的探索。',
+    runtime_limits: { question_mode: 'INTEGRATIVE_SYNTHESIS' }
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.visible_text, '回到这个情境，整体来看，您会依据哪些信号，判断何时继续观察、何时介入或调整支持？');
+  assert.equal(result.trace.visible_style_adjusted, true);
+  assert.ok(result.trace.style_adjustments.some((entry) => entry.type === 'USED_INTEGRATIVE_WRAP_UP_FALLBACK'));
   assert.equal(result.trace.question_quality.integrativeEnough, true);
 });
 

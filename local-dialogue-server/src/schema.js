@@ -130,21 +130,25 @@ const EVALUATIVE_PRAISE_ERROR = 'evaluative_praise_before_question';
 const MISPLACED_APOLOGY_ERROR = 'misplaced_apology_before_question';
 const WARM_AFFIRMATION_BUDGET_ERROR = 'warm_affirmation_outside_budget';
 const AI_SUPPLIED_OPTIONS_ERROR = 'ai_supplied_answer_options_before_open_elicitation';
+const MULTI_INTENT_QUESTION_ERROR = 'multiple_question_intents';
 const INTEGRATIVE_QUALITY_ERROR = 'integrative_question_lacks_global_judgment';
 const RELATIONAL_CUE_BUDGET_ERROR = 'relational_microcue_outside_budget';
 const CONSECUTIVE_CHALLENGE_ERROR = 'challenge_question_without_relief_turn';
 const LEADING_CONFIRMATION_RE = /(您|你)(是不是也|是否也|同意|也认为|也觉得).{0,30}[?？]|(这样|这么做|我说的).{0,16}(对吗|好吗|是吗)[?？]|(正确做法|更好的做法|应该就是).{0,30}[?？]/i;
-const FORMULAIC_RESTATEMENT_OPENING_RE = /^(?:(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到))|(?:明白|好的|嗯|原来如此)[，,]\s*您|您(?:一下就|选择|希望|说要|会看|觉得|从|认为|想把|要先|是根据))/u;
+const FORMULAIC_RESTATEMENT_OPENING_RE = /^(?:(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到)|刚才您(?:说|提到))|(?:明白|好的|嗯|原来如此)[，,]\s*您|您(?:一下就|选择|希望|说要|会看|觉得|从|认为|想把|要先|是根据))/u;
 const RELATIONAL_MICROCUE_OPENING_RE = /^(?:(?:嗯|明白|确实|这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在|不容易|可以理解)|[^?？。；]{0,24}(?:确实|不容易|不好拿捏|需要拿捏|需要掂量|要顾|都要顾))/u;
 // 保留这一识别器只为兼容旧 trace / 测试数据；R6.2 起不再安排肯定配额，
 // 这些表达也按评价式前缀处理，不再向教师展示。
 const WARM_AFFIRMATION_RE = /(?:很难得|很细致|很有分辨|很生动|很实际)/u;
-const PROHIBITED_PRAISE_RE = /(?:很难得|很真实|很灵活|很细(?:致)?|很有分辨|很生动|很实际|很成熟|很到位|很合理|很妥当|很恰当|很稳|很不错|挺好|很好|很清楚|很准确|很敏锐|好(?:的)?起点|非常好|很专业|很全面|考虑得很周到|很有深度|真不错|做得很好|回答得很好|想得很周全|特别棒|能力很强|水平很高|回答正确|答得对|愿意(?:先)?(?:坦白|承认))/u;
+const PROHIBITED_PRAISE_RE = /(?:很难得|很真实|很灵活|很细(?:致)?|很有分辨|很生动|很实际|很成熟|很到位|很合理|很妥当|很恰当|很稳|很不错|挺好|很好|很清楚|很准确|很敏锐|很关键|很完整|说得很完整|好(?:的)?起点|非常好|很专业|很全面|考虑得很周到|很有深度|真不错|做得很好|回答得很好|想得很周全|特别棒|能力很强|水平很高|回答正确|答得对|愿意(?:先)?(?:坦白|承认))/u;
 const MISPLACED_APOLOGY_RE = /(?:抱歉|对不起|不好意思|是我(?:理解错了|误解了|假设过头了|想多了|说错了))/u;
-const AI_SUPPLIED_OPTIONS_RE = /(?:比如|例如)[^?？]{0,90}(?:、|或者|或是|还是)[^?？]*[?？]|(?:可能是|原因是|会不会是)[^?？]{1,48}(?:、|或者|或是)[^?？]{1,48}(?:还是|或)[^?？]{1,48}[?？]|(?:您|你)(?:会|是想|更倾向于)[^?？]{2,48}(?:还是|或者|或是)[^?？]{2,48}[?？]/u;
+const AI_SUPPLIED_OPTIONS_RE = /(?:比如|例如)[^?？]{0,90}(?:、|或者|或是|还是|或)[^?？]*[?？]|(?:可能是|原因是|会不会是)[^?？]{1,48}(?:、|或者|或是)[^?？]{1,48}(?:还是|或)[^?？]{1,48}[?？]|(?:您|你)(?:会|是想|更倾向于)[^?？]{2,48}(?:还是|或者|或是)[^?？]{2,48}[?？]/u;
+const MULTI_INTENT_QUESTION_RE = /(?:怎么|怎样|哪些|什么)[^?？]{2,60}(?:，|、)?还是(?:会|要|能|可以|看)?(?:怎么|怎样|哪些|什么)/u;
 const INTEGRATIVE_DECISION_RE = /(?:判断|决定|依据|标准|取舍|平衡|兼顾|改变|调整|坚持|例外|边界|信号)/u;
 const INTEGRATIVE_SCOPE_RE = /(?:整体|综合|放在一起|同时|之间|回过来看|回到这个情境|最看重|最关键|何时|什么时候|什么情况下|哪些|什么会|后续|最终)/u;
-const CHALLENGE_QUESTION_RE = /(?:如果|假如|即使|哪怕|仍(?:然)?|怎么都|不肯|拒绝|失败|无效|推翻|例外|底线|边界|一定|必须|什么情况下|什么时候会改变|何时.{0,24}何时|坚持.{0,24}例外)/u;
+// “如果”本身常用于顺着教师的判断追问行动，并不必然构成高负担挑战。
+// 只有和失败、持续不变、反对、改弦更张或底线等压力语义同时出现时，才按挑战问题处理。
+const CHALLENGE_QUESTION_RE = /(?:即使|哪怕|怎么都|不肯|拒绝|失败|无效|推翻|例外|底线|边界|一定|必须|什么时候会改变|什么情况下.{0,32}改变(?:刚才|原来|此前)?(?:的)?(?:判断|做法|立场)|何时.{0,24}何时|坚持.{0,24}例外|(?:如果|假如).{0,56}(?:仍(?:然)?|还是不|没有效果|不接受|不同意|反对|拒绝|失败|无效|改变(?:刚才|原来|此前)?(?:的)?(?:判断|做法|立场)|推翻|例外|底线|边界|怎么办))/u;
 const GENTLE_QUESTION_RE = /(?:愿意说说|讲一个|当时|平时|通常|最先|先看到|先留意|具体会留意|还想补充|还有什么|从您的经验|回到当时|慢慢说)/u;
 
 function formulaicRestatementPrefix(value) {
@@ -152,12 +156,12 @@ function formulaicRestatementPrefix(value) {
   const questionIndex = text.search(/[?？]/u);
   if (questionIndex < 0) return null;
   const beforeQuestion = text.slice(0, questionIndex);
-  const boundary = beforeQuestion.search(/[。！!；;]/u);
+  const boundary = beforeQuestion.search(/[。！!；;—]/u);
   if (boundary < 0) return null;
   const prefix = beforeQuestion.slice(0, boundary).trim();
   if (prefix.length <= 4 && /^(?:明白|好的|嗯|原来如此)$/u.test(prefix)) return null;
   if (!FORMULAIC_RESTATEMENT_OPENING_RE.test(beforeQuestion)) return null;
-  const remainder = text.slice(boundary + 1).trim();
+  const remainder = text.slice(boundary + 1).replace(/^[—–-]+/u, '').trim();
   if ((remainder.match(/[?？]/gu) || []).length !== 1 || remainder.length < 6) return null;
   return { prefix, remainder };
 }
@@ -272,8 +276,12 @@ function warmAffirmationPrefix(value) {
 }
 
 function normalizeBroadPraisePrefix(value) {
-  if (!value || value.action !== 'ASK') return { value, adjusted: false, removedPrefix: '' };
+  if (!value) return { value, adjusted: false, removedPrefix: '' };
   const text = String(value.visible_text || '').trim();
+  if (value.action === 'CLOSE' && PROHIBITED_PRAISE_RE.test(text)) {
+    return { value: { ...value, visible_text: '谢谢您的分享，本情境访谈先到这里。' }, adjusted: true, removedPrefix: text };
+  }
+  if (value.action !== 'ASK') return { value, adjusted: false, removedPrefix: '' };
   const questionIndex = text.search(/[?？]/u);
   if (questionIndex < 0) return { value, adjusted: false, removedPrefix: '' };
   const lead = text.slice(0, questionIndex);
@@ -625,12 +633,18 @@ function validateDialogueOutput(value, context = {}) {
     if (!context.allowScaffoldedOptions && hasAiSuppliedOptions(visibleText)) {
       errors.push(`${AI_SUPPLIED_OPTIONS_ERROR}: ask the teacher to generate distinctions before supplying examples or choices`);
     }
+    if (MULTI_INTENT_QUESTION_RE.test(visibleText)) {
+      errors.push(`${MULTI_INTENT_QUESTION_ERROR}: ask one substantive intent instead of joining two alternatives`);
+    }
     if (context.questionMode === 'INTEGRATIVE_SYNTHESIS' && !isIntegrativeQuestion(visibleText)) {
       errors.push(`${INTEGRATIVE_QUALITY_ERROR}: final new question must elicit an overall basis, tradeoff, boundary, or change condition`);
     }
     if (context.mustRelaxPressure && classifyQuestionPressure(visibleText) === 'CHALLENGE') {
       errors.push(`${CONSECUTIVE_CHALLENGE_ERROR}: follow a demanding question with a lower-pressure descriptive or reflective turn`);
     }
+  }
+  if (value.action === 'CLOSE' && hasEvaluativePraise(visibleText)) {
+    errors.push(`${EVALUATIVE_PRAISE_ERROR}: closing text must not grade the teacher's answer or ability`);
   }
   if (visibleText.length > (context.maxQuestionChars || 140)) errors.push('output.visible_text is too long');
   if (VISIBLE_LEAK_RE.test(visibleText)) errors.push('teacher-visible text exposes protected internal information');
@@ -750,6 +764,7 @@ module.exports = {
   MISPLACED_APOLOGY_ERROR,
   WARM_AFFIRMATION_BUDGET_ERROR,
   AI_SUPPLIED_OPTIONS_ERROR,
+  MULTI_INTENT_QUESTION_ERROR,
   INTEGRATIVE_QUALITY_ERROR,
   RELATIONAL_CUE_BUDGET_ERROR,
   CONSECUTIVE_CHALLENGE_ERROR,

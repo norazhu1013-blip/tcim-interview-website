@@ -19,7 +19,8 @@ const {
   normalizeBroadPraisePrefix,
   normalizeMisplacedApologyPrefix,
   assessQuestionQuality,
-  collectDialoguePolicyIndex
+  collectDialoguePolicyIndex,
+  INTEGRATIVE_QUALITY_ERROR
 } = require('./schema');
 const { ProviderError, selectProvider } = require('./providers');
 
@@ -330,6 +331,27 @@ function createDialogueAgent(options = {}) {
             continue;
           }
           break;
+        }
+        if (!validated.ok
+          && prompts.questionMode === 'INTEGRATIVE_SYNTHESIS'
+          && validated.errors.length > 0
+          && validated.errors.every((error) => String(error).startsWith(INTEGRATIVE_QUALITY_ERROR))) {
+          generated.output.visible_text = '回到这个情境，整体来看，您会依据哪些信号，判断何时继续观察、何时介入或调整支持？';
+          styleAdjustments.push({ type: 'USED_INTEGRATIVE_WRAP_UP_FALLBACK' });
+          validated = validateDialogueOutput(generated.output, {
+            phase: prompts.phase,
+            teacherTurn: prompts.teacherTurn,
+            history: prompts.repetitionHistory,
+            compiledCard: input.compiled_card,
+            maxQuestionChars,
+            allowVisibleRepair,
+            allowScaffoldedOptions: prompts.responseStyle?.support_level === 'SCAFFOLD_ALLOWED',
+            questionMode: prompts.questionMode,
+            relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE',
+            warmAffirmationAllowed: Boolean(prompts.responseStyle?.warm_affirmation_allowed),
+            warmAffirmationRequired: Boolean(prompts.responseStyle?.warm_affirmation_required),
+            mustRelaxPressure: Boolean(prompts.responseStyle?.pressure_pacing?.must_relax)
+          });
         }
         if (!validated.ok) {
           throw new ProviderError(`provider output failed validation: ${validated.errors.join('; ')}`, {

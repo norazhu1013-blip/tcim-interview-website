@@ -542,9 +542,8 @@ async function retryQuestion() {
 function buildLocalClosing() {
   const teacherTurns = messages.value.filter((message) => message.role === 'teacher' && message.text)
   const last = teacherTurns.length ? String(teacherTurns[teacherTurns.length - 1].text).replace(/\s+/g, ' ').trim() : ''
-  if (!last) return '谢谢您的参与。本情境访谈先到这里。'
-  const excerpt = last.length > 42 ? `${last.slice(0, 42)}……` : last
-  return `谢谢您的分享。我记下了您刚才强调的“${excerpt}”。本情境访谈先到这里。`
+  if (!last) return '本情境访谈先到这里。'
+  return '谢谢您的分享，本情境访谈先到这里。'
 }
 
 // 1.5：倒计时归零只触发一次的受控收束——写收束语、标 done、保存并上报、停输入。
@@ -554,7 +553,7 @@ function timeUpOnce() {
   clearInterval(timer)
   _activeGeneration?.abort()
   remaining.value = 0
-  const closing = '本情境的访谈时间已到，感谢您的认真分享。我们先到这里。'
+  const closing = '本情境的访谈时间已到，我们先到这里。'
   if (!messages.value.some((m) => m.role === 'ai' && m.text === closing)) {
     messages.value.push({ role: 'ai', text: closing, ts: Date.now(), generationSource: 'timeout' })
   }

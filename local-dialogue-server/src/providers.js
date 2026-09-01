@@ -258,7 +258,7 @@ function createBuiltInMockProvider() {
       const itemSeed = mockItemSeed(itemId);
       const choices = shouldClose ? null : MOCK_QUESTION_STAGES[stage];
       const visibleText = shouldClose
-        ? '谢谢您把判断依据和条件变化说得很清楚，本情境访谈先到这里。'
+        ? '谢谢您的分享，本情境访谈先到这里。'
         : choices[(itemSeed + stage) % choices.length];
       const teacherQuote = first ? '' : exactTeacherQuote(teacherTurn);
       return {
