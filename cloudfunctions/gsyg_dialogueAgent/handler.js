@@ -38,6 +38,7 @@ function publicFailure(error) {
     'payload_too_large',
     'provider_not_configured',
     'content_safety_not_configured',
+    'content_safety_unavailable',
     'input_content_rejected',
     'output_content_rejected',
     'invalid_provider_output',
@@ -57,6 +58,7 @@ function createDialogueHandler({
   authorizeSession = async () => ({ ok: true }),
   checkContent = async () => ({ pass: true }),
   contentSafetyReady = true,
+  contentSafetyMode = 'tencent_tms',
   maxBodyBytes = 1024 * 1024
 } = {}) {
   if (!agent || typeof agent.run !== 'function' || typeof agent.analyzeEvidence !== 'function') {
@@ -80,7 +82,8 @@ function createDialogueHandler({
         model: String(provider.model || ''),
         prompt_version: String(agent.promptVersion || ''),
         content_safety_required: true,
-        content_safety_ready: Boolean(contentSafetyReady)
+        content_safety_ready: Boolean(contentSafetyReady),
+        content_safety_mode: String(contentSafetyMode || '')
       };
     }
 

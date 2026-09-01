@@ -4,8 +4,8 @@ const injectedBuiltAt = typeof __TCIM_BUILT_AT__ === 'undefined' ? '' : __TCIM_B
 
 export const TCIM_RELEASE = Object.freeze({
   releaseSchemaVersion: 'tcim-web-release/v1',
-  releaseId: String(buildEnv.VITE_TCIM_RELEASE_ID || 'TCIM-WEB-2026.09.01-R6.2.1'),
-  shortLabel: String(buildEnv.VITE_TCIM_RELEASE_LABEL || 'TCIM Web R6.2.1 · 临时测试入口'),
+  releaseId: String(buildEnv.VITE_TCIM_RELEASE_ID || 'TCIM-WEB-2026.09.01-R6.2.2'),
+  shortLabel: String(buildEnv.VITE_TCIM_RELEASE_LABEL || 'TCIM Web R6.2.2 · 临时测试入口'),
   accessMode: String(buildEnv.VITE_TEMPORARY_TEST_ENTRY || '') === '1' ? 'temporary_test_entry' : 'cloudbase_account',
   architecture: String(buildEnv.VITE_TCIM_COMPARISON_ARCHITECTURE || 'dialogue_agent_new_five_tables_evidence_state'),
   gitCommit: String(buildEnv.VITE_TCIM_GIT_COMMIT || injectedGitCommit || 'unrecorded'),

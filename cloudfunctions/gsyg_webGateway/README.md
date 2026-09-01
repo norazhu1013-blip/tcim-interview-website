@@ -73,7 +73,7 @@ NODE_ENV=production
 1. CloudBase 控制台 → 云函数 → 新建 **HTTP 云函数**，名称 `gsyg_webGateway`，Node.js 18+。
 2. 上传本目录并选择「云端安装依赖」。HTTP 云函数通过 `scf_bootstrap` 监听 9000 端口；函数自身超时需设为至少 70 秒。
 3. 配置上述环境变量；在「HTTP 访问服务」绑定 `/gsyg-web` 路径或自定义 API 域名。
-4. 新建并部署 `gsyg_dialogueAgent`（Node.js 18.15+、超时至少 65 秒、`SEC_CHECK=1`），再重新上传网关白名单使用的受控事件云函数：`gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_reportDraft`、`gsyg_selectFinal`、`gsyg_whoami`、`gsyg_exportData`，以及实际启用的可选模块。函数只接受格式为 `web:<CloudBase UID>` 的、带共享网关令牌的网页调用。
+4. 新建并部署 `gsyg_dialogueAgent`（Node.js 18.15+、超时至少 65 秒、网页模式配置 `TCIM_DIALOGUE_CONTENT_SAFETY_MODE=tencent_tms` 及 TMS 最小权限凭证），再重新上传网关白名单使用的受控事件云函数：`gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_reportDraft`、`gsyg_selectFinal`、`gsyg_whoami`、`gsyg_exportData`，以及实际启用的可选模块。函数只接受格式为 `web:<CloudBase UID>` 的、带共享网关令牌的网页调用。
 5. 设置网页构建变量，重新构建并部署 `web/dist`：
 
 ```env

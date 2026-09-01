@@ -40,6 +40,7 @@ test('health is protected and does not expose secrets', async () => {
   assert.equal(result.ready, true);
   assert.equal(result.provider, 'kimi');
   assert.equal(result.model, 'kimi-k3');
+  assert.equal(result.content_safety_mode, 'tencent_tms');
   assert.equal(JSON.stringify(result).includes('gateway-token'), false);
 });
 

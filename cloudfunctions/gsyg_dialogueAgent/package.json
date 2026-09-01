@@ -11,6 +11,7 @@
     "node": ">=18.15"
   },
   "dependencies": {
+    "tencentcloud-sdk-nodejs-tms": "^4.1.293",
     "wx-server-sdk": "^4.0.2"
   }
 }

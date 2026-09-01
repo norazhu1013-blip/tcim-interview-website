@@ -24,6 +24,12 @@ import {
   shouldRequestIntegrativeQuestion
 } from '../core/interview-timing.js'
 import {
+  canCompleteInterview,
+  persistedInterviewStatus,
+  shouldAutoRetryOpening,
+  teacherTurnCount
+} from '../core/interview-completion.js'
+import {
   COMPARISON_INTERVIEW_MODE as INTERVIEW_MODE,
   isFormalComparisonInterviewRecord,
   isSimulationInterviewRecord
@@ -62,6 +68,7 @@ const lastLLMModel = ref(formalExisting?.llmModel || '')
 const generationFailures = ref(Array.isArray(formalExisting?.generationFailures) ? formalExisting.generationFailures.slice() : [])
 const performanceMetrics = ref(Array.isArray(formalExisting?.performanceMetrics) ? formalExisting.performanceMetrics.slice() : [])
 const dialogueSession = ref(formalExisting?.dialogueSession || null)
+const completionOutcome = ref(formalExisting?.completionOutcome || (formalExisting?.status === 'done' ? 'completed' : ''))
 const agentHealth = ref({ checked: false, ok: false, provider: '', model: '', error: '' })
 const localResearchMode = String(import.meta.env.VITE_LOCAL_RESEARCH_MODE || '').trim() === '1'
 const simulationOnly = ref(false)
@@ -89,6 +96,14 @@ function seconds(value) { return `${(Number(value || 0) / 1000).toFixed(1)}秒` 
 const isReview = computed(() => activeExisting.value?.status === 'done')
 const timeText = computed(() => `${String(Math.floor(remaining.value / 60)).padStart(2, '0')}:${String(remaining.value % 60).padStart(2, '0')}`)
 const inWrapUp = computed(() => interviewTimePhase(remaining.value * 1000) === 'WRAP_UP')
+const teacherTurns = computed(() => teacherTurnCount(messages.value))
+const hasSuccessfulAgentTurn = computed(() => messages.value.some((message) => (
+  message?.role === 'ai' && message?.generationSource === 'dialogue_agent'
+)))
+const interruptedBeforeTeacherAnswer = computed(() => (
+  teacherTurns.value === 0
+  && ['opening_timed_out', 'opening_generation_failed'].includes(completionOutcome.value)
+))
 const teacherStageLabel = computed(() => {
   if (isReview.value || done.value) return '访谈已完成'
   return inWrapUp.value ? '完成最后补充' : '自由讲述与追问'
@@ -127,6 +142,7 @@ function loadActiveRecord(record, asSimulation) {
   lastLLMModel.value = record?.llmModel || ''
   generationFailures.value = Array.isArray(record?.generationFailures) ? record.generationFailures.slice() : []
   dialogueSession.value = record?.dialogueSession || null
+  completionOutcome.value = record?.completionOutcome || (record?.status === 'done' ? 'completed' : '')
   simulationOnly.value = Boolean(asSimulation)
   const interrupted = Boolean(dialogueSession.value?.pendingRequest && dialogueSession.value?.status === 'GENERATING')
   if (interrupted) dialogueSession.value.status = 'PAUSED'
@@ -358,8 +374,14 @@ async function acceptAgentOutcome(outcome, requestedAt, phase = 'next', recordPe
     persist(false)
     return false
   }
+  if ((outcome.action === 'CLOSE' || outcome.status === 'completed') && !canCompleteInterview(messages.value)) {
+    recordGenerationFailure('invalid_provider_output', requestedAt, 'agent attempted to close before any teacher answer')
+    persist(false)
+    return false
+  }
   generationPaused.value = false
   generationError.value = ''
+  completionOutcome.value = ''
   const trace = dialogueSession.value?.lastAgentResult?.trace || {}
   lastLLMProfile.value = trace.provider || lastLLMProfile.value
   lastLLMModel.value = trace.model || lastLLMModel.value
@@ -396,7 +418,19 @@ async function generateFirstQuestion() {
   // 刷新页面后可以恢复为 PAUSED 并重试同一请求。
   persist(false)
   const outcome = await pending
-  return acceptAgentOutcome(outcome, requestedAt, 'first')
+  const accepted = await acceptAgentOutcome(outcome, requestedAt, 'first')
+  if (accepted || !shouldAutoRetryOpening(generationError.value, 0, messages.value)) return accepted
+
+  // 开场仅对暂时性技术错误自动补试一次；领域会话沿用原 pendingRequest，避免重复轮次。
+  generationPaused.value = false
+  generationError.value = ''
+  await new Promise((resolve) => setTimeout(resolve, 350))
+  const retryRequestedAt = Date.now()
+  _activeGeneration = new AbortController()
+  const retryPending = retryDialogue(modelSession, providerFor(_activeGeneration))
+  persist(false)
+  const retryOutcome = await retryPending
+  return acceptAgentOutcome(retryOutcome, retryRequestedAt, 'first')
 }
 
 async function generateAfterTeacher(teacherText, preparedSession = null, options = {}) {
@@ -569,6 +603,25 @@ function timeUpOnce() {
   clearInterval(timer)
   _activeGeneration?.abort()
   remaining.value = 0
+  if (!canCompleteInterview(messages.value)) {
+    completionOutcome.value = 'opening_timed_out'
+    generationPaused.value = true
+    generationError.value = 'opening_timed_out'
+    if (dialogueSession.value) {
+      dialogueSession.value.status = 'PAUSED'
+      dialogueSession.value.pendingRequest = null
+      dialogueSession.value.version += 1
+      dialogueSession.value.auditLog.push({
+        eventId: `dialogue-log-${dialogueSession.value.auditLog.length + 1}`,
+        type: 'TimeLimitReachedBeforeTeacherAnswer',
+        at: Date.now(),
+        sessionVersion: dialogueSession.value.version
+      })
+    }
+    done.value = false
+    persist(false)
+    return
+  }
   const closing = '本情境的访谈时间已到，我们先到这里。'
   if (!messages.value.some((m) => m.role === 'ai' && m.text === closing)) {
     messages.value.push({ role: 'ai', text: closing, ts: Date.now(), generationSource: 'timeout' })
@@ -623,6 +676,19 @@ async function startDemo() {
 
 function endAfterError() {
   if (done.value || sending.value) return
+  if (!canCompleteInterview(messages.value)) {
+    completionOutcome.value = 'opening_generation_failed'
+    generationPaused.value = true
+    generationError.value = generationError.value || 'opening_generation_failed'
+    if (dialogueSession.value) {
+      dialogueSession.value.status = 'PAUSED'
+      dialogueSession.value.pendingRequest = null
+    }
+    done.value = false
+    persist(false)
+    leave()
+    return
+  }
   messages.value.push({ role: 'ai', text: buildLocalClosing(), ts: Date.now() })
   generationPaused.value = false
   generationError.value = ''
@@ -630,8 +696,34 @@ function endAfterError() {
     dialogueSession.value.status = 'COMPLETED'
     dialogueSession.value.pendingRequest = null
   }
+  completionOutcome.value = 'completed_after_generation_error'
   done.value = true
   persist(true)
+}
+
+async function restartInterruptedInterview() {
+  if (sending.value || done.value || teacherTurns.value > 0) return
+  startedAt.value = Date.now()
+  deadlineAt.value = startedAt.value + INTERVIEW_DURATION_MS
+  remaining.value = Math.ceil(INTERVIEW_DURATION_MS / 1000)
+  wrapUpStartedAt.value = null
+  completionOutcome.value = ''
+  generationPaused.value = false
+  generationError.value = ''
+  _timeUpClosed = false
+  if (!hasSuccessfulAgentTurn.value) dialogueSession.value = null
+  startDeadlineTimer()
+  if (hasSuccessfulAgentTurn.value) {
+    persist(false)
+    return
+  }
+  sending.value = true
+  try {
+    await generateFirstQuestion()
+  } finally {
+    sending.value = false
+    _activeGeneration = null
+  }
 }
 
 /**
@@ -656,13 +748,18 @@ function saveMergedSession(overrides = {}) {
 
 function persist(isDone) {
   const collection = simulationOnly.value ? 'simulationInterview' : 'comparisonInterview'
+  const status = persistedInterviewStatus(isDone, messages.value)
+  const validCompletion = status === 'done'
+  if (isDone && !validCompletion && !completionOutcome.value) completionOutcome.value = 'technical_interruption'
+  if (validCompletion && !completionOutcome.value) completionOutcome.value = 'completed'
   const record = {
     itemId: item.item_id,
-    status: isDone ? 'done' : 'in_progress',
+    status,
+    completionOutcome: completionOutcome.value,
     startedAt: startedAt.value,
     deadlineAt: deadlineAt.value,
     wrapUpStartedAt: wrapUpStartedAt.value,
-    finishedAt: isDone ? Date.now() : null,
+    finishedAt: validCompletion ? Date.now() : null,
     messages: messages.value.slice(),
     teacherRanking: answer.final_ranking,
     stage: 'OPEN_DIALOGUE',
@@ -682,8 +779,8 @@ function persist(isDone) {
   session.value[collection][item.item_id] = record
   session.value = saveMergedSession({ [collection]: { [item.item_id]: record } })
   if (!simulationOnly.value) {
-    syncDraft(isDone)
-    if (isDone) reportCompletion()
+    syncDraft(validCompletion)
+    if (validCompletion) reportCompletion()
   }
 }
 
@@ -886,7 +983,7 @@ onBeforeUnmount(() => {
         本次测评已锁定 {{ lockedModelSelection.provider }}<template v-if="lockedModelSelection.model"> / {{ lockedModelSelection.model }}</template>，但云端当前是 {{ agentHealth.provider }}<template v-if="agentHealth.model"> / {{ agentHealth.model }}</template>；系统不会混用模型。
       </span>
       <span v-else-if="agentHealth.ok">
-        云端 AI 已连接<template v-if="agentHealth.model"> · {{ agentHealth.model }}</template>
+        {{ hasSuccessfulAgentTurn ? '云端 AI 对话正常' : '云端 AI 配置已就绪' }}<template v-if="agentHealth.model"> · {{ agentHealth.model }}</template>
       </span>
       <span v-else>云端 AI 访谈服务暂不可用（{{ agentHealth.error || '服务未就绪' }}）</span>
     </div>
@@ -967,14 +1064,16 @@ onBeforeUnmount(() => {
     </div>
     <div v-else-if="generationPaused && !done && !isReview" class="chat-recovery">
       <div>
-        <strong>{{ pausedForSessionUpgrade ? '这是旧版测试会话，不能安全续接' : (pausedForModelMismatch ? '本次访谈的模型被其他页面切换了' : '刚才的问题暂时没有生成成功') }}</strong>
-        <span>{{ pausedForSessionUpgrade ? '旧对话仍保留供查看。为避免丢失历史和证据，本版不会把它接到一个新会话；请返回情境列表，并用一次新的测评开始正式比较。' : (pausedForModelMismatch ? '您的回答已经保存。云端模型与本次测评锁定值不一致，系统不会混用模型；请联系管理员恢复后再继续。' : '您的回答已经保存，可以重新生成；如果不想继续，也可以结束本情境。') }}</span>
+        <strong>{{ pausedForSessionUpgrade ? '这是旧版测试会话，不能安全续接' : (pausedForModelMismatch ? '本次访谈的模型被其他页面切换了' : (interruptedBeforeTeacherAnswer ? '本情境尚未形成有效访谈' : '刚才的问题暂时没有生成成功')) }}</strong>
+        <span>{{ pausedForSessionUpgrade ? '旧对话仍保留供查看。为避免丢失历史和证据，本版不会把它接到一个新会话；请返回情境列表，并用一次新的测评开始正式比较。' : (pausedForModelMismatch ? '您的回答已经保存。云端模型与本次测评锁定值不一致，系统不会混用模型；请联系管理员恢复后再继续。' : (interruptedBeforeTeacherAnswer ? '您还没有提交回答，因此不会被记为访谈完成。请返回情境列表后重新进入。' : (teacherTurns === 0 ? '系统已经自动重试一次，仍未成功。本情境不会被记为完成，您可以重新生成或稍后再试。' : '您的回答已经保存，可以重新生成；如果不想继续，也可以结束本情境。'))) }}</span>
       </div>
       <div class="chat-recovery-actions">
         <button v-if="pausedForSessionUpgrade" class="button secondary" :disabled="sending" @click="leave">返回情境列表</button>
         <button v-else-if="pausedForModelMismatch" class="button secondary" :disabled="sending" @click="leave">返回情境列表</button>
+        <button v-else-if="interruptedBeforeTeacherAnswer" class="button secondary" :disabled="sending" @click="restartInterruptedInterview">重新开始本情境</button>
         <button v-else class="button secondary" :disabled="sending" @click="retryQuestion">重新生成</button>
-        <button v-if="!pausedForSessionUpgrade" class="button text" :disabled="sending" @click="endAfterError">结束本情境</button>
+        <button v-if="!pausedForSessionUpgrade && !pausedForModelMismatch && !interruptedBeforeTeacherAnswer" class="button text" :disabled="sending" @click="endAfterError">{{ teacherTurns === 0 ? '稍后再试' : '结束本情境' }}</button>
+        <button v-if="interruptedBeforeTeacherAnswer" class="button text" :disabled="sending" @click="leave">返回情境列表</button>
       </div>
     </div>
     <div v-else-if="!done && !isReview && agentHealth.ok" class="chat-input">

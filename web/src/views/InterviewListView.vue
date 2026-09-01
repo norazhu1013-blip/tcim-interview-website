@@ -25,6 +25,10 @@ function isComparisonDone(itemId) {
 function isSimulationDone(itemId) {
   return session.value?.simulationInterview?.[itemId]?.status === 'done'
 }
+function wasTechnicallyInterrupted(itemId) {
+  return ['opening_generation_failed', 'opening_timed_out', 'technical_interruption']
+    .includes(comparisonRecord(itemId)?.completionOutcome)
+}
 const doneCount = computed(() => selected.value.filter((item) => isComparisonDone(item.id)).length)
 const plannedCount = computed(() => selected.value.length)
 const allDone = computed(() => plannedCount.value > 0 && doneCount.value === plannedCount.value)
@@ -79,13 +83,13 @@ function open(item) {
         <img :src="`./scenarios/${selectedItem.id}.jpg`" :alt="itemById[selectedItem.id]?.title" />
         <div>
           <span class="status" :class="{ complete: isComparisonDone(selectedItem.id) }">
-            {{ isComparisonDone(selectedItem.id) ? '已完成' : (isSimulationDone(selectedItem.id) ? '演示完成 · 不计入' : '待访谈') }}
+            {{ isComparisonDone(selectedItem.id) ? '已完成' : (isSimulationDone(selectedItem.id) ? '演示完成 · 不计入' : (wasTechnicallyInterrupted(selectedItem.id) ? '技术中断 · 未完成' : '待访谈')) }}
           </span>
           <p class="eyebrow">情境 {{ i + 1 }}</p>
           <h2>{{ itemById[selectedItem.id]?.title }}</h2>
           <p>{{ itemById[selectedItem.id]?.stem || '情境原文暂不可用。' }}</p>
           <button class="button secondary" @click="open(selectedItem)">
-            {{ isComparisonDone(selectedItem.id) ? '回看访谈' : (isSimulationDone(selectedItem.id) ? '查看演示 / 开始正式访谈' : '开始访谈') }}
+            {{ isComparisonDone(selectedItem.id) ? '回看访谈' : (isSimulationDone(selectedItem.id) ? '查看演示 / 开始正式访谈' : (wasTechnicallyInterrupted(selectedItem.id) ? '重新进入访谈' : '开始访谈')) }}
           </button>
         </div>
       </article>

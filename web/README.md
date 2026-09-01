@@ -72,7 +72,7 @@ Cookie: gsyg_web_session=<HttpOnly cookie，由浏览器自动携带>
 部署时必须：
 
 1. 部署 `cloudfunctions/gsyg_webGateway/` HTTP 云函数，并按其 README 配置 `GSYG_WEB_GATEWAY_TOKEN`、`GSYG_WEB_SESSION_SECRET`、CORS 与 CloudBase 环境变量。
-2. 新建并部署 `gsyg_dialogueAgent`，配置与网关相同的 `GSYG_WEB_GATEWAY_TOKEN`、`SEC_CHECK=1`、固定 provider/model 和云端模型密钥；运行时 Node.js 18.15+，超时至少 65 秒。
+2. 新建并部署 `gsyg_dialogueAgent`，配置与网关相同的 `GSYG_WEB_GATEWAY_TOKEN`、`TCIM_DIALOGUE_CONTENT_SAFETY_MODE=tencent_tms`、腾讯云 TMS 最小权限凭证、固定 provider/model 和云端模型密钥；普通网页不得调用需要小程序 OPENID 的 `msgSecCheck`。运行时 Node.js 18.15+，超时至少 65 秒。
 3. 用同一 `GSYG_WEB_GATEWAY_TOKEN` 重部署 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_reportDraft`、`gsyg_selectFinal`、`gsyg_whoami`、`gsyg_exportData`；它们会拒绝伪造网页 actor。
 4. 正式运行仅允许已建立正式账号会话的教师调用；临时研究试用可显式开启服务端签名的随机测试身份，不能把客户端提交的 uid 当作身份。保留内容安全审核和审计日志。
 5. 若需让教师跨小程序与网页继续同一份记录，服务端必须基于已验证手机号或统一帐号建立绑定，绝不能按姓名合并。

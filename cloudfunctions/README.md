@@ -52,6 +52,6 @@
 
 网页端部署 `gsyg_webGateway` 为 **HTTP 云函数**。网页通过 CloudBase Web SDK 使用研究者发放的用户名密码登录；网关校验短期 access token 对应正式账号后签发 HttpOnly Cookie，并白名单转发 profile/session/确定性三题遴选/AI 访谈。业务请求不接受客户端提交的 `openid`、`uid` 或 access token。
 
-TCIM Web R6.1 的 Dialogue Agent 使用 `gsyg_dialogueAgent`：核心代码由 `local-dialogue-server/src/`同步而来，生产只经上述已登录网关调用；provider/model 在云端固定并按测评会话落库锁定，`SEC_CHECK=1` 为正式运行门禁。部署细节见 `gsyg_dialogueAgent/README.md`。
+TCIM Web R6.1 的 Dialogue Agent 使用 `gsyg_dialogueAgent`：核心代码由 `local-dialogue-server/src/`同步而来，生产只经上述已登录网关调用；provider/model 在云端固定并按测评会话落库锁定。普通网页使用 `TCIM_DIALOGUE_CONTENT_SAFETY_MODE=tencent_tms`，不得误调需要小程序 OPENID 的 `msgSecCheck`。部署细节见 `gsyg_dialogueAgent/README.md`。
 
 部署前，网关和 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal` 须配置相同的 `GSYG_WEB_GATEWAY_TOKEN`；网关还必须配置独立 `GSYG_WEB_SESSION_SECRET`、`WEB_CLOUDBASE_ENV_ID`、精确网页域名 `WEB_ALLOWED_ORIGIN` 及 HTTPS Cookie 参数。函数监听 9000，HTTP 访问路径建议为 `/gsyg-web`。完整控制台设置、首次账号绑定和验证步骤见 `gsyg_webGateway/README.md`。
