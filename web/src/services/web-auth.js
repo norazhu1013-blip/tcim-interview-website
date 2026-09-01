@@ -1,8 +1,9 @@
 import { cloudbaseConfigured, getCloudAuth } from './cloudbase.js'
-import { createGatewaySession, getGatewaySession, clearGatewaySession } from './web-gateway.js'
+import { createGatewaySession, createTestGatewaySession, getGatewaySession, clearGatewaySession } from './web-gateway.js'
 import { activateLocalAccount } from './storage.js'
 
 const localResearchMode = String(import.meta.env.VITE_LOCAL_RESEARCH_MODE || '').trim() === '1'
+export const temporaryTestEntryMode = String(import.meta.env.VITE_TEMPORARY_TEST_ENTRY || '').trim() === '1'
 const localResearchUid = 'tcim-local-research'
 
 function localResearchSession() {
@@ -68,12 +69,22 @@ export async function ensureWebLogin() {
     notifyAuthState('signed_in')
     return session
   }
+  if (temporaryTestEntryMode) {
+    let session = await getGatewaySession()
+    if (!session.ok) session = await createTestGatewaySession()
+    const uid = String(session?.user?.uid || '').trim()
+    if (!session.ok || !uid) return { ok: false, error: session.error || 'test_entry_failed' }
+    activateLocalAccount(uid)
+    notifyAuthState('signed_in')
+    return session
+  }
   if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
 
   const gatewaySession = await getGatewaySession()
   if (gatewaySession.ok && gatewaySession.user?.identityType === 'web_account') {
-    const state = await getCloudAuth().getLoginState().catch(() => null)
-    if (state?.user?.uid) activateLocalAccount(state.user.uid)
+    const uid = String(gatewaySession.user?.uid || '').trim()
+    const state = uid ? null : await getCloudAuth().getLoginState().catch(() => null)
+    if (uid || state?.user?.uid) activateLocalAccount(uid || state.user.uid)
     notifyAuthState('signed_in')
     return gatewaySession
   }
@@ -202,6 +213,7 @@ export async function completePasswordReset({ code, password }) {
 
 export async function getWebLoginState() {
   if (localResearchMode) return localResearchSession()
+  if (temporaryTestEntryMode) return getGatewaySession()
   if (!cloudbaseConfigured) return { ok: false, error: 'cloudbase_auth_not_configured' }
   return getGatewaySession()
 }

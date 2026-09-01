@@ -9,10 +9,11 @@ assert.equal(TCIM_RELEASE.runtimeSchemaVersion, runtime.schemaVersion)
 assert.equal(TCIM_RELEASE.runtimeConfigFingerprint, runtime.configFingerprint)
 assert.match(TCIM_RELEASE.releaseId, /^TCIM-WEB-/)
 assert.match(TCIM_RELEASE.expectedDialoguePromptVersion, /r8-premise-aware-natural-close$/)
+assert.ok(['temporary_test_entry', 'cloudbase_account'].includes(TCIM_RELEASE.accessMode))
 
 const snapshot = currentReleaseSnapshot(123456)
 assert.equal(snapshot.capturedAt, 123456)
 assert.equal(snapshot.releaseId, TCIM_RELEASE.releaseId)
 assert.equal(Object.isFrozen(TCIM_RELEASE), true)
 
-console.log('release version checks: 8/8')
+console.log('release version checks: 9/9')

@@ -7,7 +7,8 @@ import {
   completePasswordReset,
   completeWebRegistration,
   ensureWebLogin,
-  signInWebUser
+  signInWebUser,
+  temporaryTestEntryMode
 } from './services/web-auth.js'
 import { whoami } from './services/api.js'
 import { getProfile, isProfileComplete, saveProfile } from './services/storage.js'
@@ -51,6 +52,15 @@ const errorMessages = {
   password_reset_send_failed: '暂时无法发送验证码，请确认邮箱已注册并稍后重试。',
   password_reset_expired: '本次密码找回已失效，请重新获取验证码。',
   invalid_reset_code: '验证码不正确或已过期。'
+}
+
+async function retryTestEntry() {
+  authState.value = 'checking'
+  authError.value = ''
+  const session = await ensureWebLogin()
+  if (session.ok) return enterSignedInApp()
+  authState.value = 'signed_out'
+  authError.value = '暂时无法进入测试，请检查网络后重试。'
 }
 
 async function enterSignedInApp() {
@@ -210,7 +220,15 @@ watch(() => route.fullPath, async () => {
     </header>
 
     <main class="page-shell">
-      <section v-if="authState === 'signed_out'" class="account-login-page">
+      <section v-if="authState === 'signed_out' && temporaryTestEntryMode" class="account-login-page">
+        <div class="account-login-card">
+          <h1>暂时无法进入测试</h1>
+          <p class="login-intro">请检查网络后重新尝试，无需注册账号或输入验证码。</p>
+          <p v-if="authError" class="login-error" role="alert">{{ authError }}</p>
+          <button class="button primary wide" type="button" @click="retryTestEntry">重新进入</button>
+        </div>
+      </section>
+      <section v-else-if="authState === 'signed_out'" class="account-login-page">
         <form class="account-login-card" @submit.prevent="submitAuthForm">
           <div class="auth-mode-tabs" role="tablist" aria-label="账号操作">
             <button type="button" :class="{ active: authMode === 'login' }" @click="switchAuthMode('login')">登录</button>

@@ -22,6 +22,8 @@ const MAX_BODY = process.env.GSYG_WEB_MAX_BODY || '1mb';
 const MAX_CALLS = Math.max(20, Number(process.env.GSYG_WEB_RATE_LIMIT || 180));
 const WINDOW_MS = Math.max(60_000, Number(process.env.GSYG_WEB_RATE_WINDOW_MS || 600_000));
 const SESSION_TTL_SECONDS = Math.min(7 * 24 * 60 * 60, Math.max(15 * 60, Number(process.env.GSYG_WEB_SESSION_TTL_SECONDS || 21600)));
+const TEST_SESSION_TTL_SECONDS = Math.min(30 * 24 * 60 * 60, Math.max(60 * 60, Number(process.env.WEB_TEST_SESSION_TTL_SECONDS || 7 * 24 * 60 * 60)));
+const TEST_ENTRY_ENABLED = String(process.env.WEB_TEST_ENTRY_ENABLED || '') === '1';
 const DEFAULT_UPSTREAM_TIMEOUT_MS = Math.max(5_000, Number(process.env.GSYG_WEB_UPSTREAM_TIMEOUT_MS || 15_000));
 const INTERVIEW_UPSTREAM_TIMEOUT_MS = Math.max(
   DEFAULT_UPSTREAM_TIMEOUT_MS,
@@ -99,13 +101,13 @@ function timingSafeEqual(a, b) {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 }
 
-function createSessionToken(actor, now = Date.now()) {
+function createSessionToken(actor, now = Date.now(), identityType = 'web_account', ttlSeconds = SESSION_TTL_SECONDS) {
   if (!SESSION_SECRET) return '';
   const payload = base64url(JSON.stringify({
     sub: actor,
-    exp: now + SESSION_TTL_SECONDS * 1000,
+    exp: now + ttlSeconds * 1000,
     ver: SESSION_VERSION,
-    identityType: 'web_account'
+    identityType
   }));
   const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
   return `${payload}.${signature}`;
@@ -122,7 +124,7 @@ function parseSessionToken(value, now = Date.now()) {
     if (
       !parsed ||
       parsed.ver !== SESSION_VERSION ||
-      parsed.identityType !== 'web_account' ||
+      !['web_account', 'web_test'].includes(parsed.identityType) ||
       !/^web:[A-Za-z0-9_-]{4,128}$/.test(parsed.sub || '') ||
       !Number.isFinite(parsed.exp) ||
       parsed.exp <= now
@@ -146,8 +148,17 @@ function sessionCookie(value, maxAge = SESSION_TTL_SECONDS) {
   return attrs.join('; ');
 }
 
-function readActor(req) {
-  return parseSessionToken(parseCookies(req.headers.cookie)[COOKIE_NAME])?.sub || '';
+function readIdentity(req) {
+  return parseSessionToken(parseCookies(req.headers.cookie)[COOKIE_NAME]);
+}
+
+function publicUser(identity) {
+  if (!identity) return null;
+  return {
+    authenticated: true,
+    uid: String(identity.sub || '').replace(/^web:/, ''),
+    identityType: identity.identityType
+  };
 }
 
 function setCors(req, res) {
@@ -245,7 +256,8 @@ async function verifyCloudBaseAccessToken(accessToken, fetchImpl = globalThis.fe
 
 function createGateway({
   invoke = invokeCloudFunction,
-  verifyAccessToken = verifyCloudBaseAccessToken
+  verifyAccessToken = verifyCloudBaseAccessToken,
+  testEntryEnabled = TEST_ENTRY_ENABLED
 } = {}) {
   const app = express();
   app.disable('x-powered-by');
@@ -259,7 +271,8 @@ function createGateway({
   app.get('/health', async (_req, res) => {
     const health = {
       ok: true,
-      mode: 'cloudbase_account_login',
+      mode: testEntryEnabled ? 'temporary_test_entry' : 'cloudbase_account_login',
+      testEntryEnabled,
       tokenConfigured: Boolean(TOKEN),
       sessionConfigured: Boolean(SESSION_SECRET),
       cloudbaseUserInfoConfigured: Boolean(USER_INFO_URL)
@@ -285,9 +298,25 @@ function createGateway({
   });
 
   app.get('/auth/session', (req, res) => {
-    const actor = readActor(req);
-    if (!actor) return res.status(401).json({ ok: false, error: 'not_authenticated' });
-    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_account' } });
+    const identity = readIdentity(req);
+    if (!identity) return res.status(401).json({ ok: false, error: 'not_authenticated' });
+    return res.json({ ok: true, user: publicUser(identity) });
+  });
+
+  // 临时研究测试入口：不收集邮箱或密码，由服务端生成高熵随机身份并签发
+  // HttpOnly Cookie。actor 仍由网关签名、不能由业务请求伪造；不同浏览器
+  // 的资料、测评和访谈记录继续按 actor 隔离。
+  app.post('/auth/test-session', (req, res) => {
+    if (!testEntryEnabled) return res.status(404).json({ ok: false, error: 'test_entry_disabled' });
+    if (!SESSION_SECRET) return res.status(503).json({ ok: false, error: 'gateway_auth_not_configured' });
+    const existing = readIdentity(req);
+    if (existing) return res.json({ ok: true, user: publicUser(existing) });
+
+    const actor = `web:test_${crypto.randomBytes(18).toString('base64url')}`;
+    const identityType = 'web_test';
+    const token = createSessionToken(actor, Date.now(), identityType, TEST_SESSION_TTL_SECONDS);
+    res.append('Set-Cookie', sessionCookie(token, TEST_SESSION_TTL_SECONDS));
+    return res.json({ ok: true, user: publicUser({ sub: actor, identityType }) });
   });
 
   app.post('/auth/session', async (req, res) => {
@@ -306,7 +335,7 @@ function createGateway({
 
     const actor = `web:${identity.uid}`;
     res.append('Set-Cookie', sessionCookie(createSessionToken(actor)));
-    return res.json({ ok: true, user: { authenticated: true, identityType: 'web_account' } });
+    return res.json({ ok: true, user: { authenticated: true, uid: identity.uid, identityType: 'web_account' } });
   });
 
   app.post('/auth/logout', (_req, res) => {
@@ -320,13 +349,16 @@ function createGateway({
     const functionName = ACTIONS[action];
     if (!functionName) return res.status(400).json({ ok: false, error: 'unsupported_action' });
 
-    const actor = readActor(req);
+    const identity = readIdentity(req);
+    const actor = identity && identity.sub;
     if (!actor) return res.status(401).json({ ok: false, error: 'not_authenticated' });
     if (!checkRateLimit(actor)) return res.status(429).json({ ok: false, error: 'rate_limited' });
 
     // 明确覆盖客户端可能提交的同名字段：身份只来自验证后的网关会话。
     const data = Object.assign({}, req.body.data || {}, {
-      __gsygGateway: { token: TOKEN, actor, identityType: 'web_account' }
+      // 下游现有授权契约把 web_account 视为“由受保护网关签发的网页身份”。
+      // sessionType 额外区分正式账号与临时测试身份，actor 的 test_ 前缀也可审计。
+      __gsygGateway: { token: TOKEN, actor, identityType: 'web_account', sessionType: identity.identityType }
     });
     delete data.openid;
     delete data.uid;

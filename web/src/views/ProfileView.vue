@@ -11,7 +11,7 @@ import {
   saveProfile
 } from '../services/storage.js'
 import { exportData, reportProfile, whoami } from '../services/api.js'
-import { requireWebLogin, signOutWebUser } from '../services/web-auth.js'
+import { requireWebLogin, signOutWebUser, temporaryTestEntryMode } from '../services/web-auth.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -164,7 +164,7 @@ async function submit() {
       </button>
     </section>
 
-    <section class="account-settings-card">
+    <section v-if="!temporaryTestEntryMode" class="account-settings-card">
       <div>
         <p class="eyebrow">账号</p>
         <h2>登录设置</h2>
@@ -173,7 +173,7 @@ async function submit() {
       <button class="button secondary" type="button" @click="openLogout">退出登录</button>
     </section>
 
-    <div v-if="showLogout" class="modal-backdrop" @click.self="showLogout = false">
+    <div v-if="showLogout && !temporaryTestEntryMode" class="modal-backdrop" @click.self="showLogout = false">
       <section class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="logout-title">
         <h2 id="logout-title">退出登录</h2>
         <p>默认会保留本机历史数据，但退出后不再显示在新账号页面中。</p>

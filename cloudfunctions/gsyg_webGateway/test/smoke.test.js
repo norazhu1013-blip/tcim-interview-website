@@ -6,6 +6,7 @@ process.env.GSYG_WEB_GATEWAY_TOKEN = '0123456789abcdef0123456789abcdef';
 process.env.GSYG_WEB_SESSION_SECRET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 process.env.WEB_CLOUDBASE_ENV_ID = 'test-env';
 process.env.WEB_ALLOWED_ORIGIN = 'https://app.example.test';
+process.env.WEB_TEST_ENTRY_ENABLED = '1';
 process.env.GSYG_WEB_MAX_BODY = '2kb'; // 压缩上限,便于在单测里触发结构化 413
 
 const { ACTIONS, createCloudInvoker, createGateway, verifyCloudBaseAccessToken } = require('../index.js');
@@ -84,8 +85,16 @@ async function main() {
     assert.equal(login.status, 200);
     assert.equal(loginBody.ok, true);
     assert.equal(loginBody.user.identityType, 'web_account');
+    assert.equal(loginBody.user.uid, 'cloudbase_user_123');
     assert.match(cookie, /HttpOnly/);
     assert.match(cookie, /gsyg_web_session=/);
+
+    const restoredLogin = await fetch(`${endpoint}/auth/session`, {
+      headers: { ...headers, Cookie: cookie }
+    });
+    const restoredLoginBody = await restoredLogin.json();
+    assert.equal(restoredLoginBody.user.uid, 'cloudbase_user_123');
+    assert.equal(restoredLoginBody.user.identityType, 'web_account');
 
     const response = await fetch(`${endpoint}/call`, {
       method: 'POST',
@@ -102,6 +111,7 @@ async function main() {
     assert.equal(forwarded.data.uid, undefined);
     assert.equal(forwarded.data.__gsygGateway.actor, 'web:cloudbase_user_123');
     assert.equal(forwarded.data.__gsygGateway.identityType, 'web_account');
+    assert.equal(forwarded.data.__gsygGateway.sessionType, 'web_account');
     assert.equal(forwarded.timeout, 15000);
 
     const exportResponse = await fetch(`${endpoint}/call`, {
@@ -126,6 +136,39 @@ async function main() {
     assert.equal(interviewBody.ok, true);
     assert.equal(forwarded.name, 'gsyg_interviewChat');
     assert.equal(forwarded.timeout, 65000);
+
+    const testLogin = await fetch(`${endpoint}/auth/test-session`, {
+      method: 'POST',
+      headers
+    });
+    const testLoginBody = await testLogin.json();
+    const testCookie = testLogin.headers.get('set-cookie');
+    assert.equal(testLogin.status, 200);
+    assert.equal(testLoginBody.ok, true);
+    assert.equal(testLoginBody.user.identityType, 'web_test');
+    assert.match(testLoginBody.user.uid, /^test_[A-Za-z0-9_-]{20,}$/);
+    assert.match(testCookie, /HttpOnly/);
+    assert.match(testCookie, /Max-Age=604800/);
+
+    const restoredTest = await fetch(`${endpoint}/auth/session`, {
+      headers: { ...headers, Cookie: testCookie }
+    });
+    const restoredTestBody = await restoredTest.json();
+    assert.deepEqual(restoredTestBody.user, testLoginBody.user);
+
+    const testCall = await fetch(`${endpoint}/call`, {
+      method: 'POST',
+      headers: { ...headers, Cookie: testCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'whoami', data: { uid: 'forged-test-user' } })
+    });
+    const testCallBody = await testCall.json();
+    assert.equal(testCall.status, 200);
+    assert.equal(testCallBody.ok, true);
+    assert.equal(forwarded.name, 'gsyg_whoami');
+    assert.equal(forwarded.data.uid, undefined);
+    assert.equal(forwarded.data.__gsygGateway.actor, `web:${testLoginBody.user.uid}`);
+    assert.equal(forwarded.data.__gsygGateway.identityType, 'web_account');
+    assert.equal(forwarded.data.__gsygGateway.sessionType, 'web_test');
 
     const dialogueResponse = await fetch(`${endpoint}/call`, {
       method: 'POST',
@@ -156,7 +199,7 @@ async function main() {
       body: JSON.stringify({ action: 'reportSession', data: { sessionId: 'test' } })
     });
     assert.equal(rejected.status, 401);
-    console.log('web account login gateway smoke test passed');
+    console.log('web account and temporary test-entry gateway smoke test passed');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

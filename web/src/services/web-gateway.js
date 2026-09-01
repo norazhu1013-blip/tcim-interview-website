@@ -29,6 +29,11 @@ export function createGatewaySession(accessToken) {
   })
 }
 
+/** 无需邮箱或密码，由网关签发彼此隔离的临时研究测试身份。 */
+export function createTestGatewaySession() {
+  return gatewayRequest('/auth/test-session', { method: 'POST' })
+}
+
 export function getGatewaySession() {
   return gatewayRequest('/auth/session')
 }

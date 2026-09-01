@@ -444,3 +444,7 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **r8修正**:提示版本升为`tcim-dialogue-v3-low-latency-2026-09-01-r8-premise-aware-natural-close`。模型一次生成多个问句时，程序先选择其中最长且可独立回答的一问，再走原有非诱导/非复问/单意图等全部门禁，不为纯格式问题增加第二次等待。扩充“你在假设/对孩子有预设偏差”识别，并在转向真实经验前确定性显示“先不沿用这个预设”，不得无回应地换方向。
   - **整体问题与重试**:整体性只保留在问题内容，不再向教师宣布“回头看整个游戏/整体来看/综合来看”；人工重试若恢复的是`INTEGRATIVE_SYNTHESIS`，立即登记为已问，教师下一次回答后直接收束，不再重复第二个整体问题；重试成功后同时补做该教师回答的后台Evidence分析。
   - **自然收束**:最后整体回答仍保存并进入后台Evidence，不再显示“本轮回答已保存”这类系统提示，而用中性承接说明该回答补充了当前情境的判断依据，再感谢并结束；不评价回答质量，也不再追加新问题。
+- **2026-09-01 R6.2.1 临时免注册测试入口**:
+  - **范围**:仅为导师和研究团队短期试用取消邮箱注册/验证码界面，不改测评赋分、R/P/G筛题、Dialogue Agent、新五表、Evidence State、访谈节律或内容安全。发布号升为`TCIM-WEB-2026.09.01-R6.2.1`，会话`releaseSnapshot.accessMode='temporary_test_entry'`可追溯。
+  - **身份与隔离**:网页`VITE_TEMPORARY_TEST_ENTRY=1`时先恢复网关Cookie，没有会话才调用`POST /auth/test-session`；网关仅在`WEB_TEST_ENTRY_ENABLED=1`时生成高熵`web:test_*` actor并签发HMAC+HttpOnly+Secure Cookie，默认七天。客户端不能提交或选择uid，不是多人共用账号；资料、测评、访谈仍按随机actor隔离。下游继续使用既有受保护网关授权契约，并以`sessionType=web_test`和actor前缀审计来源。
+  - **恢复**:正式账号登录、邮箱注册和找回密码代码保留但在测试构建中隐藏。投入正式使用前同时关闭前端`VITE_TEMPORARY_TEST_ENTRY`与网关`WEB_TEST_ENTRY_ENABLED`、重新构建部署，即恢复账号入口；不得仅关闭一侧造成前后端状态不一致。

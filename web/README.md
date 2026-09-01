@@ -33,9 +33,11 @@ npm run build
 
 `npm run verify` 同时检查评分口径和 V7.4 访谈流程，任一项不一致都会失败。
 
-## 网页 CloudBase 账号登录
+## 网页登录与临时测试入口
 
 网页支持教师用用户名、邮箱验证码和密码自行注册，之后可用用户名或邮箱配合密码登录；已有正式账号凭证时可直接恢复网关 `HttpOnly` 会话 Cookie。不会自动创建匿名身份。SDK 保存的短期 access token 只用于换取网关 Cookie；后续业务请求不携带可伪造的 `openid`、`uid` 或 access token。
+
+研究试用阶段可临时设置 `VITE_TEMPORARY_TEST_ENTRY=1`，并在网关设置 `WEB_TEST_ENTRY_ENABLED=1`。此时网页不展示邮箱注册和验证码，网关为每个浏览器签发随机的 `web:test_*` 测试身份；教师仍需填写姓名、园所和教龄，资料、测评和访谈按该随机身份隔离。正式账号代码不会删除，关闭两个开关并重新部署即可恢复。
 
 在 `.env.production` 中配置：
 
@@ -44,6 +46,7 @@ VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web
 VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 VITE_CLOUDBASE_REGION=ap-shanghai
 VITE_LOCAL_RESEARCH_MODE=0
+VITE_TEMPORARY_TEST_ENTRY=0
 VITE_TCIM_COMPARISON_ARCHITECTURE=dialogue_agent_new_five_tables_evidence_state
 VITE_TCIM_RELEASE_ID=TCIM-WEB-2026.09.01-R6.2
 ```
@@ -71,7 +74,7 @@ Cookie: gsyg_web_session=<HttpOnly cookie，由浏览器自动携带>
 1. 部署 `cloudfunctions/gsyg_webGateway/` HTTP 云函数，并按其 README 配置 `GSYG_WEB_GATEWAY_TOKEN`、`GSYG_WEB_SESSION_SECRET`、CORS 与 CloudBase 环境变量。
 2. 新建并部署 `gsyg_dialogueAgent`，配置与网关相同的 `GSYG_WEB_GATEWAY_TOKEN`、`SEC_CHECK=1`、固定 provider/model 和云端模型密钥；运行时 Node.js 18.15+，超时至少 65 秒。
 3. 用同一 `GSYG_WEB_GATEWAY_TOKEN` 重部署 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_reportDraft`、`gsyg_selectFinal`、`gsyg_whoami`、`gsyg_exportData`；它们会拒绝伪造网页 actor。
-4. 仅允许已建立正式账号会话的教师调用资料写入、会话上报、筛题和 AI 访谈；保留内容安全审核和审计日志。
+4. 正式运行仅允许已建立正式账号会话的教师调用；临时研究试用可显式开启服务端签名的随机测试身份，不能把客户端提交的 uid 当作身份。保留内容安全审核和审计日志。
 5. 若需让教师跨小程序与网页继续同一份记录，服务端必须基于已验证手机号或统一帐号建立绑定，绝不能按姓名合并。
 
 前端不存放 CloudBase 管理员 API Key、LLM Key、网关共享密钥或会话签名密钥。
