@@ -75,8 +75,18 @@ function callCloud(name, data) {
 }
 
 /* ---------------- 3 个业务上报 ---------------- */
+// 事件级唯一 id（防成对重复写入）：web 侧用 `<sessionId>:<type>:<occurrence>`，
+// 小程序沿用同格式，云函数已支持按 event_uuid 优先查重。确定性、可重试不变。
+function eventUuid(sessionId, type, occurrence) {
+  const occ = (occurrence == null ? 0 : occurrence);
+  return (sessionId || '') + ':' + type + ':' + occ;
+}
+
 function reportProfile(profile) {
-  return callCloud(CLOUD_FUNCTIONS.reportTeacher, { profile: profile });
+  return callCloud(CLOUD_FUNCTIONS.reportTeacher, {
+    profile: profile,
+    event_uuid: eventUuid((profile && profile.sessionId) || 'profile', 'profile', (profile && profile.updatedAt) || 0)
+  });
 }
 
 function reportExam(payload) {
@@ -91,6 +101,7 @@ function reportExam(payload) {
   }));
   return callCloud(CLOUD_FUNCTIONS.reportSession, {
     sessionId: payload.sessionId,
+    event_uuid: eventUuid(payload.sessionId, 'exam', payload.submitStatus || 'submitted'),
     profile: payload.profile || null,
     answers: answers,
     scores: payload.scores || null,
@@ -110,6 +121,7 @@ function reportInterview(payload) {
   // feedback 仅在反馈页提交时带上;云函数只在有值时写入,不会用 null 覆盖已存反馈。
   return callCloud(CLOUD_FUNCTIONS.reportInterview, {
     sessionId: payload.sessionId,
+    event_uuid: eventUuid(payload.sessionId, 'interview', payload.revision || 0),
     transcripts: payload.interviews || null,
     feedback: payload.feedback || null
   });
