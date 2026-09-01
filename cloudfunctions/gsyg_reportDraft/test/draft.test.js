@@ -45,8 +45,12 @@ function draftEvent(turnSeq) {
     sessionId: 'iv-session',
     itemId: 'Q4',
     turnSeq,
+    revision: turnSeq,
     status: 'in_progress',
-    messages: [{ role: 'teacher', text: '我很在意孩子' }]
+    messages: [{ role: 'teacher', text: '我很在意孩子' }],
+    evidenceState: { version: turnSeq },
+    dialogueProgressState: { turn: turnSeq },
+    releaseSnapshot: { releaseId: 'TCIM-WEB-2026.08.30-R6.1' }
   };
 }
 
@@ -63,6 +67,7 @@ function draftEvent(turnSeq) {
     assert.equal(res.ok, true);
     assert.equal(res.id, 'new-draft');
     assert.equal(typeof res.serverUpdatedAt, 'number');
+    assert.match(res.payloadHash, /^[a-f0-9]{64}$/);
     assert.equal(res.staleTurnRejected, undefined);
   });
 
@@ -72,6 +77,8 @@ function draftEvent(turnSeq) {
     assert.equal(res.ok, true);
     assert.equal(res.id, 'existing-draft');
     assert.equal(res.staleTurnRejected, undefined);
+    assert.equal(existingRecord.releaseSnapshot.releaseId, 'TCIM-WEB-2026.08.30-R6.1');
+    assert.deepEqual(existingRecord.dialogueProgressState, { turn: 3 });
   });
 
   mode = 'stale'; existingRecord = { _id: 'existing-draft', openid: 'web:test-user', sessionId: 'iv-session', itemId: 'Q4', turnSeq: 5, updatedAt: 200 };
@@ -80,6 +87,13 @@ function draftEvent(turnSeq) {
     assert.equal(res.ok, true);
     assert.equal(res.staleTurnRejected, true);
     assert.equal(res.serverUpdatedAt, 200); // 保留旧 updatedAt
+  });
+
+  mode = 'stale'; existingRecord = { _id: 'existing-draft', openid: 'web:test-user', sessionId: 'iv-session', itemId: 'Q4', turnSeq: 4, revision: 6, updatedAt: 300, payloadHash: 'newer-hash' };
+  res = await handler.main(draftEvent(4));
+  check('乱序保护：同一轮的旧 revision 不覆盖新草稿', () => {
+    assert.equal(res.staleTurnRejected, true);
+    assert.equal(res.payloadHash, 'newer-hash');
   });
 
   if (failures) { console.error(`\n${failures} 项失败`); process.exit(1); }

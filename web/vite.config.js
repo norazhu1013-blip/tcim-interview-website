@@ -1,9 +1,28 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 
-export default defineConfig({
+const webDir = path.dirname(fileURLToPath(import.meta.url))
+const repoRoot = path.resolve(webDir, '..')
+
+function gitCommit() {
+  if (process.env.VITE_TCIM_GIT_COMMIT) return process.env.VITE_TCIM_GIT_COMMIT
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
+  } catch {
+    return 'unrecorded'
+  }
+}
+
+export default defineConfig(() => ({
   plugins: [vue()],
   base: './',
+  define: {
+    __TCIM_GIT_COMMIT__: JSON.stringify(gitCommit()),
+    __TCIM_BUILT_AT__: JSON.stringify(process.env.VITE_TCIM_BUILT_AT || new Date().toISOString())
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -15,4 +34,4 @@ export default defineConfig({
       include: [/tcim\/[a-z]+\//, /node_modules/]
     }
   }
-})
+}))

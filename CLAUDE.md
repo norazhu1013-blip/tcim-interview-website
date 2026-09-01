@@ -362,3 +362,85 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **① Q 题被误标 multi-question（属实,数据源）**:真因是研究团队表4 部分**区分性双问法**本身带 2 个问号——`Q2-S3`“…分别意味着什么？您会怎么区分？”、`Q6-S2`、`Q8-S3`、`Q9-S1`（Q1-S3 其实只 1 问号,已复核）。`checkConstraints` 的 `countQuestionMarks>1 → multi_question` 把它们误判。**修复**：`checkConstraints(question, actionPlan, askedHistory, allowedPreset)` 新增第 4 参数——传本题表4 全部模板(typical+followup)构成白名单,命中则不判 multi_question;普通生成/兜底双问仍拦。`processTeacherTurn` 调用处构建 `allowedPreset` Set。engine 测试 +2(表4双问放行/普通双问仍拦)→19/19。**注意**:这是"数据源模板放行",非放宽 LLM 输出。
   - **② 成对重复写入（属实,缺事件级唯一 id)**:全链路仅 `sessionId`(一次答题)做幂等键、无事件级唯一 id;同一事件被重复上报(flushPending 重试+再次 persist)时,云函数 `where({sessionId})` 首查未落地→二次 add→成对重复。**修复**：上报统一带事件级 `event_uuid`(`<sessionId>:<type>:<occurrence>`,确定性、可重试不变),云函数 `gsyg_reportSession`/`gsyg_reportInterview` **add 前优先按 `event_uuid` 查重**(命中→更新既有、不新增;无 event_uuid 老端回退按 sessionId upsert);`gsyg_reportTeacher` 存 `event_uuid` 审计。web `api.js` 的 reportExam/reportInterview/reportProfile 均带 `event_uuid`。**验证**：新增 `cloudfunctions/gsyg_reportSession/test/event-idempotent.test.js`(同 event_uuid 重复不新增/老端 sessionId upsert)。全量:engine 19/19、reportInterview 5/5、session-event-idem、draft、parity、resilience 17/17、v7 13/13、report、web build/verify、mp-semantic 全过。**部署**：重传 `gsyg_reportSession`/`gsyg_reportInterview`/`gsyg_reportTeacher`(改过)+重建网页。**小程序侧 event_uuid** 上报(api.js)未加——小程序上报走 `miniprogram/utils/api.js`,本轮只改 web + 云函数;如需小程序也带需另改。
 - **2026-08-29 小程序上报补 event_uuid**:补上小程序端 `miniprogram/utils/api.js` 的事件级唯一 id（对齐 web + 云函数）。`eventUuid(sessionId,type,occurrence)` 生成 `<sessionId>:<type>:<occurrence>`：reportExam=`<sid>:exam:<submitStatus|submitted>`、reportInterview=`<sid>:interview:<revision||0>`、reportProfile=`<profileSid>:profile:<updatedAt||0>`。云函数 `gsyg_reportSession`/`gsyg_reportInterview` 已支持按 event_uuid 优先查重（命中→更新不新增），故小程序端无 revision 机制时 reportInterview 用默认 revision=0 也复用同一 event_uuid 去重。**验证**：mock wx 拦截 callFunction 确认三个上报 event_uuid 正确（`S1:exam:submitted`/`S1:interview:0`/`S1:profile:123`）；reportInterview 5/5、session-event-idem 2/2、draft、engine 19/19、parity、resilience 17/17、mp-semantic、web verify 全过。纯前端，重建小程序即可。
+- **2026-08-29 本机比较版真实模型选择 + 多轮复问修复**:
+  - **问题定性**:用户看到的重复提问来自 `mock-dialogue-v1` 固定后续响应，不是 Kimi/OpenAI 的真实输出；旧页面只有“进入演示”，没有页面内真实模型选择。mock 只可验证界面/保存链，`simulationOnly` 记录不得进入正式统计、报告或用于评价提问质量。
+  - **页面内选择**:`InterviewView` 在正式首问前明确提供 Kimi K3/OpenAI 选择和密码输入；页面只读取 configured 布尔值，密钥只经 localhost 回环接口保存到被 Git 忽略的 `local-dialogue-server/.env`，不回传、不进浏览器存储、运行数据或日志。选择热切换无需重启；正式选择写入 `session.dialogueModelSelection`，scope=`assessment_session`，同次测评三道正式访谈锁定同一 provider/model，且每轮携带 `expected_provider/expected_model`；另一标签页切换导致不一致时返回 409 并要求恢复，不得静默混用模型。
+  - **安全配置接口**:`GET/POST /v1/model-config` 只允许回环来源与 localhost CORS；浏览器在 fetch 前再次硬拒绝非 localhost/127.0.0.0/8/[::1] 配置地址。POST provider 白名单仅 `kimi|openai|mock`，可选 key 为 1–512 字符且禁止空白、换行/NUL；`.env` 原子写入，Windows DACL 限定当前用户/SYSTEM/Administrators，旧 `.env` 启动时也收紧；响应永不含 key。单轮请求启动时快照 provider，热切换只影响下一轮。
+  - **多轮工作记忆**:Dialogue Session schema 升 v3，新增 `DialogueProgressState v1`（questionLedger/openThreads/coveredCues/phase/stagnation），区分“已经谈过”与 canonical Evidence；它帮助模型识别已问落点、开放线索和停滞，但不替 Dialogue Agent 选择路线，也不写 Evidence。浏览器每轮紧凑转发，服务端提示词实际消费。
+  - **复问防线**:编译卡恢复四个选项的字母+完整语义；后续轮 `understanding.teacher_quote` 必须是本轮教师原话非空逐字子串；模型输出经过中文实质落点近似 Gate（承接壳/常见同义归一 + 具体锚点），命中后自动纠偏重生成最多一次，仍重复则暂停而不展示。mock 改为按 item+轮次四阶段变化，第五轮陈述性 CLOSE，不再无限重复。
+  - **恢复边界**:旧 `Dialogue Session v2` 有实际消息/证据时不得静默新建 v3 后续接，页面保留旧内容但要求开始新测评；旧正式记录若只有 provider 而缺少具体 `llmModel`，同样不得继续形成可比较数据。
+  - **并发边界**:页面用 Web Locks 对 `sessionId+itemId` 建立独占执行锁，同一情境误开第二标签页时第二页只读且不得持久化；模型配置另以 assessment session 独占锁串行创建，并在保存当前题前合并本机最新的模型锁和其他题记录。
+  - **验证**:`local-dialogue-server` 30/30，web Dialogue Agent 26/26，web 全套 verify（含240排列对拍/新五表/报告）与 comparison build 通过；真实 Kimi/OpenAI 的访谈质量仍必须在配置有效密钥后用连续多轮 Fixture 单独验证。
+- **2026-08-30 本机生产发布与交付文档**:
+  - **生产发布链**:新增 `publish-local-comparison.ps1`、`发布本机版.cmd` 和 `local-web-server.js`。发布脚本先运行网页完整 `verify` 与 `build:comparison`，再把 `web/dist` 作为仅监听 `127.0.0.1:5173` 的生产静态网页提供；不再用 Vite 开发服务器冒充发布版。`.local-release/release.json` 记录构建时间、Git提交、新五表 dataset/schema/configFingerprint 与本机 URL。
+  - **启动/停止兼容**:`start-local-comparison.ps1` 优先启动生产静态服务，缺少 `dist` 时自动构建；进程记录增加 `releaseMode=production-static` 和 `webServerScript`。`stop-local-comparison.ps1` 同时兼容新静态服务与旧 Vite 记录，且继续只终止路径校验后的项目进程。
+  - **运行状态**:本机网页 `http://127.0.0.1:5173` 与 Dialogue Agent `http://127.0.0.1:8787` 均已启动并通过健康检查；Kimi K3 当前 configured/ready。验证结果更新为 local service 32/32、web Dialogue Agent 28/28、240 个题目×排列评分对拍、新五表负向夹具、报告与生产构建全部通过。
+  - **说明材料**:`交付文档/TCIM当前程序整体架构_实现机制与本机发布分析报告_V0.1.docx` 说明权力结构、逐轮实现、接口、Evidence→画像、延时/收尾、发布和限制；`交付文档/TCIM新五表三类数据警告_人工治理操作手册_V0.1.docx` 逐条列出 59 个父引用、21 条路由错配和 55 条无路径记录，并给出人工复核、重新编译、兼容检查和完成定义。两份文档已用 LibreOffice 逐页渲染检查。
+  - **五表治理边界**:当前三类 warning 仍不阻断 SIMULATION_ACTIVE 研究比较版；不得由编译器自动猜专业关系。建议先修 21 条 type/runtimeUse，再核对 59 条 parentCapabilityIds，最后处理 50 条 EvidenceAnchor pathRefs；5 条 RO0—RO4 来源政策应显式 `NOT_APPLICABLE`，不应强绑专业路径。
+- **2026-08-30 自然轮替与两分钟整体理解问题**:
+  - **自然承接**:前台提示词取消每轮固定“复述/核实—再提问”。`teacher_quote` 与内部理解只作后台审计；普通轮次直接提出接得上的自然追问，只有教师明确纠正、关键歧义或误解会改变方向时才短暂修复。问句质量 trace 增加机械复述开头诊断，但不把它设为新的硬模板门控。
+  - **整体问题窗口**:`interview-timing.js` 在剩余 150s 至前台生成保护线 105s 之间、且每题尚未触发时发送 `question_mode=INTEGRATIVE_SYNTHESIS`。程序只调度时机；Dialogue Agent 综合整段历史、情境目标与教师原话，自主生成一个贴近情境、非诱导、非多问合一的最后新问题。状态和原问句写入 `integrativeQuestion` 与审计日志；教师回答后用 `INTEGRATIVE_QUESTION_ANSWERED` 保存最后一轮并结束，后台 Evidence 分析继续完成。失败重试通过 `runtimeDirectives` 保留该模式，不会降回普通问句。
+  - **验证**:local service 36/36、web Dialogue Agent 29/29、240 排列对拍、新五表运行时/负向夹具和报告检查通过。
+- **2026-08-30 新五表V0.2两轮数据治理**:
+  - **唯一活动源**:`config/new-five-tables/source/`只保留五个V0.2.1工作簿；V0.1/V0.2工作簿与runtime仅供历史复现，运行端只导入`web/src/generated/tcim-new-five-tables.runtime.v0.2.1.json`。
+  - **第一轮**:归一59个父级能力引用；对齐21条`policy_type/runtime_use`；表3新增`path_relation_mode/path_match_rule/path_relation_reason`，50条能力证据采用`ALTERNATIVE_PATHS + ANY_OF`，5条RO0—RO4来源政策采用`NOT_APPLICABLE + NONE`。
+  - **共同原则**:同一能力A/B/C（或A/B）为可替代实现；教师满足任一路径的证据锚点即可，不要求全部路径，未出现某一路径不得直接判能力不足。该语义进入Excel字典/枚举、运行时、紧凑提示和确定性验证器。
+  - **第二轮**:扩大到487条记录的版本/来源/唯一ID、Ontology图、证据—能力—路径三方语义、对话/综合引用、源哈希/指纹与十题完整性。发现Q06五条路径组按编号机械错配，已按命题和能力重映射；T3-Q10-004补全C07/C08环境配置引用。最终9组检查0错误0警告，指纹`35f1c6ddaa4780b72fdf5ff5b989befbefe9361681b3478ed415757c0774a606`。
+  - **工程门禁**:`tools/compile-new-five-runtime-v021.mjs`重新编译，`tools/audit-new-five-v021.mjs`执行跨表审计；`verify-new-five-runtime.mjs`阻断旧版混入、认识状态错路由、多重画像归因、Q08题面污染及其他契约错误。
+- **2026-08-30 真实对话回放驱动的自然追问二次优化（r3）**:
+  - **证据**:`tools/analyze-local-dialogue-experience.mjs`只输出聚合指标、不输出教师原话。现有8份本机transcript中4份有实质追问；旧r1的Q9七个后续问句均出现模式化复述，且未触发整体问题。日志证明该访谈发生在r2发布前，用户感受成立。
+  - **自然承接双保险**:提示版本升为`tcim-dialogue-v3-low-latency-2026-08-30-r3-natural-direct-integrative`；新增模式化复述检测。若“复述句。完整问题？”可安全拆分，服务端直接删除冗余复述句且不增加模型调用；否则作为可纠正质量错误最多重生成一次。教师明确纠正时仍允许短理解修复。trace记录`visible_style_adjusted/style_adjustments`。
+  - **整体问题稳健触发**:窗口上沿由150秒前移至165秒，下沿仍为105秒，收尾仍保留90秒；修复真实Q9从153秒直接跨过窄窗口的问题。整体模式最多读取14轮历史，只提出一个情境化的整体判断、条件权衡、边界或调整依据问题；回答后直接收尾。
+  - **真实Kimi回放**:普通追问一次生成约5.0秒，直接问“之后通过哪些表现判断真正理解”；整体问题一次生成约5.7秒，形成“何时先教规则、何时放手协商玩法”的情境权衡问句；均通过单问、非诱导、非复问和自然开头检查。
+  - **发布一致性**:`publish-local-comparison.ps1`完成构建后强制重启网页与Dialogue Agent，并从`/health`把实际`prompt_version`写入release manifest，防止静态页面与常驻后台版本错配。
+- **2026-08-30 微关系回应与中断恢复（r4）**:
+  - **真实中断证据**:最新Q1在第4次教师回答后，Kimi两次应用级请求均返回`invalid_provider_output`（约7.2s/6.8s），发生时仅用时约4分29秒，排除倒计时。旧日志只留总错误码，无法再还原具体校验分支，故补充安全的失败详情留痕。
+  - **微关系回应**:提示版本升为`tcim-dialogue-v3-low-latency-2026-08-30-r4.1-relational-microcue-resilient`。`frontstage_response_style`在`NONE/ACKNOWLEDGE_PERSPECTIVE/VALIDATE_COMPLEXITY/REPAIR`间给出软建议；每次最多一句4—20字，最近两轮已有关系承接则冷却。只承认思考、观察、取舍和专业关切被听见，不空泛赞美、不判能力、不虚构情绪、不按性别套话；关系句已点出取舍时，问句不得再次换词重复。trace记录requested move、实际微关系回应和前缀。
+  - **低延时稳健修复**:`teacher_quote`空缺或近义改写时，从本轮教师原话确定性选择逐字片段，只修审计字段、不动问句/证据；模式化复述仍可无调用删除。其余校验失败最多用两个恢复候选（总计3个），最后机会允许在无安全新问题时温和CLOSE，仍失败才PAUSED。
+  - **可诊断性**:领域层保留错误码和经脱敏、限长的`errorDetails`，`DialoguePaused`审计及`generationFailures`均可定位具体校验原因；教师界面仍只显示非技术性的“回答已保存、可重试”。聚合分析增加关系回应率与失败次数，不输出教师原话。
+  - **验证**:local service 41/41、web Dialogue Agent 30/30、240排列对拍、新五表14类负向夹具和报告检查通过。
+- **2026-08-30 自然温度、开放支架与证据来源门控（r5）**:
+  - **目标原则**:自然、有温度但不讨好；开放但不失去专业方向；促进教师表达，同时不得把AI先提供的内容回写成教师原有能力。
+  - **关系温度门控**:提示版本升为`tcim-dialogue-v3-low-latency-2026-08-30-r5-natural-warm-open-evidence-safe`。关系承接不再因每条长回答自动出现；最近三轮已有前置承接时进入冷却。服务端拒绝“很难得/很细致/很有分辨/很生动/很实际/很成熟/很到位/好的起点”等评价式表扬，也拒绝在本轮关系预算为NONE时继续添加关系套话；中性地承认取舍和复杂性仍允许。
+  - **开放优先、分层支架**:固定顺序为开放问题→必要的措辞澄清→教师明确表示不理解、连续短答或进展状态明确停滞后，才允许少量示例/选项。普通轮次若AI先列“比如……”或“A还是B”等答案类别，质量闸门退回重生成；不以减少教师表达自由换取表面顺畅。
+  - **来源不能由模型自报**:后台Evidence分析新增`elicitation_origin_guard`。上一问若确定性检测到AI给了选项，教师随后采用的内容至少标RO3；若AI先解释再让教师回应，至少标RO4。模型报出更独立的RO0/RO1/RO2会被程序改低，RO3/RO4继续排除在“原有能力”画像之外，审计trace保留来源门控原因。
+  - **整体问题变为双门禁**:时机窗口前移到剩余210秒，普通追问105秒门槛以下仍为整体问题保留至95秒的独立生成区；内容必须同时包含整体范围和决策依据/取舍/改变/边界等信号，局部反事实会被退回重生成。教师回答后仍直接收尾并保留后台Evidence分析。
+  - **验证**:local service 48/48、web Dialogue Agent 32/32、计时门禁3/3、240排列对拍、新五表21类负向夹具与报告检查通过；真实Kimi整体问题一次生成约4.3秒，形成“允许例外与运动底线之间如何把握”的情境权衡问句并通过全部质量门禁。
+- **2026-08-30 两次具体肯定与问题强度节律（r6）**:
+  - **真实回看依据**:同一份最新记录跨越r4/r5发布时点：12:45—13:03的旧轮次每题出现约4—5次“很难得/很有分辨/很细致/很生动”等肯定，温暖但过密；13:37后的r5题只出现1次中性肯定，但后半段连续推进“如果仍求助—具体观察—如果其实会搭—何时重新介入”，单问均合理，排列后形成明显压力。结论是调节出现次数与顺序，而不是取消温度或专业挑战。
+  - **两次温暖预算**:提示版本升为`tcim-dialogue-v3-low-latency-2026-08-30-r6-two-warmth-pressure-rhythm`。每个情境目标2次、最多2次具体肯定：首次在前段实质回答后，第二次在至少4个已问问题后的实质回答出现；只肯定本轮表达、观察或区分，可用“很细致/很有分辨/很难得”，始终禁止“很专业/非常好/好的起点/能力很强”等宽泛评分。程序以全程questionLedger计数；模型遗漏预约肯定时确定性补一条短前缀且不增加API调用，宽泛表扬前缀可安全分离时先删除再补受控肯定。短答、修复轮或没有实质内容时不为凑数强行肯定。
+  - **张弛门禁**:程序把反事实、连续失败、例外/底线、要求改变立场等识别为CHALLENGE。每题建议上限2次；上一问为CHALLENGE或已达上限时，下一问硬性转为RELAX，优先邀请真实经验、观察细节、当时过程或自由补充；连续挑战会被退回重写。两次肯定轮也自动降低问题负担。整体问题仍可提炼专业判断，但须用非对抗方式表达。
+  - **测量边界**:三次情境访谈只形成高质量理解样本，不要求穷尽教师全部能力；未触及方面保持UNKNOWN，不能为了五表覆盖而连续加压。Evidence来源隔离、开放优先和Dialogue Agent主导权保持不变。
+  - **验证**:local service 53/53；真实Kimi预约肯定轮一次生成约5.4秒，输出“这个区分很有分辨”；挑战后的第二次肯定+舒缓轮一次生成约5.35秒，确定性移除模型宽泛“很稳”前缀后形成“您对这些细节看得很细致。您一般看多久、看到什么，心里就会有个大概的判断？”，无额外模型调用并通过压力门禁。
+- **2026-08-30 发布版本治理与反馈回传（TCIM Web R6.1）**:
+  - **升级权**:后续提示词、五表、访谈逻辑和功能升级统一在研究负责人持有的主版本完成；程序员只部署冻结版本、修复明确部署问题并回传反馈，不得在云端静默改核心逻辑。紧急修复也要新分支、新发布号和可回滚版本。
+  - **四层版本**:网页发布号`TCIM-WEB-2026.08.30-R6.1`、新五表版本/指纹、Dialogue Agent提示版本、实际provider/model独立记录；另保留Git提交、构建时间和schema版本。首页显示短标签`TCIM Web R6.1 · 五表 V0.2.1`。
+  - **会话冻结**:`web/src/core/release.js`是构建时发布描述；`createSession`写入`releaseSnapshot`，旧会话不随网页升级改写。`reportSession`、`reportInterview`及三项教师反馈均携带快照；实际每轮trace继续保存真实provider/model/promptVersion。
+  - **反馈闭环**:实际反馈、人工评价、失败与延时须以`sessionId + itemId + releaseSnapshot + 实际模型trace`关联并按版本分组，不混合不同发布条件。`publish-local-comparison.ps1`在构建前注入Git提交和构建时间，包内manifest/校验值为最终交付依据。
+- **2026-08-31 R6.1 腾讯云生产外壳适配（分支 `release/tcim-web-r6.1-cloud`，基线 `7eddcf1`）**:
+  - **边界**:只替换本机通信/密钥/存储外壳，不修改 Dialogue Agent 提示词与质量门禁、新五表 V0.2.1、Evidence State、两次具体肯定、挑战节律、整体问题、计时、评分或 R/P/G 筛题。原线上分支与原本机基线不被覆盖。
+  - **受保护云函数**:新增 `gsyg_dialogueAgent`，其 `src/` 由 `tools/sync_dialogue_cf.js` 从冻结的 `local-dialogue-server/src/` 四个核心文件物理同步；正式请求只接受现有 `gsyg_webGateway` 注入的 `web_account` actor 和共享令牌，按 `gsyg_sessions` 校验 owner，并把 provider/model/promptVersion 锁定到整次测评。生产拒绝 mock、缺 model lock、跨模型续接和超过 1MB 的载荷。
+  - **内容安全与密钥**:`SEC_CHECK=1` 是 ready 门禁；教师输入和 AI 可见输出都过 `msgSecCheck`，未配置时失败关闭。Kimi/OpenAI 密钥只读云函数环境变量；生产网页不再导入模型配置模块，不显示模型选择或密钥输入，也不配置单独 Dialogue Agent 公网地址。
+  - **网关**:`ACTIONS.dialogueAgent → gsyg_dialogueAgent`，与旧访谈一样走 65 秒 CloudBase SDK 实例；默认账号限流由 36/10min 调为 180/10min（R6.1 每轮含前台问句+后台 Evidence）。`/health`聚合受保护 Dialogue Agent 的 ready/provider/model/promptVersion，业务 `/call` 仍必须登录。
+  - **云端追溯**:`gsyg_reportSession`首次冻结 `releaseSnapshot`；`gsyg_reportDraft`逐轮保存 revision/payloadHash、消息、Evidence State、DialogueProgressState、五表指纹、releaseSnapshot 和实际模型 trace，并拒绝旧轮覆盖；`gsyg_reportInterview`实际持久化 releaseSnapshot/payloadHash，旧 revision 返回存量回执。
+  - **构建身份**:`vite.config.js`在每次生产构建注入实际 Git HEAD 和 UTC 时间，`.env.production`固定 R6.1 架构/发布号且 `VITE_LOCAL_RESEARCH_MODE=0`。`verify_production_dist.mjs`拒绝回环请求地址、本机模型配置入口、密钥变量和CommonJS残留；CloudBase官方登录SDK的URL标准化器保留1个不带协议的`localhost`常量（非请求地址），必须单独说明并用浏览器网络验收确认本机请求为0。
+  - **当前状态**:本地机制、网关和网页自动测试已通过；尚未上传腾讯云、配置真实密钥或完成三题人工验收。实际发布后再填写 `04_发布验收与回滚记录模板.md`，不得提前标记可发布。
+  - **上游依赖风险**:`gsyg_dialogueAgent`锁定发布时微信官方最新稳定版`wx-server-sdk 4.0.2`，并声明`security.msgSecCheck`权限。npm审计仍报告该官方SDK间接依赖的5个high/1个moderate公告；当前适配层不接受动态数据库字段路径或SDK目标URL，降低了这些公告在本调用面的可利用性，但正式验收须记为已知上游依赖风险并跟踪微信/CloudBase SDK修复版本。
+- **2026-09-01 中性同行对话与等待上限（TCIM Web R6.2，分支 `release/tcim-web-r6.2-neutral-dialogue`）**:
+  - **真实试访依据**:R6.1 本机 Kimi Q1 完整试访中，11个可见问题平均等待约11.2秒，最慢约32.9秒；出现“愿意坦白这是假设情境，这很真实”“愿意先保留判断，很难得”“这个办法很灵活”等表达。问题来自r6的两次肯定配额及最多3次顺序生成共同放大，不应归因于教师回答。
+  - **中性同行口吻**:提示版本升为`tcim-dialogue-v3-low-latency-2026-09-01-r7-neutral-peer-fast`。取消每情境两次肯定及确定性补赞；禁止评价教师的表达、诚实、人格、能力或做法质量。教师提到题目是假设/没有相同经历时不按关键词固定回应，而判断其对话作用：边界后已有实质回答走`FOLLOW_SUBSTANCE`并直接承接；只说明经验边界才走`CALIBRATE_PREMISE`；质疑前提走`EXAMINE_PREMISE`并允许改写情境；不愿或无法想象走`OFFER_REFRAME_OR_CLOSE`，不得强迫编造；真正纠正AI对原话的理解才走`REPAIR_IF_NEEDED`。所有路线均不立即道歉、自责或把说明描述为“坦白、诚实或勇气”。
+  - **无需二次调用的清理**:若“很难得/很真实/很灵活/很细致/很有分辨/愿意坦白”等评价前缀后已有一个完整有效问题，程序确定性删除前缀并直接展示问题；不能安全分离时才由质量门禁退回。该处理不改专业方向、Evidence或教师原话。
+  - **等待时间上限**:普通历史由8轮压到4轮，整体问题由14轮压到8轮；DialogueProgressState只发送选择下一问需要的问句、开放线索、线索摘要和停滞字段，移除答案摘录、详细理解、假设、理由和审计ID的重复传输。单轮上游生成硬上限由3次降为2次，第二次仍失败即暂停并允许教师重试或结束，不再出现第三段模型等待；后台Evidence调用继续异步，不阻塞下一问显示。真实复测显示把结构化输出上限从500降到400会增加Kimi无效JSON风险，故保持500，不以牺牲成功率换表面限额。
+  - **真实Kimi复测**:Q4连续可见轮次为8.7s、8.0s、18.5s、21.7s、12.3s；假设情境纠正后AI直接说“是我假设过头了”，未再出现坦白、真实、难得、灵活等评价。21.7s轮实际只调用Kimi一次，证明剩余长尾主要来自Kimi K3上游波动而非程序重试；该轮输入约6.0k tokens，明显低于R6.1最慢轮三次共26.7k tokens。最终4/8轮压缩与500-token可靠上限生效后，新情境首问重试为8.0s成功。故R6.2消除了三次等待的程序放大，但不能承诺每轮≤7s；云端验收仍应统计P50/P95并对候选Kimi模型做同一脚本A/B。
+  - **发布边界**:这是核心对话逻辑变更，因此使用新发布号`TCIM-WEB-2026.09.01-R6.2`和新分支；只完成本机修改、自动测试、真实Kimi复测及可交付提交，不合并`main`、不部署腾讯云、不改变当前正式网站。
+- **2026-09-01 R6.2 整体本机试访后的稳定性收口**:
+  - **完整路径**:新建并提交10题测评，完成系统遴选的Q1/Q4/Q6三场Kimi访谈，逐一检查异常重试、主动结束、倒计时结束、三场完成计数、反馈提交与云端保存回执；测试数据仅留在本机研究存储，未合并main、未部署腾讯云。
+  - **连续追问故障**:旧压力分类把所有“如果”和“什么情况下”都误判为CHALLENGE，导致正常条件追问后的下一问连续两次被拒绝。现仅在拒绝、失败、持续无效、改变立场、例外/底线等真正高负担语义出现时判为挑战；普通“如果判断为探索，接下来如何支持”保持NEUTRAL。
+  - **收束可用性**:整体问题模式连续两次只生成局部问题时，不再暂停整场；程序使用一个中性、非诱导、只问整体判断依据的安全收束问句，并保留trace标记。该兜底只处理`integrative_question_lacks_global_judgment`这一软质量错误，其他安全/契约错误仍失败关闭。
+  - **整体口吻门禁**:补抓“刚才您说…”及破折号连接的机械复述；普通开放轮拒绝AI先给“魔法或鞋子”等示例选项；一个问号内仍含“怎样判断……还是看哪些迹象”的双意图问题会重写。新增“很关键/很完整/说得很完整”为评价式表达；模型CLOSE若评价教师则确定性替换为中性结束语，主动结束、倒计时和最终回答保存的本地收束语也不再复述或评价教师。
+  - **验证**:local Dialogue Agent 33/33；web完整verify通过（同步冻结副本、240排列、新五表运行时/21类负向夹具、计时、release、Dialogue Agent 32/32、报告）；三场访谈、反馈与保存UI链路均完成。真实Kimi可见轮次仍有5.4—10.1秒波动，不能承诺≤7秒，后续云端验收须继续统计P50/P95。
+- **2026-09-01 人工Q10回放修正（提示r8）**:
+  - **真实问题**:会话`cf2c6aad-dd6f-4705-a83b-26f54b4a7543`在首答后和第7答后各暂停一次；两次均为Kimi连续返回多问号，触发`output.visible_text must contain exactly one question mark`。教师指出“AI在假设/对孩子的预设有偏差”时，旧检测未识别为前提质疑，AI直接换到经验问题；整体问题首次失败后人工重试虽成功，却未登记`integrativeQuestion`，造成后面再次询问整体问题；最终回答保存后使用技术性收束语，显得突然。
+  - **r8修正**:提示版本升为`tcim-dialogue-v3-low-latency-2026-09-01-r8-premise-aware-natural-close`。模型一次生成多个问句时，程序先选择其中最长且可独立回答的一问，再走原有非诱导/非复问/单意图等全部门禁，不为纯格式问题增加第二次等待。扩充“你在假设/对孩子有预设偏差”识别，并在转向真实经验前确定性显示“先不沿用这个预设”，不得无回应地换方向。
+  - **整体问题与重试**:整体性只保留在问题内容，不再向教师宣布“回头看整个游戏/整体来看/综合来看”；人工重试若恢复的是`INTEGRATIVE_SYNTHESIS`，立即登记为已问，教师下一次回答后直接收束，不再重复第二个整体问题；重试成功后同时补做该教师回答的后台Evidence分析。
+  - **自然收束**:最后整体回答仍保存并进入后台Evidence，不再显示“本轮回答已保存”这类系统提示，而用中性承接说明该回答补充了当前情境的判断依据，再感谢并结束；不评价回答质量，也不再追加新问题。

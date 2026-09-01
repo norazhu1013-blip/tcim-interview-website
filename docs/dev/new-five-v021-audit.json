@@ -1,0 +1,66 @@
+{
+  "auditId": "TCIM-FIVE-TABLES-V0.2.1-20260830",
+  "scope": "SIMULATION_ACTIVE",
+  "result": "PASS",
+  "summary": {
+    "checks": 10,
+    "errors": 0,
+    "warnings": 0,
+    "excelRecords": 487
+  },
+  "checks": [
+    {
+      "code": "active_source_set",
+      "status": "PASS",
+      "detail": "活动目录仅含5个V0.2.1工作簿；旧版不混入"
+    },
+    {
+      "code": "row_contracts",
+      "status": "PASS",
+      "detail": "487条Excel记录完成版本、来源、活动范围检查"
+    },
+    {
+      "code": "record_id_unique",
+      "status": "PASS",
+      "detail": "487个record_id全局唯一"
+    },
+    {
+      "code": "prior_and_epistemic_routing",
+      "status": "PASS",
+      "detail": "前测为低精度可撤销先验；事实、未知、假设与情境变体分流"
+    },
+    {
+      "code": "ontology_graph",
+      "status": "PASS",
+      "detail": "父级能力、替代路径、命名空间、同题同能力与双向引用全部闭合"
+    },
+    {
+      "code": "evidence_path_semantics",
+      "status": "PASS",
+      "detail": "50个能力证据的路径、L0—L3锚点、唯一画像归因与Q08污染隔离全部有效"
+    },
+    {
+      "code": "dialogue_contracts",
+      "status": "PASS",
+      "detail": "政策路由、目标理解与目标能力引用全部有效"
+    },
+    {
+      "code": "synthesis_contracts",
+      "status": "PASS",
+      "detail": "综合判断的证据命题与能力引用全部有效"
+    },
+    {
+      "code": "runtime_provenance",
+      "status": "PASS",
+      "detail": "五个源文件哈希与运行时指纹一致"
+    },
+    {
+      "code": "question_completeness",
+      "status": "PASS",
+      "detail": "Q01—Q10均具备情境、Ontology、Evidence、对话、综合与硬边界"
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "runtimeFingerprint": "e0dfe919760dc1a80e02d4bb7f89c43d8f115ab7fa2f09b5a8b5ced8785e38c8"
+}

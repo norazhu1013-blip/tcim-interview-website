@@ -5,6 +5,7 @@ import { ITEMS } from '../generated/data.js'
 import { getProfile, getSession, saveSession } from '../services/storage.js'
 import { reportExam, selectFinal } from '../services/api.js'
 import { requireWebLogin } from '../services/web-auth.js'
+import { isFormalComparisonInterviewRecord } from '../core/dialogue-agent/records.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,9 +13,19 @@ const session = ref(getSession(route.params.sid))
 const loading = ref(false)
 const error = ref('')
 const itemById = Object.fromEntries(ITEMS.map((item) => [item.item_id, item]))
-
 const selected = computed(() => session.value?.selection?.final || [])
-const doneCount = computed(() => selected.value.filter((item) => session.value?.interview?.[item.id]?.status === 'done').length)
+function comparisonRecord(itemId) {
+  const record = session.value?.comparisonInterview?.[itemId]
+    || session.value?.interview?.[itemId]
+  return isFormalComparisonInterviewRecord(record) ? record : null
+}
+function isComparisonDone(itemId) {
+  return comparisonRecord(itemId)?.status === 'done'
+}
+function isSimulationDone(itemId) {
+  return session.value?.simulationInterview?.[itemId]?.status === 'done'
+}
+const doneCount = computed(() => selected.value.filter((item) => isComparisonDone(item.id)).length)
 const plannedCount = computed(() => selected.value.length)
 const allDone = computed(() => plannedCount.value > 0 && doneCount.value === plannedCount.value)
 const isSingleTrial = computed(() => session.value?.studyMode === 'single_trial')
@@ -67,14 +78,14 @@ function open(item) {
       <article v-for="(selectedItem, i) in selected" :key="selectedItem.id" class="interview-card">
         <img :src="`./scenarios/${selectedItem.id}.jpg`" :alt="itemById[selectedItem.id]?.title" />
         <div>
-          <span class="status" :class="{ complete: session.interview?.[selectedItem.id]?.status === 'done' }">
-            {{ session.interview?.[selectedItem.id]?.status === 'done' ? '已完成' : '待访谈' }}
+          <span class="status" :class="{ complete: isComparisonDone(selectedItem.id) }">
+            {{ isComparisonDone(selectedItem.id) ? '已完成' : (isSimulationDone(selectedItem.id) ? '演示完成 · 不计入' : '待访谈') }}
           </span>
           <p class="eyebrow">情境 {{ i + 1 }}</p>
           <h2>{{ itemById[selectedItem.id]?.title }}</h2>
           <p>{{ itemById[selectedItem.id]?.stem || '情境原文暂不可用。' }}</p>
           <button class="button secondary" @click="open(selectedItem)">
-            {{ session.interview?.[selectedItem.id]?.status === 'done' ? '回看访谈' : '开始访谈' }}
+            {{ isComparisonDone(selectedItem.id) ? '回看访谈' : (isSimulationDone(selectedItem.id) ? '查看演示 / 开始正式访谈' : '开始访谈') }}
           </button>
         </div>
       </article>

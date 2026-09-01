@@ -13,6 +13,7 @@ const { ACTIONS, createCloudInvoker, createGateway, verifyCloudBaseAccessToken }
 async function main() {
   assert.equal(ACTIONS.whoami, 'gsyg_whoami');
   assert.equal(ACTIONS.exportData, 'gsyg_exportData');
+  assert.equal(ACTIONS.dialogueAgent, 'gsyg_dialogueAgent');
 
   const defaultCalls = [];
   const interviewCalls = [];
@@ -22,8 +23,12 @@ async function main() {
   });
   await routedInvoke({ name: ACTIONS.reportSession, data: { sessionId: 'regular' }, timeout: 15000 });
   await routedInvoke({ name: ACTIONS.interviewChat, data: { sessionId: 'interview' }, timeout: 65000 });
+  await routedInvoke({ name: ACTIONS.dialogueAgent, data: { operation: 'turn' }, timeout: 65000 });
   assert.deepEqual(defaultCalls, [{ name: ACTIONS.reportSession, data: { sessionId: 'regular' } }]);
-  assert.deepEqual(interviewCalls, [{ name: ACTIONS.interviewChat, data: { sessionId: 'interview' } }]);
+  assert.deepEqual(interviewCalls, [
+    { name: ACTIONS.interviewChat, data: { sessionId: 'interview' } },
+    { name: ACTIONS.dialogueAgent, data: { operation: 'turn' } }
+  ]);
 
   let verifiedUrl = '';
   const verifiedUid = await verifyCloudBaseAccessToken('valid-cloudbase-access-token', async (url, options) => {
@@ -51,7 +56,9 @@ async function main() {
       : { uid: '', isAccount: false },
     invoke: async (input) => {
       forwarded = input;
-      return { result: { ok: true, functionName: input.name } };
+      return { result: input.data && input.data.operation === 'health'
+        ? { ok: true, ready: true, provider: 'kimi', model: 'kimi-k3' }
+        : { ok: true, functionName: input.name } };
     }
   });
   const server = app.listen(0, '127.0.0.1');
@@ -61,6 +68,12 @@ async function main() {
   const headers = { Origin: 'https://app.example.test' };
 
   try {
+    const healthResponse = await fetch(`${endpoint}/health`, { headers });
+    const healthBody = await healthResponse.json();
+    assert.equal(healthResponse.status, 200);
+    assert.equal(healthBody.dialogueAgent.ready, true);
+    assert.equal(healthBody.dialogueAgent.model, 'kimi-k3');
+
     const login = await fetch(`${endpoint}/auth/session`, {
       method: 'POST',
       headers: { ...headers, Authorization: 'Bearer valid-cloudbase-access-token' }
@@ -112,6 +125,17 @@ async function main() {
     assert.equal(interviewResponse.status, 200);
     assert.equal(interviewBody.ok, true);
     assert.equal(forwarded.name, 'gsyg_interviewChat');
+    assert.equal(forwarded.timeout, 65000);
+
+    const dialogueResponse = await fetch(`${endpoint}/call`, {
+      method: 'POST',
+      headers: { ...headers, Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'dialogueAgent', data: { operation: 'turn', payload: { session_id: 'test' } } })
+    });
+    const dialogueBody = await dialogueResponse.json();
+    assert.equal(dialogueResponse.status, 200);
+    assert.equal(dialogueBody.ok, true);
+    assert.equal(forwarded.name, 'gsyg_dialogueAgent');
     assert.equal(forwarded.timeout, 65000);
 
     // 1.4：超过 body 上限时,网关返回结构化 413 而非默认 HTML(前端才能识别 payload_too_large)

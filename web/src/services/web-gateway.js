@@ -1,4 +1,4 @@
-const baseUrl = (import.meta.env.VITE_WEB_API_BASE_URL || '').replace(/\/$/, '')
+const baseUrl = (import.meta.env?.VITE_WEB_API_BASE_URL || '').replace(/\/$/, '')
 
 export function gatewayConfigured() {
   return Boolean(baseUrl)
@@ -45,10 +45,11 @@ export function clearGatewaySession() {
  * 身份只来自网关验证后的 HttpOnly 会话 Cookie；业务数据中不携带可伪造的
  * openid、uid 或 CloudBase access token。小程序仍保留 wx.cloud.callFunction 原路径。
  */
-export function callGateway(action, data = {}) {
+export function callGateway(action, data = {}, options = {}) {
   return gatewayRequest('/call', {
+    ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     body: JSON.stringify({ action, data })
   })
 }

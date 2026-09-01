@@ -43,6 +43,7 @@ function reportEvent(revision, feedback) {
     studyMode: 'full_assessment',
     transcripts: { Q1: { status: 'done', messages: [{ role: 'teacher', text: '我在意孩子' }] } },
     feedback: feedback || null,
+    releaseSnapshot: { releaseId: 'TCIM-WEB-2026.08.30-R6.1' },
     revision
   };
 }
@@ -70,6 +71,8 @@ function reportEvent(revision, feedback) {
     assert.equal(res.ok, true);
     assert.equal(res.serverRecordId, 'iv-1');
     assert.equal(stored[0].reportRevision, 3);
+    assert.equal(stored[0].releaseSnapshot.releaseId, 'TCIM-WEB-2026.08.30-R6.1');
+    assert.equal(stored[0].payloadHash, res.payloadHash);
     assert.equal(res.staleRejected, undefined);
   });
 

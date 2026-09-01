@@ -22,9 +22,26 @@ function mockSession() {
         { id: 'Q4', task_card: { ability_focus: { interview_main_focus: '教师能否把个人发现转化为共同资源' } } }
       ]
     },
-    interview: {
-      Q1: { status: 'done', messages: [{ role: 'ai', text: '您会先看什么？' }, { role: 'teacher', text: '我会先看他们玩得开不开心，游戏是不是他们自己想出来的' }] },
-      Q5: { status: 'done', messages: [{ role: 'ai', text: '您怎么看？' }, { role: 'teacher', text: '我觉得游戏是孩子自己的活动，我主要是支持' }] }
+    comparisonInterview: {
+      Q1: {
+        status: 'done', mode: 'dialogue_agent_new_five_tables_evidence_state', simulationOnly: false,
+        messages: [{ role: 'ai', text: '您会先看什么？' }, { role: 'teacher', text: '我会先看他们玩得开不开心，游戏是不是他们自己想出来的' }],
+        dialogueSession: {
+          runtimeCard: { evidencePolicies: [{
+            recordId: 'T3-Q01-001', evidenceClaimId: 'ECL-Q01-PLAY-FRAME', understandingId: 'UND-Q01-001',
+            capabilityRefs: ['C02-Q01-PLAY-FRAME', 'C04-Q01-ALTERNATIVE'], primaryProfileCapabilityId: 'C02',
+            maxSupportedConclusion: 'EPISODE_DESCRIPTION', contextBoundary: '仅Q1'
+          }] },
+          evidenceState: { claims: {}, records: [{
+          evidenceId: 'e-1', evidenceClaimId: 'ECL-Q01-PLAY-FRAME', understandingId: 'UND-Q01-001',
+          relation: 'SUPPORT', span: '玩得开不开心', lifecycle: 'ACTIVE', responseOrigin: 'RO1', effectiveStatus: 'SUFFICIENT'
+        }] } }
+      },
+      Q5: {
+        status: 'done', mode: 'dialogue_agent_new_five_tables_evidence_state', simulationOnly: false,
+        messages: [{ role: 'ai', text: '您怎么看？' }, { role: 'teacher', text: '我觉得游戏是孩子自己的活动，我主要是支持' }],
+        dialogueSession: { evidenceState: { records: [] } }
+      }
     }
   }
 }
@@ -52,6 +69,33 @@ check('访谈证据回填引用已访谈情境(含教师原话)', () => {
   if (!r.evidence.length) throw new Error('无证据')
   if (!r.evidence.some((e) => e.itemId === 'Q1' && e.quote.includes('开不开心'))) throw new Error('缺少 Q1 教师原话证据')
 })
+check('没有 canonical Evidence 时明确标记未形成，不能把最后一句当证据', () => {
+  const q5 = r.evidence.find((e) => e.itemId === 'Q5')
+  if (!q5 || q5.evidenceStatus !== 'not_formed') throw new Error('Q5 未标记 not_formed')
+  if (q5.quote) throw new Error('Q5 错把 transcript 当 canonical Evidence')
+})
+check('simulationOnly 记录不会进入报告 Evidence', () => {
+  const simulated = mockSession()
+  simulated.comparisonInterview.Q1 = {
+    ...simulated.comparisonInterview.Q1,
+    simulationOnly: true
+  }
+  const simulationReport = buildReport(simulated)
+  const q1 = simulationReport.evidence.find((e) => e.itemId === 'Q1')
+  if (!q1 || q1.evidenceStatus !== 'not_formed' || q1.quote) throw new Error('演示数据进入正式报告')
+})
+check('旧版未标 simulationOnly 的 mock 记录也不会进入正式报告', () => {
+  const simulated = mockSession()
+  simulated.comparisonInterview.Q1 = {
+    ...simulated.comparisonInterview.Q1,
+    simulationOnly: false,
+    llmProfile: 'mock',
+    llmModel: 'mock-dialogue-v1'
+  }
+  const simulationReport = buildReport(simulated)
+  const q1 = simulationReport.evidence.find((e) => e.itemId === 'Q1')
+  if (!q1 || q1.evidenceStatus !== 'not_formed' || q1.quote) throw new Error('旧 mock 数据进入正式报告')
+})
 check('学习建议非空且非评判', () => {
   if (!r.suggestions.length) throw new Error('建议为空')
   if (r.suggestions.some((s) => /(很差|不好|不合格)/.test(s.direction))) throw new Error('出现评判词')
@@ -68,6 +112,25 @@ check('三源来源标签: 有访谈证据的指标标注"测评+访谈",无的�
   const b1 = r.tertiary.find((t) => t.code === 'B1')  // mock 访谈未含 B1 → score
   if (!c2 || c2.source !== '测评 + 访谈') throw new Error('C2 source=' + (c2 && c2.source))
   if (!b1 || b1.source !== '测评定位为主') throw new Error('B1 source=' + (b1 && b1.source))
+})
+
+check('Canonical Evidence能稳定转换为有边界的能力画像候选', () => {
+  const c02 = r.canonicalCapabilityProfile.dimensions.find((row) => row.capabilityId === 'C02')
+  const c04 = r.canonicalCapabilityProfile.dimensions.find((row) => row.capabilityId === 'C04')
+  if (!c02 || c02.evidenceCount !== 1) throw new Error('C02独立证据转换失败')
+  if (!c04 || c04.evidenceCount !== 0) throw new Error('同一证据被重复计入关联能力C04')
+  if (!c02.independent[0].associatedCapabilityRefs.includes('C04-Q01-ALTERNATIVE')) throw new Error('关联能力审计信息丢失')
+  if (c02.band.code !== 'EPISODE_SUPPORTED') throw new Error('C02 band=' + c02.band.code)
+  if (!/RO0\/RO1/.test(r.canonicalCapabilityProfile.interpretationBoundary)) throw new Error('缺少来源边界')
+})
+
+check('RO3/RO4只作反思响应，不回写为教师原有能力', () => {
+  const influenced = mockSession()
+  influenced.comparisonInterview.Q1.dialogueSession.evidenceState.records[0].responseOrigin = 'RO4'
+  const profile = buildReport(influenced).canonicalCapabilityProfile
+  const c02 = profile.dimensions.find((row) => row.capabilityId === 'C02')
+  if (c02.evidenceCount !== 0 || c02.aiInfluenced.length !== 1) throw new Error('AI影响证据污染原有能力')
+  if (profile.summary.excludedAiInfluencedEvidence !== 1) throw new Error('排除数未审计')
 })
 
 // 跨次成长对比 + 导出

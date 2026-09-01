@@ -1,0 +1,16 @@
+{
+  "name": "gsyg_dialogueAgent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "受现有网页账号网关保护的 TCIM Dialogue Agent 云函数适配层",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18.15"
+  },
+  "dependencies": {
+    "wx-server-sdk": "^4.0.2"
+  }
+}

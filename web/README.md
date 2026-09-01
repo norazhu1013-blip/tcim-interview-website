@@ -9,11 +9,12 @@
 
 ## AI 访谈口径
 
-- 网页与小程序共用 `gsyg_interviewChat` 的 **V7.4 访谈决策程序**，模型配置只改变实际调用的模型，不改变访谈规则。
-- 正常访谈至少提出 8 个可回答问题，不设固定最高问数；达到 8 个后按教师回答是否已经形成较完整的判断链，再决定是否收束。
-- 每轮围绕教师最新回答推进一条主线，优先追问判断之间的关系、教育张力、条件或边界，不按固定首问和选项顺序机械询问排序理由。
-- 模型调用失败时，网页保留已有对话并显示“重新生成 / 结束本情境”，不会在后台切换成固定问题脚本。
-- 剩余不足 1 分钟时仍由同一访谈程序结合教师最新回答生成内容化收束，不用通用结束语突然截断。
+- R6.2 网页使用 **Dialogue Agent 主导＋新五表 V0.2.1＋Evidence State**；评分和 R/P/G 筛题仍为确定性程序，AI 不参与评分。
+- 网页只经现有账号网关调用 `gsyg_dialogueAgent`。教师不能选择模型、输入密钥或直接访问模型服务；provider/model 由云端配置并锁定到整次测评。
+- Dialogue Agent 采用中性同行口吻，不设置表扬次数，不评价教师的诚实、人格或回答质量；挑战后的舒缓轮、整体理解问题和 Evidence 来源隔离继续保留。
+- 前台生成只保留最近必要上下文，最多调用模型两次；可安全分离的评价式前缀由程序直接删除，不为删一句话增加模型等待。
+- 模型调用失败时，网页保留已有对话并显示“重新生成 / 结束本情境”，不会在后台切换成固定专业问题。
+- 小程序原有 `gsyg_interviewChat` 路径继续保留，网页 R6.2 不用它替代 Dialogue Agent。
 
 ## 本地运行
 
@@ -42,8 +43,9 @@ npm run build
 VITE_WEB_API_BASE_URL=https://<api-domain>/gsyg-web
 VITE_CLOUDBASE_ENV_ID=<CloudBase环境ID>
 VITE_CLOUDBASE_REGION=ap-shanghai
-# 可选：选择 gsyg_interviewChat 内置 LLM profile；生产环境也可由云函数默认值决定
-VITE_INTERVIEW_LLM_PROFILE=openai-official
+VITE_LOCAL_RESEARCH_MODE=0
+VITE_TCIM_COMPARISON_ARCHITECTURE=dialogue_agent_new_five_tables_evidence_state
+VITE_TCIM_RELEASE_ID=TCIM-WEB-2026.09.01-R6.2
 ```
 
 登录前需要在 CloudBase 控制台启用「用户名密码登录」和邮箱验证码注册，并在环境安全配置中加入网页域名。详见 `cloudfunctions/gsyg_webGateway/README.md`。
@@ -67,8 +69,9 @@ Cookie: gsyg_web_session=<HttpOnly cookie，由浏览器自动携带>
 部署时必须：
 
 1. 部署 `cloudfunctions/gsyg_webGateway/` HTTP 云函数，并按其 README 配置 `GSYG_WEB_GATEWAY_TOKEN`、`GSYG_WEB_SESSION_SECRET`、CORS 与 CloudBase 环境变量。
-2. 用同一 `GSYG_WEB_GATEWAY_TOKEN` 重部署 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_selectFinal`、`gsyg_interviewChat`、`gsyg_whoami`、`gsyg_exportData`；它们会拒绝匿名演示 actor 和伪造网页 actor。
-3. 仅允许已建立正式账号会话的教师调用资料写入、会话上报、筛题和 AI 访谈；保留内容安全审核和审计日志。
-4. 若需让教师跨小程序与网页继续同一份记录，服务端必须基于已验证手机号或统一帐号建立绑定，绝不能按姓名合并。
+2. 新建并部署 `gsyg_dialogueAgent`，配置与网关相同的 `GSYG_WEB_GATEWAY_TOKEN`、`SEC_CHECK=1`、固定 provider/model 和云端模型密钥；运行时 Node.js 18.15+，超时至少 65 秒。
+3. 用同一 `GSYG_WEB_GATEWAY_TOKEN` 重部署 `gsyg_reportTeacher`、`gsyg_reportSession`、`gsyg_reportInterview`、`gsyg_reportDraft`、`gsyg_selectFinal`、`gsyg_whoami`、`gsyg_exportData`；它们会拒绝伪造网页 actor。
+4. 仅允许已建立正式账号会话的教师调用资料写入、会话上报、筛题和 AI 访谈；保留内容安全审核和审计日志。
+5. 若需让教师跨小程序与网页继续同一份记录，服务端必须基于已验证手机号或统一帐号建立绑定，绝不能按姓名合并。
 
 前端不存放 CloudBase 管理员 API Key、LLM Key、网关共享密钥或会话签名密钥。

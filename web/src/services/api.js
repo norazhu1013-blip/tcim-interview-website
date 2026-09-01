@@ -1,4 +1,5 @@
 import { callGateway } from './web-gateway.js'
+import { isFormalComparisonInterviewRecord } from '../core/dialogue-agent/records.js'
 
 export const whoami = () => callGateway('whoami')
 
@@ -22,6 +23,7 @@ export function reportExam(session, profile) {
     selection: session.selection || null,
     studyMode: session.studyMode || 'full_assessment',
     targetItemId: session.targetItemId || null,
+    releaseSnapshot: session.releaseSnapshot || null,
     submitStatus: session.submitStatus || null,
     items: Object.entries(answers).map(([itemId, answer]) => ({
       itemId,
@@ -59,11 +61,17 @@ function byteLength(str) {
 }
 
 const DISCARD_LIMIT_BYTES = 950 * 1024 // 网关 1MB，前端在 0.95MB 就告警，避免硬 413
+export function formalComparisonTranscripts(session) {
+  const records = { ...(session.interview || {}), ...(session.comparisonInterview || {}) }
+  return Object.fromEntries(
+    Object.entries(records)
+      .filter(([, record]) => isFormalComparisonInterviewRecord(record))
+      .map(([key, value]) => [key, stripTranscriptForUpload(value)])
+  )
+}
 
 export function reportInterview(session) {
-  const transcripts = Object.fromEntries(
-    Object.entries(session.interview || {}).map(([k, v]) => [k, stripTranscriptForUpload(v)])
-  )
+  const transcripts = formalComparisonTranscripts(session)
   const payload = {
     sessionId: session.sessionId,
     // 事件级唯一 id：最后一次完整访谈上报的事件标识,服务端据此去重(防成对重复写入)
@@ -72,6 +80,7 @@ export function reportInterview(session) {
     targetItemId: session.targetItemId || null,
     transcripts,
     feedback: session.interviewFeedback || null,
+    releaseSnapshot: session.releaseSnapshot || null,
     revision: Number(session.reportRevision || 0)
   }
   const payloadBytes = byteLength(JSON.stringify(payload))

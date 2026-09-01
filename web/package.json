@@ -5,10 +5,19 @@
   "type": "module",
   "scripts": {
     "sync": "node scripts/sync-data.mjs",
-    "dev": "npm run sync && vite",
-    "build": "npm run sync && vite build",
+    "dev": "node scripts/sync-data.mjs && vite",
+    "dev:comparison": "node scripts/sync-data.mjs && vite --mode comparison",
+    "prebuild": "node scripts/verify-new-five-runtime.mjs",
+    "build": "node scripts/sync-data.mjs && vite build",
+    "prebuild:comparison": "node scripts/verify-new-five-runtime.mjs",
+    "build:comparison": "node scripts/sync-data.mjs && vite build --mode comparison",
     "preview": "vite preview",
-    "verify": "npm run sync && node scripts/verify-parity.mjs && node scripts/verify-interview-v7.mjs"
+    "verify": "node ../tools/sync_dialogue_cf.js --check && node scripts/sync-data.mjs && node scripts/verify-parity.mjs && node scripts/verify-new-five-runtime.mjs && node scripts/verify-new-five-runtime.test.mjs && node src/core/interview-timing.test.mjs && node src/core/release.test.mjs && node src/core/dialogue-agent/dialogue-agent.test.mjs && node src/core/report.test.mjs",
+    "verify:cloud-shell": "node ../tools/sync_dialogue_cf.js --check && node --test ../cloudfunctions/gsyg_dialogueAgent/test/*.test.js && node ../cloudfunctions/gsyg_webGateway/test/smoke.test.js",
+    "verify:dist": "node ../tools/verify_production_dist.mjs",
+    "verify:legacy": "node scripts/sync-data.mjs && node scripts/verify-parity.mjs && node scripts/verify-interview-v7.mjs",
+    "verify:new-five": "node scripts/verify-new-five-runtime.mjs && node scripts/verify-new-five-runtime.test.mjs",
+    "test:dialogue": "node src/core/dialogue-agent/dialogue-agent.test.mjs"
   },
   "dependencies": {
     "@cloudbase/js-sdk": "3.6.6",

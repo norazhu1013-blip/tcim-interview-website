@@ -9,6 +9,8 @@
  * 说明：这是 v1 数据驱动画像；§9 的完整「三源融合 + 常模定位」属研究侧算法，不在本模块。
  */
 import { INDICATOR_MAP } from '../generated/data.js'
+import { buildCanonicalCapabilityProfile } from './canonical-capability-profile.js'
+import { isFormalComparisonInterviewRecord } from './dialogue-agent/records.js'
 
 export const TERTIARY_INDICATORS = ['A1', 'A2', 'A3', 'B1', 'B2', 'C1', 'C2']
 export const SECONDARY_INDICATORS = {
@@ -45,13 +47,34 @@ function itemTitle(itemId) {
   return t ? t[1] : itemId
 }
 
-function lastTeacherQuote(item) {
-  const msgs = (item && item.messages) || []
-  const t = msgs.filter((m) => m && m.role === 'teacher' && m.text).map((m) => String(m.text).trim())
-  if (!t.length) return ''
-  let q = t[t.length - 1].replace(/\s+/g, ' ').trim()
-  if (q.length > 40) q = q.slice(0, 40) + '……'
-  return q
+function formalInterviewRecords(session) {
+  const merged = { ...(session.interview || {}), ...(session.comparisonInterview || {}) }
+  return Object.fromEntries(Object.entries(merged).filter(([, record]) => isFormalComparisonInterviewRecord(record)))
+}
+
+function canonicalEvidence(item) {
+  const records = item?.dialogueSession?.evidenceState?.records || []
+  const active = records.filter((record) => (
+    record?.lifecycle === 'ACTIVE'
+    && ['SUPPORT', 'REVISE'].includes(record?.relation)
+    && typeof record?.span === 'string'
+    && record.span.trim()
+  ))
+  const independent = active.filter((record) => ['RO0', 'RO1'].includes(record.responseOrigin))
+  const prompted = active.filter((record) => record.responseOrigin === 'RO2')
+  const aiInfluenced = active.filter((record) => ['RO3', 'RO4'].includes(record.responseOrigin))
+  const spans = [...new Set(active.map((record) => record.span.trim()))]
+  return {
+    quote: spans.join('；'),
+    independentQuote: [...new Set(independent.map((record) => record.span.trim()))].join('；'),
+    promptedQuote: [...new Set(prompted.map((record) => record.span.trim()))].join('；'),
+    aiInfluencedQuote: [...new Set(aiInfluenced.map((record) => record.span.trim()))].join('；'),
+    evidenceIds: active.map((record) => record.evidenceId).filter(Boolean),
+    evidenceClaimIds: [...new Set(active.map((record) => record.evidenceClaimId).filter(Boolean))],
+    independentEvidenceIds: independent.map((record) => record.evidenceId).filter(Boolean),
+    promptedEvidenceIds: prompted.map((record) => record.evidenceId).filter(Boolean),
+    aiInfluencedEvidenceIds: aiInfluenced.map((record) => record.evidenceId).filter(Boolean)
+  }
 }
 
 /** 二级 → 其含有的三级指标 + 主键题目。 */
@@ -125,9 +148,11 @@ export function buildReport(session) {
 
   // 4) 访谈证据回填：每个已作答情境 → 主指标 + 访谈焦点 + 教师原话引用
   const evidence = interviewEvidence(s)
-  // 三源融合（简版呈现）：标注该三级指标是否被访谈证据佐证（分数定位 + 访谈确认）
+  const canonicalCapabilityProfile = buildCanonicalCapabilityProfile(s)
+  // 只有教师自主表达的 RO0/RO1 才能把来自测评的指标标注为“测评 + 访谈”。
+  // RO2/RO3/RO4 不得把 AI 提示或诱导后的认同回写成原有能力。
   const evByIndicator = {}
-  for (const e of evidence) { if (e.indicator && e.quote) evByIndicator[e.indicator] = true }
+  for (const e of evidence) { if (e.indicator && e.independentQuote) evByIndicator[e.indicator] = true }
   for (const t of tertiary) t.source = evByIndicator[t.code] ? '测评 + 访谈' : '测评定位为主'
 
   // 5) 学习建议：对三级指标里偏低的给可观察/可行动的方向（对齐 observation_points）
@@ -145,6 +170,7 @@ export function buildReport(session) {
     tertiary,
     process,
     evidence,
+    canonicalCapabilityProfile,
     suggestions
   }
 }
@@ -173,7 +199,7 @@ function processNarrative(s) {
 
 function interviewEvidence(s) {
   const selection = (s.selection && s.selection.final) || []
-  const interviews = s.interview || {}
+  const interviews = formalInterviewRecords(s)
   const out = []
   for (const f of selection) {
     if (!f || !f.id) continue
@@ -181,13 +207,22 @@ function interviewEvidence(s) {
     const tc = f.task_card || {}
     const af = tc.ability_focus || {}
     const item = interviews[itemId]
-    const quote = lastTeacherQuote(item)
+    const canonical = canonicalEvidence(item)
     const m = INDICATOR_MAP[itemId] || {}
     out.push({
       itemId: itemTitle(itemId),
       indicator: (m.primary && m.primary.tertiary) || '',
-      focus: af.interview_main_focus || af.ability_focus || '',
-      quote,
+      focus: f.interview_focus || af.interview_main_focus || af.ability_focus || '',
+      quote: canonical.quote,
+      independentQuote: canonical.independentQuote,
+      promptedQuote: canonical.promptedQuote,
+      aiInfluencedQuote: canonical.aiInfluencedQuote,
+      evidenceIds: canonical.evidenceIds,
+      evidenceClaimIds: canonical.evidenceClaimIds,
+      independentEvidenceIds: canonical.independentEvidenceIds,
+      promptedEvidenceIds: canonical.promptedEvidenceIds,
+      aiInfluencedEvidenceIds: canonical.aiInfluencedEvidenceIds,
+      evidenceStatus: canonical.evidenceIds.length ? 'formed' : 'not_formed',
       status: (item && item.status) || ''
     })
   }
@@ -256,7 +291,14 @@ export function buildReportText(report, meta) {
   if (report.process && report.process.text) { lines.push(''); lines.push('## 过程说明'); lines.push(report.process.text) }
   if (report.evidence && report.evidence.length) {
     lines.push(''); lines.push('## 访谈证据回填')
-    for (const e of report.evidence) lines.push(`- ${e.itemId}${e.indicator ? '（' + e.indicator + '）' : ''}：${e.quote || '（待补充）'}`)
+    for (const e of report.evidence) lines.push(`- ${e.itemId}${e.indicator ? '（' + e.indicator + '）' : ''}：${e.quote || '（尚未形成 canonical Evidence）'}`)
+  }
+  if (report.canonicalCapabilityProfile) {
+    lines.push(''); lines.push('## Canonical Evidence 能力画像候选')
+    lines.push(`- 来源边界：${report.canonicalCapabilityProfile.interpretationBoundary}`)
+    for (const row of report.canonicalCapabilityProfile.dimensions.filter((item) => item.evidenceCount || item.prompted.length || item.aiInfluenced.length)) {
+      lines.push(`- ${row.capabilityId} ${row.name}：${row.band.label}（独立证据${row.evidenceCount}条，情境${row.independentContexts.length}个）`)
+    }
   }
   if (report.suggestions && report.suggestions.length) {
     lines.push(''); lines.push('## 学习建议')

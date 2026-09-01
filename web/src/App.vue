@@ -297,7 +297,7 @@ watch(() => route.fullPath, async () => {
           </template>
         </form>
       </section>
-      <router-view v-else-if="authState === 'signed_in'" />
+      <router-view v-else-if="authState === 'signed_in'" :key="route.fullPath" />
       <section v-else class="signed-out-page">
         <p>正在确认登录…</p>
       </section>

@@ -40,6 +40,9 @@ exports.main = async (event) => {
       examStartTs: event.examStartTs || null,
       examSubmitTs: event.examSubmitTs || null,
       totalDurationMs: event.totalDurationMs || 0,
+      releaseSnapshot: event.releaseSnapshot && typeof event.releaseSnapshot === 'object'
+        ? event.releaseSnapshot
+        : null,
       updatedAt: now
     };
     // selection 只在客户端传了完整对象时才写;传 null / 空则不入 data,避免把
@@ -62,6 +65,8 @@ exports.main = async (event) => {
     if (existing) {
       const id = existing._id;
       if (existing.openid !== actor.id) return { ok: false, error: 'forbidden' };
+      // 发布身份按首次写入冻结，后续重传不得把历史会话改写成新版本。
+      data.releaseSnapshot = existing.releaseSnapshot || data.releaseSnapshot;
       await db.collection(COLL).doc(id).update({ data: data });
       return { ok: true, id: id };
     }
