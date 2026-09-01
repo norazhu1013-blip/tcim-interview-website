@@ -456,3 +456,9 @@ Q1篮球架玩水 C2/A1 · Q2频繁求助 C2/C1 · Q3区域停留短 C1/C2 · Q4
   - **连接提示**:健康检查通过只显示“云端AI配置已就绪”；至少成功返回一轮后才显示“云端AI对话正常”。
   - **发布边界**:代码、自动测试和生产构建在本机完成；正式部署前必须先在腾讯云开通 TMS并配置最小权限凭证，完成真实 TMS + Kimi 开场验收后才能发布。本条记录不代表已部署。
   - **上游依赖审计**:加入腾讯云官方 TMS SDK 后`npm audit --omit=dev`报告5个high/3个moderate；5个high仍来自已知`wx-server-sdk`/CloudBase间接依赖，新增2个moderate来自 TMS SDK common/uuid。不执行会回退官方云开发SDK版本的自动`audit fix`；发布验收继续记为已知上游依赖风险并跟踪官方修复。
+- **2026-09-01 R6.2.2 腾讯云内部测试发布**:
+  - **发布范围**:经研究负责人明确授权，将分支`release/tcim-web-r6.2.2-opening-stability`部署到环境`cloud1-2gefzeri3cb333f2`和正式测试域名`https://gsyg.age08.cn/`；未合并`main`。后台仅更新`gsyg_dialogueAgent`，其他云函数和数据库未改。
+  - **临时安全模式**:由于本轮未开通TMS，云函数显式配置`TCIM_DIALOGUE_CONTENT_SAFETY_MODE=provider`和`TCIM_DIALOGUE_ALLOW_PROVIDER_SAFETY_ONLY=1`，仅用于导师/研究团队内部测试；现有Kimi和网关密钥原样保留。正式收集研究数据前仍须切回TMS并完成内容安全验收。
+  - **发布结果**:`gsyg_dialogueAgent`于23:00:50显示`Deployment completed`；网关健康检查返回Kimi`kimi-k3`、`ready=true`、`content_safety_mode=provider`。网页安全发布上传并校验13个文件，入口资源为`assets/index-B8iPqLng.js`与`assets/index-D0qhYQZF.css`；腾讯云发布前备份位于`.cloudbase-backup/1788275226538/`。
+  - **正式环境验收**:使用明确标记的`R622自动验收`测试身份完成10题并进入Q1。开场成功生成，状态从“云端AI配置已就绪”切换为“云端AI对话正常”；零教师输入离开后仍为“待访谈、0/3”，未误标完成；23:00后错误日志计数为0。测试会话ID为`3f6b69c1-8599-44e0-8454-3f4d5c25ca91`。
+  - **回滚**:网页可从上述CloudBase备份恢复；旧`gsyg_dialogueAgent`代码已在发布前下载备份，必要时按同一函数配置重新部署。首次把云端路径显式写成`/`的安全发布因根路径校验失败自动回滚，随后省略云端路径后发布和一致性校验成功。
