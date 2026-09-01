@@ -52,6 +52,13 @@ test('an unrealistic premise is opened for revision instead of defended', () => 
   assert.match(style.premise_handling.guidance, /哪个条件不成立|怎样改写/);
 });
 
+test('a teacher challenge to AI bias is recognized as premise resistance', () => {
+  const style = frontstageResponseStyle('我觉得你在假设，你对孩子的预设是不是有偏差？', []);
+  assert.equal(style.mode, 'EXAMINE_PREMISE');
+  assert.equal(style.relational_move, 'EXAMINE_PREMISE');
+  assert.match(style.premise_handling.guidance, /不沿用AI刚才带入的预设/u);
+});
+
 test('a teacher may decline hypothetical discussion without being forced to invent experience', () => {
   const style = frontstageResponseStyle('这是题目假设，我没法按这个假设回答，也不想继续讨论。', []);
   assert.equal(style.mode, 'OFFER_REFRAME_OR_CLOSE');

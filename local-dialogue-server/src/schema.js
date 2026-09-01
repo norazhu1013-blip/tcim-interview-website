@@ -135,7 +135,7 @@ const INTEGRATIVE_QUALITY_ERROR = 'integrative_question_lacks_global_judgment';
 const RELATIONAL_CUE_BUDGET_ERROR = 'relational_microcue_outside_budget';
 const CONSECUTIVE_CHALLENGE_ERROR = 'challenge_question_without_relief_turn';
 const LEADING_CONFIRMATION_RE = /(您|你)(是不是也|是否也|同意|也认为|也觉得).{0,30}[?？]|(这样|这么做|我说的).{0,16}(对吗|好吗|是吗)[?？]|(正确做法|更好的做法|应该就是).{0,30}[?？]/i;
-const FORMULAIC_RESTATEMENT_OPENING_RE = /^(?:(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到)|刚才您(?:说|提到))|(?:明白|好的|嗯|原来如此)[，,]\s*您|您(?:一下就|选择|希望|说要|会看|觉得|从|认为|想把|要先|是根据))/u;
+const FORMULAIC_RESTATEMENT_OPENING_RE = /^(?:(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到)|刚才您(?:说|提到)|[^?？。]{2,24}是您[^?？。]{0,16}(?:依据|判断|标准))|(?:明白|好的|嗯|原来如此)[，,]\s*您|您(?:一下就|选择|希望|说要|会看|觉得|从|认为|想把|要先|是根据))/u;
 const RELATIONAL_MICROCUE_OPENING_RE = /^(?:(?:嗯|明白|确实|这个(?:场面|情境|取舍|判断|度|平衡)|这里|这确实|您很看重|您很在意|能看出您在|不容易|可以理解)|[^?？。；]{0,24}(?:确实|不容易|不好拿捏|需要拿捏|需要掂量|要顾|都要顾))/u;
 // 保留这一识别器只为兼容旧 trace / 测试数据；R6.2 起不再安排肯定配额，
 // 这些表达也按评价式前缀处理，不再向教师展示。
@@ -181,6 +181,47 @@ function normalizeNaturalQuestionOutput(value, context = {}) {
     adjusted: true,
     removedPrefix: match.prefix
   };
+}
+
+function normalizeSingleQuestionOutput(value) {
+  if (!value || value.action !== 'ASK') return { value, adjusted: false, originalText: '' };
+  const text = String(value.visible_text || '').trim();
+  if ((text.match(/[?？]/gu) || []).length <= 1) return { value, adjusted: false, originalText: '' };
+  const candidates = (text.match(/[^?？]*[?？]/gu) || [])
+    .map((candidate) => candidate.replace(/^[。！!；;，,\s]+/u, '').trim())
+    .filter((candidate) => candidate.length >= 8 && candidate.length <= 140)
+    .sort((left, right) => right.length - left.length);
+  if (!candidates.length) return { value, adjusted: false, originalText: '' };
+  return {
+    value: { ...value, visible_text: candidates[0] },
+    adjusted: true,
+    originalText: text
+  };
+}
+
+function normalizeIntegrativeMetaLanguage(value, context = {}) {
+  if (!value || value.action !== 'ASK' || context.questionMode !== 'INTEGRATIVE_SYNTHESIS') {
+    return { value, adjusted: false, removedMeta: '' };
+  }
+  const text = String(value.visible_text || '').trim();
+  const meta = text.match(/^(?:(?:回头看|回过头看)(?:整个)?(?:游戏|情境)|(?:整体|综合)(?:来看|上)?|最后(?:再)?问一个问题)[，,:：\s]*/u);
+  if (!meta) return { value, adjusted: false, removedMeta: '' };
+  const remainder = text.slice(meta[0].length).trim();
+  if ((remainder.match(/[?？]/gu) || []).length !== 1 || remainder.length < 8) {
+    return { value, adjusted: false, removedMeta: '' };
+  }
+  return { value: { ...value, visible_text: remainder }, adjusted: true, removedMeta: meta[0].trim() };
+}
+
+function normalizePremiseChallengeAcknowledgement(value, context = {}) {
+  if (!value || value.action !== 'ASK' || context.relationshipMoveRequested !== 'EXAMINE_PREMISE') {
+    return { value, adjusted: false };
+  }
+  const text = String(value.visible_text || '').trim();
+  if (/(?:先不|不再|不能|不应).{0,10}(?:预设|假定|沿用|带入)|(?:这个|这一)(?:前提|预设|假设).{0,12}(?:拿掉|撤去|不沿用|需要改)/u.test(text)) {
+    return { value, adjusted: false };
+  }
+  return { value: { ...value, visible_text: `先不沿用这个预设。${text}` }, adjusted: true };
 }
 
 function exactTeacherQuote(teacherTurn, attemptedQuote = '') {
@@ -770,6 +811,9 @@ module.exports = {
   CONSECUTIVE_CHALLENGE_ERROR,
   formulaicRestatementPrefix,
   normalizeNaturalQuestionOutput,
+  normalizeSingleQuestionOutput,
+  normalizeIntegrativeMetaLanguage,
+  normalizePremiseChallengeAcknowledgement,
   exactTeacherQuote,
   normalizeDialogueGrounding,
   normalizeBroadPraisePrefix,

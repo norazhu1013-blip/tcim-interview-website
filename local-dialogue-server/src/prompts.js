@@ -3,11 +3,11 @@
 const crypto = require('crypto');
 const { classifyQuestionPressure } = require('./schema');
 
-const PROMPT_VERSION = 'tcim-dialogue-v3-low-latency-2026-09-01-r7-neutral-peer-fast';
+const PROMPT_VERSION = 'tcim-dialogue-v3-low-latency-2026-09-01-r8-premise-aware-natural-close';
 
 const EXPLICIT_REPAIR_RE = /(?:不是.{0,8}(?:意思|说)|我的意思是|我说的是|你没理解|没听懂|理解错|误解|换个说法|重新说|不是这样)/u;
-const HYPOTHETICAL_PREMISE_RE = /(?:(?:题目|情境).{0,8}(?:假设|设定)|没有遇到过?完全相同|并非真实经历)/u;
-const PREMISE_RESISTANCE_RE = /(?:(?:现实|实际|真实情况).{0,12}(?:不会|不可能|很少|不存在)|(?:题目|情境).{0,10}(?:不合理|不成立|有问题|太假)|无法(?:按这个|这样)?判断)/u;
+const HYPOTHETICAL_PREMISE_RE = /(?:(?:题目|情境).{0,8}(?:假设|设定)|没有遇到过?完全相同|并非真实经历|(?:你|AI).{0,10}(?:在)?(?:假设|预设)|对孩子.{0,8}预设)/u;
+const PREMISE_RESISTANCE_RE = /(?:(?:现实|实际|真实情况).{0,12}(?:不会|不可能|很少|不存在)|(?:题目|情境).{0,10}(?:不合理|不成立|有问题|太假)|无法(?:按这个|这样)?判断|(?:你|AI).{0,16}(?:假设|预设).{0,24}(?:偏差|偏见|不合理|不对|为什么)|(?:预设|假设).{0,12}(?:偏差|偏见))/u;
 const PREMISE_OPT_OUT_RE = /(?:(?:不想|不愿意|没法|无法).{0,8}(?:假设|回答|讨论)|(?:这个|这题).{0,8}(?:没法回答|不想回答))/u;
 const SUBSTANTIVE_JUDGMENT_RE = /(?:我会|我可能|我通常|我一般|类似情况|类似经历|平时|以前|有一次|先.{0,12}(?:看|问|听|观察|了解)|观察|留意|判断|根据|决定|考虑|取舍|调整|介入|等待|支持)/u;
 const FORMULAIC_RESTATEMENT_RE = /^(?:我理解|我的理解|听起来|我听到|也就是说|您的意思是|你(?:刚才)?的意思是|您(?:刚才)?(?:说|提到)|刚才您(?:说|提到))/u;
@@ -67,6 +67,7 @@ const FAST_SYSTEM_PROMPT = [
   '只有教师明确纠正你、原话确有两种关键理解，或误解会显著改变后续方向时，才用一句很短的理解修复；普通轮次不要习惯性以“我理解/听起来/也就是说/您的意思是/您说或您刚才说”开头。',
   '优先跟随教师最新原话中的新区别、理由、观察、行动或条件；不得复问同一问句，也不要重复近期问题的实质落点。无新价值时可以 CLOSE。',
   'runtime_limits.question_mode=INTEGRATIVE_SYNTHESIS 时，这是本题最后一个新问题：综合整段交谈和情境目标，在内部选择最能增进整体理解、最能区分能力表现的一处，提出一个贴近情境而有整体性的问题；不要先向教师展示总结，不要多问合一，也不要诱导其认同AI的概括。',
+  '整体性只体现在问题内容里，不要对教师宣布“回头看整个游戏、整体来看、综合来看、最后一个问题”等访谈结构；直接自然地问判断依据、改变条件或介入边界。',
   '遵守 frontstage_response_style.pressure_pacing：CHALLENGE 是反事实、失败情形、例外/底线或要求改变立场的高负担问题。整题通常不超过2次，而且绝不连续出现。next_move=RELAX 时，下一问必须降低负担，优先邀请教师回到真实经验、一个观察细节、当时首先注意的事情或自由补充；不得继续追加“如果仍然……”“那什么情况下……”式挑战。',
   '本次三题访谈只是形成有价值的理解样本，不负责一次性穷尽教师全部能力。允许专业地图中仍有未知；不要为了覆盖更多栏目而连续加压，无明显新增价值时可以温和收束。',
   'dialogue_progress_state.stagnation.score 升高表示进展不足，此时必须换实质落点、减轻问题负担或收束。',
@@ -255,7 +256,7 @@ function frontstageResponseStyle(teacherTurn, history, progressState = {}, optio
       guidance: premiseHandling === 'FOLLOW_SUBSTANCE'
         ? '老师已经在假设边界后给出实质判断；忽略元说明，直接承接判断中的新区别、依据或行动'
         : premiseHandling === 'EXAMINE_PREMISE'
-          ? '开放询问哪个条件不成立或怎样改写才更接近现实，不为原题辩护'
+          ? '先明确不沿用AI刚才带入的预设；若教师已指出具体偏差，直接撤去该预设并转向真实经验，未指出时才开放询问哪个条件不成立或怎样改写，不为原题辩护'
           : premiseHandling === 'OFFER_REFRAME_OR_CLOSE'
             ? '不强迫想象；可降低负担、换成可回答角度，仍不愿继续时收束'
             : premiseHandling === 'CALIBRATE_PREMISE'

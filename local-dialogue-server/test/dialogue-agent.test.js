@@ -355,6 +355,43 @@ test('a hypothetical premise is not answered with an immediate apology or self-b
   assert.equal(result.trace.question_quality.misplacedApologyAvoided, true);
 });
 
+test('a teacher challenge to AI bias is visibly acknowledged before changing direction', async () => {
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => ({ output: validOutput({
+      visible_text: '在您的经验里，孩子们通常会怎样商量轮换规则？',
+      understanding: { teacher_quote: '你对孩子的预设是不是有偏差', meaning: '教师质疑AI预设', confidence: 'HIGH' }
+    }) })
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(),
+    teacher_turn: '我觉得你在假设，为什么会有总是那几个孩子说了算的情况呢？你对孩子的预设是不是有偏差？'
+  });
+  assert.equal(result.visible_text, '先不沿用这个预设。在您的经验里，孩子们通常会怎样商量轮换规则？');
+  assert.equal(result.trace.relationship_move_requested, 'EXAMINE_PREMISE');
+  assert.ok(result.trace.style_adjustments.some((entry) => entry.type === 'ADDED_PREMISE_CHALLENGE_ACKNOWLEDGEMENT'));
+});
+
+test('two model questions are reduced to one usable question without a retry', async () => {
+  let calls = 0;
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => {
+      calls += 1;
+      return { output: validOutput({
+        visible_text: '停下来后，您会先安置哪些孩子？接下来再怎么安排轮换？',
+        understanding: { teacher_quote: '已经出现了碰撞现象', meaning: '教师因碰撞叫停', confidence: 'HIGH' }
+      }) };
+    }
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(), teacher_turn: '停止游戏，因为已经出现了碰撞现象。'
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.visible_text, '停下来后，您会先安置哪些孩子？');
+  assert.ok(result.trace.style_adjustments.some((entry) => entry.type === 'REDUCED_TO_SINGLE_QUESTION'));
+});
+
 test('old scheduled affirmation language is removed and no praise is added back', async () => {
   const provider = {
     id: 'mock', model: 'test', ready: true,
@@ -533,10 +570,27 @@ test('integrative mode uses a safe wrap-up question instead of pausing after two
     runtime_limits: { question_mode: 'INTEGRATIVE_SYNTHESIS' }
   });
   assert.equal(calls, 2);
-  assert.equal(result.visible_text, '回到这个情境，整体来看，您会依据哪些信号，判断何时继续观察、何时介入或调整支持？');
+  assert.equal(result.visible_text, '在这个情境里，您会依据哪些信号决定继续观察，哪些信号出现时会介入或调整支持？');
   assert.equal(result.trace.visible_style_adjusted, true);
   assert.ok(result.trace.style_adjustments.some((entry) => entry.type === 'USED_INTEGRATIVE_WRAP_UP_FALLBACK'));
   assert.equal(result.trace.question_quality.integrativeEnough, true);
+});
+
+test('integrative meta language is removed while the substantive question remains', async () => {
+  const provider = {
+    id: 'mock', model: 'test', ready: true,
+    generate: async () => ({ output: validOutput({
+      visible_text: '投入讨论是您放手的依据。回头看整个游戏，哪些情况会让您改变这个判断，重新介入进去？',
+      understanding: { teacher_quote: '孩子们投入讨论了就可以', meaning: '教师以投入讨论作为放手依据', confidence: 'HIGH' }
+    }) })
+  };
+  const result = await createDialogueAgent({ provider }).run({
+    phase: 'next', compiled_card: compiledCard(), teacher_turn: '孩子们投入讨论了就可以。',
+    runtime_limits: { question_mode: 'INTEGRATIVE_SYNTHESIS' }
+  });
+  assert.equal(result.visible_text, '哪些情况会让您改变这个判断，重新介入进去？');
+  assert.ok(result.trace.style_adjustments.some((entry) => entry.type === 'REMOVED_FORMULAIC_RESTATEMENT_PREFIX'));
+  assert.ok(result.trace.style_adjustments.some((entry) => entry.type === 'REMOVED_INTEGRATIVE_META_LANGUAGE'));
 });
 
 test('background Evidence deterministically marks answers to AI-supplied options as prompted', async () => {

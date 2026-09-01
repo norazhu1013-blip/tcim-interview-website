@@ -16,6 +16,9 @@ const {
   normalizeFastDialogueOutput,
   normalizeDialogueGrounding,
   normalizeNaturalQuestionOutput,
+  normalizeSingleQuestionOutput,
+  normalizeIntegrativeMetaLanguage,
+  normalizePremiseChallengeAcknowledgement,
   normalizeBroadPraisePrefix,
   normalizeMisplacedApologyPrefix,
   assessQuestionQuality,
@@ -280,6 +283,11 @@ function createDialogueAgent(options = {}) {
             source: 'current_teacher_turn',
             original_was_empty: !String(grounded.originalQuote || '').trim()
           });
+          const singleQuestion = normalizeSingleQuestionOutput(generated.output);
+          generated.output = singleQuestion.value;
+          if (singleQuestion.adjusted) styleAdjustments.push({
+            type: 'REDUCED_TO_SINGLE_QUESTION'
+          });
           const naturalized = normalizeNaturalQuestionOutput(generated.output, {
             phase: prompts.phase,
             allowVisibleRepair
@@ -288,6 +296,21 @@ function createDialogueAgent(options = {}) {
           if (naturalized.adjusted) styleAdjustments.push({
             type: 'REMOVED_FORMULAIC_RESTATEMENT_PREFIX',
             removed_prefix: naturalized.removedPrefix
+          });
+          const deMetafied = normalizeIntegrativeMetaLanguage(generated.output, {
+            questionMode: prompts.questionMode
+          });
+          generated.output = deMetafied.value;
+          if (deMetafied.adjusted) styleAdjustments.push({
+            type: 'REMOVED_INTEGRATIVE_META_LANGUAGE',
+            removed_meta: deMetafied.removedMeta
+          });
+          const premiseAcknowledged = normalizePremiseChallengeAcknowledgement(generated.output, {
+            relationshipMoveRequested: prompts.responseStyle?.relational_move || 'NONE'
+          });
+          generated.output = premiseAcknowledged.value;
+          if (premiseAcknowledged.adjusted) styleAdjustments.push({
+            type: 'ADDED_PREMISE_CHALLENGE_ACKNOWLEDGEMENT'
           });
           const deApologized = normalizeMisplacedApologyPrefix(generated.output);
           generated.output = deApologized.value;
@@ -336,7 +359,7 @@ function createDialogueAgent(options = {}) {
           && prompts.questionMode === 'INTEGRATIVE_SYNTHESIS'
           && validated.errors.length > 0
           && validated.errors.every((error) => String(error).startsWith(INTEGRATIVE_QUALITY_ERROR))) {
-          generated.output.visible_text = '回到这个情境，整体来看，您会依据哪些信号，判断何时继续观察、何时介入或调整支持？';
+          generated.output.visible_text = '在这个情境里，您会依据哪些信号决定继续观察，哪些信号出现时会介入或调整支持？';
           styleAdjustments.push({ type: 'USED_INTEGRATIVE_WRAP_UP_FALLBACK' });
           validated = validateDialogueOutput(generated.output, {
             phase: prompts.phase,

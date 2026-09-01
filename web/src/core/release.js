@@ -12,7 +12,7 @@ export const TCIM_RELEASE = Object.freeze({
   runtimeDatasetId: 'TCIM_NEW_FIVE_TABLES_RUNTIME_V0.2.1',
   runtimeSchemaVersion: '0.2.1',
   runtimeConfigFingerprint: 'd8eebef72dad95f81045250e6a17c6bfdc78fc6441211e425e3ac9e0e2d7ef07',
-  expectedDialoguePromptVersion: 'tcim-dialogue-v3-low-latency-2026-09-01-r7-neutral-peer-fast',
+  expectedDialoguePromptVersion: 'tcim-dialogue-v3-low-latency-2026-09-01-r8-premise-aware-natural-close',
   dialogueSessionSchemaVersion: 'dialogue-agent.session/v3',
   evidenceSchemaVersion: 'dialogue-agent.evidence-state/v1',
   feedbackSchemaVersion: 'tcim-interview-feedback/v1'

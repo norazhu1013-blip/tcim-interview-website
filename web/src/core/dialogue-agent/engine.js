@@ -413,7 +413,9 @@ export function completeFinalTeacherTurn(session, teacherTurn, options = {}) {
     reason
   }, { now })
   session.interviewUtilityState = deriveInterviewUtilityState(session)
-  const visibleText = '本轮回答已保存，本情境访谈先到这里。'
+  const visibleText = reason === 'INTEGRATIVE_QUESTION_ANSWERED'
+    ? '明白，这也补充了您重新介入或调整判断的依据。这个情境先到这里，谢谢您的分享。'
+    : '明白，本轮回答已经保存。这个情境先到这里，谢谢您的分享。'
   session.history.push({
     role: 'agent',
     text: visibleText,

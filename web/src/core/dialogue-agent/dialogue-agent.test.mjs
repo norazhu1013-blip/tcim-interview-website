@@ -625,6 +625,19 @@ test('收尾轮保存教师原话并直接完成，不需要模型再提问', as
   assert.ok(session.auditLog.some((event) => event.type === 'DialogueClosedByTimeController'))
 })
 
+test('整体问题回答后用中性承接自然收束', async () => {
+  const session = createDialogueSession(runtimeCard())
+  await startDialogue(session, async () => agentResult())
+  const out = completeFinalTeacherTurn(session, '讨论没有结果时我会重新介入。', {
+    reason: 'INTEGRATIVE_QUESTION_ANSWERED',
+    reservedMs: WRAP_UP_RESERVE_MS
+  })
+  assert.equal(out.action, 'CLOSE')
+  assert.match(out.visibleText, /补充了.*依据/u)
+  assert.match(out.visibleText, /谢谢您的分享/u)
+  assert.doesNotMatch(out.visibleText, /本轮回答已保存/u)
+})
+
 for (const { name, fn } of tests) {
   await fn()
   console.log(`✓ ${name}`)

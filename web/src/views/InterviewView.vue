@@ -532,7 +532,23 @@ async function retryQuestion() {
     const pending = retryDialogue(modelSession, providerFor(_activeGeneration))
     persist(false)
     const outcome = await pending
-    await acceptAgentOutcome(outcome, requestedAt, dialogueSession.value?.turnSeq ? 'next' : 'first')
+    const accepted = await acceptAgentOutcome(outcome, requestedAt, dialogueSession.value?.turnSeq ? 'next' : 'first')
+    const questionMode = String(modelSession.lastAgentResult?.trace?.questionMode || 'NORMAL')
+    if (accepted && outcome.action === 'ASK' && questionMode === 'INTEGRATIVE_SYNTHESIS' && !integrativeQuestionAlreadyAsked(modelSession)) {
+      markIntegrativeQuestionAsked(modelSession, outcome, Math.max(0, deadlineAt.value - Date.now()))
+      persist(false)
+    }
+    if (accepted && modelSession.lastAgentResult?.trace?.requestId) {
+      const teacherText = [...messages.value].reverse().find((message) => message.role === 'teacher')?.text || ''
+      const elicitingQuestion = [...messages.value].reverse().find((message) => message.role === 'ai' && message.text !== outcome.visibleText)?.text || ''
+      const metric = performanceMetrics.value.at(-1)
+      if (teacherText) void runBackgroundEvidenceAnalysis({
+        teacherText,
+        turnId: `turn-${modelSession.turnSeq}`,
+        elicitingQuestion,
+        metricId: metric?.metricId
+      })
+    }
   } finally {
     sending.value = false
     _activeGeneration = null
