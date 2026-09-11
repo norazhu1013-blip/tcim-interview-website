@@ -126,7 +126,7 @@
 ## 五、算法口径（与 demo 一致，勿简化）
 
 - **评分 = 确定性查表**（`scoring.js`）：`排序数组 → "A>B>C>D" → 查 scoreTable → 0-4 分`。总分/均分/总体水平/每题相对个人均值偏离 RD 均为算术。**AI 不参与打分，严禁任何智能判断**。
-  - `data/scoreTable.js` 为 **《000 10题赋分 新调整0817.xlsx》真实值**（全 10 题 × 24 排列），由 `tools/build_scoreTable.js` 一次性转换生成（小程序运行时不读 xlsx）。
+  - `data/scoreTable.js` 为研究团队 **《新10题赋分表 new.xlsx》** 的真实值（全 10 题 × 24 排列，2026-09-11 逐格核对），由 `tools/build_scoreTable.js` 一次性转换生成（小程序运行时不读 xlsx）。
   - **排列顺序口径**：xlsx 首列「选项组合」（ABCD…DCBA，恰为字典序）**显式**给出每行对应排列，行号↔排列 **来自原表、非假设**；排列串语义 = 最理想→最不理想。若研究团队确认口径不同，只改 `tools/build_scoreTable.js` 的 `permToKey` 一处。
 - **时间埋点**（`exam.js`）：记录每题 `duration_ms`、`enter_ts/submit_ts`、`move_log` 时间戳，及整卷 `examStartTs/examSubmitTs/totalExamMs`；本地存 session，并随 sessions 上报（`items[].durationMs`、`totalDurationMs`、`examStartTs`、`examSubmitTs`）。时间用于 P-IVI/筛选与后续分析，**评分不依赖时间**（时间长≠能力弱）。
 - **过程指标**（`process.js`）：**必须回放 move_log**（从 `first_ranking` 起「移除选项→插入到 to_pos」重建每步排序）。首/末位摇摆按各步序列变更次数（≥2 强摇摆），**不用「首≠尾」简化**；路径振荡 = 位次方向反转；合成 P-IVI。评分不依赖过程指标。

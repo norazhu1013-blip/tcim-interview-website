@@ -1,5 +1,5 @@
 /**
- * 一次性构建脚本：DOC《000 10题赋分.xlsx》（0817 新版）→ miniprogram/data/scoreTable.js
+ * 一次性构建脚本：研究团队《新10题赋分表 new.xlsx》 → miniprogram/data/scoreTable.js
  *
  * 用途：把真实赋分表转成小程序内置的 JS 数据（小程序运行时不读 xlsx）。
  * 运行：node tools/build_scoreTable.js
@@ -79,7 +79,7 @@ function main() {
 
   const header =
     '/**\n' +
-    ' * 赋分表 —— 由《000 10题赋分 新调整0817.xlsx》真实数据生成。\n' +
+    ' * 赋分表 —— 由研究团队《新10题赋分表 new.xlsx》真实数据生成（2026-09-11 核对）。\n' +
     ' * 生成脚本：tools/build_scoreTable.js（一次性 xlsx→JS；小程序运行时不读 xlsx）。\n' +
     ' * 每题 by_order: 排列串("A>B>C>D") → 0-4 整数分。含全部 10 题 × 24 排列。\n' +
     ' *\n' +
@@ -88,7 +88,7 @@ function main() {
     ' * 行号↔排列 映射来自原表，**非假设**。排列串语义 = 最理想→最不理想（左→右）。\n' +
     ' * 若口径不同，只需改 tools/build_scoreTable.js 的 permToKey 一处，无需改评分逻辑。\n' +
     ' */\n' +
-    "const VERSION = 'DOC-000-10题赋分-0817';\n" +
+    "const VERSION = 'new-10题赋分-20260911';\n" +
     'const SCALE = [0, 4];\n\n' +
     'const SCORES = {\n';
   const footer = '};\n\nmodule.exports = { VERSION, SCALE, SCORES };\n';
