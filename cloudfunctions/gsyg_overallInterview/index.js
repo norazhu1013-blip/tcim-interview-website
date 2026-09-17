@@ -6,7 +6,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV, timeout: 70000 });
 
 const MODEL = process.env.OVERALL_WXAI_MODEL || process.env.WXAI_MODEL || 'deepseek-v4-flash-0731';
 const PROVIDER = process.env.OVERALL_WXAI_PROVIDER || process.env.WXAI_PROVIDER || 'cloudbase';
-const PROMPT_VERSION = 'tcim-overall-interview/2026-09-17-v1';
+const PROMPT_VERSION = 'tcim-overall-interview/2026-09-17-v2';
 
 function equal(left, right) {
   const a = Buffer.from(String(left || ''));
@@ -83,11 +83,12 @@ const SYSTEM = `你是幼儿园教师专业能力研究中的访谈者。目标�
 2. 每轮先理解教师刚说了什么，再决定追问。若教师质疑你的预设，必须正面回应并修正，不能绕开。
 3. 一次只问一个核心问题，语言自然、具体、短。不要把多个假设塞进问题。
 4. 不说“很难得、很好、您愿意坦白、您很重视”等评价教师的话，也不要机械道歉。
-5. 跨题统整必须有明确证据：指出两道具体题中不同或相近的选择，再问这种差异背后的条件。不要为了“统整”硬凑联系。
-6. 哲学意味来自真实教育张力，如自由与责任、尊重与保护、当下秩序与长期成长、儿童主体性与共同生活。先落在具体题和教师原话上，再追问其边界；不要突然讲大道理。
-7. 区分“教师已经证明的想法”和“需要核实的假设”。不能把AI提出的观点算作教师能力证据。
-8. 访谈前段优先找到一个真正有解释价值的矛盾或权衡；中段深化依据与边界；后段统整跨题倾向并邀请教师修正你的理解。
-9. 教师明确要求结束、剩余不足60秒，或已经形成清楚的跨题理解时，吸收最后回答后自然收束。不要突然只说“本轮已保存”。
+5. 默认先把当前情境谈清楚：通常围绕同一题连续追问2轮左右，至少弄清判断依据、适用条件或改变决定的边界之一，再考虑换题。整场通常深入2—4题即可，不追求覆盖题数。
+6. 只有出现下列情况之一才跨题：当前线索已经得到实质回答；另一题能检验刚形成的理解；两题之间存在明确而有解释价值的相同或差异。跨题时要用一句话说明联系，不能突然跳题。
+7. 哲学意味来自真实教育张力，如自由与责任、尊重与保护、当下秩序与长期成长、儿童主体性与共同生活。先落在具体题和教师原话上，再追问其边界；不要突然讲大道理。
+8. 区分“教师已经证明的想法”和“需要核实的假设”。不能把AI提出的观点算作教师能力证据。
+9. 访谈前段优先找到一个真正有解释价值的矛盾或权衡；中段深化依据与边界；后段统整跨题倾向并邀请教师修正你的理解。
+10. 教师明确要求结束、剩余不足60秒，或已经形成清楚的跨题理解时，吸收最后回答后自然收束。不要突然只说“本轮已保存”。
 
 只输出JSON：{"visibleText":"给教师看的承接或问题","done":false,"focus":"本轮想弄清的内容","itemIds":["涉及题号"]}。visibleText不得包含内部分析。`;
 
@@ -107,18 +108,38 @@ exports.main = async (event = {}) => {
   if (event.operation !== 'turn' || !event.payload) return { ok: false, error: 'invalid_request' };
   const payload = event.payload;
   if (Buffer.byteLength(JSON.stringify(payload)) > 900 * 1024) return { ok: false, error: 'payload_too_large' };
-  const messages = (Array.isArray(payload.messages) ? payload.messages : []).slice(-18).map((message) => ({ role: message.role, text: String(message.text || '').slice(0, 3000) }));
+  const messages = (Array.isArray(payload.messages) ? payload.messages : []).slice(-18).map((message) => ({
+    role: message.role,
+    text: String(message.text || '').slice(0, 3000),
+    ...(message.role === 'ai' && message.meta ? { focus: String(message.meta.focus || '').slice(0, 160), itemIds: Array.isArray(message.meta.itemIds) ? message.meta.itemIds.map(String).slice(0, 4) : [] } : {})
+  }));
+  const aiTurns = messages.filter((message) => message.role === 'ai');
+  const recentItemIds = aiTurns.at(-1)?.itemIds || [];
+  const itemTurnCounts = {};
+  for (const turn of aiTurns) for (const id of turn.itemIds || []) itemTurnCounts[id] = (itemTurnCounts[id] || 0) + 1;
   const user = JSON.stringify({
     teacherName: payload.teacherName,
     time: { elapsedMs: payload.elapsedMs, remainingMs: payload.remainingMs, completedAITurns: payload.turnCount },
     knownAssessment: compactItems(payload.items),
     conversation: messages,
-    instruction: messages.length ? '根据最新教师回答，选择深化当前线索、连接另一题、检验边界或自然收束。' : '生成自然的开场问题。先点出一项有解释价值的已知作答事实，但不要宣布对教师的评价。'
+    topicState: { currentItemIds: recentItemIds, aiQuestionCountsByItem: itemTurnCounts },
+    instruction: messages.length
+      ? (recentItemIds.length && recentItemIds.some((id) => (itemTurnCounts[id] || 0) < 2)
+        ? '优先承接教师刚才的回答，继续深化当前题；除非回答已把当前判断的依据和边界说清，否则不要换题。'
+        : '根据最新回答，优先深化当前线索；只有当前线索已清楚或另一题能检验当前理解时才跨题，并明确说出联系。')
+      : '生成自然的开场问题。选择一项最有解释价值的已知作答事实进入，不要宣布对教师的评价。'
   });
   try {
     const started = Date.now();
-    const result = parseOutput(await generate(SYSTEM, user));
-    return { ok: true, ...result, model: MODEL, provider: PROVIDER, promptVersion: PROMPT_VERSION, latencyMs: Date.now() - started };
+    let lastError;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const repair = attempt ? `${user}\n\n上一次生成未能形成有效JSON。请直接按指定JSON格式重新生成一个简短、自然且只含一个核心问题的回答。` : user;
+        const result = parseOutput(await generate(SYSTEM, repair));
+        return { ok: true, ...result, model: MODEL, provider: PROVIDER, promptVersion: PROMPT_VERSION, latencyMs: Date.now() - started, attempts: attempt + 1 };
+      } catch (error) { lastError = error; }
+    }
+    throw lastError;
   } catch (error) {
     console.error('[overall] model failed', String(error?.message || error).slice(0, 240));
     return { ok: false, error: 'model_generation_failed' };

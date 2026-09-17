@@ -48,6 +48,51 @@ function cookie(value, maxAge = 7200) {
   return `${COOKIE}=${encodeURIComponent(value)}; HttpOnly; Secure; SameSite=Strict; Path=/gsyg-web/overall; Max-Age=${maxAge}`;
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function teacherChoices(teachers) {
+  const rows = Array.isArray(teachers) ? teachers : [];
+  const schoolCounts = new Map();
+  const detailCounts = new Map();
+  for (const teacher of rows) {
+    const school = teacher.profile?.kindergarten || '';
+    const region = teacher.profile?.region || '';
+    schoolCounts.set(`${teacher.nameKey}|${school}`, (schoolCounts.get(`${teacher.nameKey}|${school}`) || 0) + 1);
+    detailCounts.set(`${teacher.nameKey}|${school}|${region}`, (detailCounts.get(`${teacher.nameKey}|${school}|${region}`) || 0) + 1);
+  }
+  return rows.map((teacher) => {
+    const school = teacher.profile?.kindergarten || '';
+    const region = teacher.profile?.region || '';
+    const parts = [school || region];
+    if (school && region && schoolCounts.get(`${teacher.nameKey}|${school}`) > 1) parts.push(region);
+    if (detailCounts.get(`${teacher.nameKey}|${school}|${region}`) > 1) parts.push(`编号${String(teacher.externalRef || teacher._id || '').slice(-4)}`);
+    const discriminator = parts.filter(Boolean).join('·') || `编号${String(teacher.externalRef || teacher._id || '').slice(-4)}`;
+    return {
+      id: teacher._id,
+      name: teacher.name,
+      label: teacher.duplicateName ? `${teacher.name}（${discriminator || `编号${String(teacher.externalRef || teacher._id || '').slice(-4)}`}）` : teacher.name
+    };
+  });
+}
+
+function itemContext(teacher, itemIds) {
+  const wanted = new Set((Array.isArray(itemIds) ? itemIds : []).map((id) => String(id).toUpperCase()));
+  return (teacher?.items || []).filter((item) => wanted.has(String(item.itemId).toUpperCase()) || wanted.has(String(item.canonicalItemId).toUpperCase())).slice(0, 2).map((item) => ({
+    itemId: item.canonicalItemId || item.itemId,
+    title: item.title || item.itemId,
+    stem: item.stem || '',
+    ranking: item.ranking || '',
+    options: item.options || {}
+  }));
+}
+
+function currentItemContext(session, teacher) {
+  const latest = [...(session?.messages || [])].reverse().find((message) => message.role === 'ai' && message.meta?.itemIds?.length);
+  return itemContext(teacher, latest?.meta?.itemIds || []);
+}
+
 function publicSession(session, teacher) {
   return {
     ok: true,
@@ -58,7 +103,8 @@ function publicSession(session, teacher) {
     startedAt: session.startedAt,
     deadlineAt: session.deadlineAt,
     messages: session.messages || [],
-    turnCount: session.turnCount || 0
+    turnCount: session.turnCount || 0,
+    itemContext: currentItemContext(session, teacher)
   };
 }
 
@@ -137,19 +183,45 @@ function createOverallRouter({ express, cloud, control, allowedOrigins, invoke, 
     }
   });
 
-  router.post('/api/start', async (req, res, next) => {
+  router.post('/api/teachers/search', async (req, res, next) => {
     try {
       if (!allowedOrigins.includes(req.headers.origin)) return res.status(403).json({ ok: false, error: 'origin_not_allowed' });
-      const name = String(req.body?.name || '').normalize('NFKC').trim();
-      const nameKey = normalizeName(name);
-      if (!nameKey || name.length > 40) return res.status(400).json({ ok: false, error: 'name_required' });
+      const query = normalizeName(req.body?.query || '');
+      if (!query || query.length > 20) return res.json({ ok: true, teachers: [] });
       const active = await db.collection(DATASETS).where({ active: true }).orderBy('importedAt', 'desc').limit(1).get();
       const dataset = active.data?.[0];
       if (!dataset) return res.status(503).json({ ok: false, error: 'dataset_not_ready' });
-      const found = await db.collection(TEACHERS).where({ datasetId: dataset.datasetId, nameKey }).limit(3).get();
-      if (!found.data?.length) return res.status(404).json({ ok: false, error: 'teacher_not_found' });
-      if (found.data.length !== 1 || found.data[0].duplicateName) return res.status(409).json({ ok: false, error: 'duplicate_teacher_name' });
-      const teacher = found.data[0];
+      const found = await db.collection(TEACHERS).where({
+        datasetId: dataset.datasetId,
+        nameKey: db.RegExp({ regexp: escapeRegExp(query), options: 'i' })
+      }).limit(12).get();
+      const teachers = teacherChoices(found.data || []).sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'));
+      return res.json({ ok: true, teachers });
+    } catch (error) { next(error); }
+  });
+
+  router.post('/api/start', async (req, res, next) => {
+    try {
+      if (!allowedOrigins.includes(req.headers.origin)) return res.status(403).json({ ok: false, error: 'origin_not_allowed' });
+      const active = await db.collection(DATASETS).where({ active: true }).orderBy('importedAt', 'desc').limit(1).get();
+      const dataset = active.data?.[0];
+      if (!dataset) return res.status(503).json({ ok: false, error: 'dataset_not_ready' });
+      const teacherId = String(req.body?.teacherId || '').trim();
+      let teacher;
+      if (teacherId) {
+        const selected = await db.collection(TEACHERS).doc(teacherId).get();
+        teacher = selected.data?.[0] || selected.data;
+        if (!teacher || teacher.datasetId !== dataset.datasetId) return res.status(404).json({ ok: false, error: 'teacher_not_found' });
+        teacher._id ||= teacherId;
+      } else {
+        const name = String(req.body?.name || '').normalize('NFKC').trim();
+        const nameKey = normalizeName(name);
+        if (!nameKey || name.length > 40) return res.status(400).json({ ok: false, error: 'name_required' });
+        const found = await db.collection(TEACHERS).where({ datasetId: dataset.datasetId, nameKey }).limit(3).get();
+        if (!found.data?.length) return res.status(404).json({ ok: false, error: 'teacher_not_found' });
+        if (found.data.length !== 1 || found.data[0].duplicateName) return res.status(409).json({ ok: false, error: 'duplicate_teacher_name' });
+        teacher = found.data[0];
+      }
       const existing = await db.collection(SESSIONS).where({ teacherId: teacher._id, datasetId: dataset.datasetId, status: 'active' }).orderBy('startedAt', 'desc').limit(1).get();
       let session = existing.data?.[0];
       if (!session) {
@@ -181,7 +253,17 @@ function createOverallRouter({ express, cloud, control, allowedOrigins, invoke, 
       if (session.status !== 'active') return res.json(publicSession(session, teacher));
       const message = String(req.body?.message || '').normalize('NFKC').trim().slice(0, 4000);
       const messages = [...(session.messages || [])];
-      if (message) messages.push({ role: 'teacher', text: message, at: Date.now() });
+      const requestId = String(req.body?.requestId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || crypto.randomUUID();
+      const priorAnswer = messages.find((entry) => entry.role === 'ai' && entry.meta?.requestId === requestId);
+      if (priorAnswer) return res.json({
+        ok: true,
+        visibleText: priorAnswer.text,
+        done: session.status === 'done',
+        turnCount: session.turnCount || 0,
+        deadlineAt: session.deadlineAt,
+        itemContext: itemContext(teacher, priorAnswer.meta?.itemIds)
+      });
+      if (message && !messages.some((entry) => entry.role === 'teacher' && entry.meta?.requestId === requestId)) messages.push({ role: 'teacher', text: message, at: Date.now(), meta: { requestId } });
       if (!message && messages.length) return res.status(400).json({ ok: false, error: 'message_required' });
       const elapsedMs = Date.now() - session.startedAt;
       const payload = {
@@ -196,11 +278,11 @@ function createOverallRouter({ express, cloud, control, allowedOrigins, invoke, 
       const called = await invoke({ name: 'gsyg_overallInterview', data: { operation: 'turn', payload, __gsygGateway: { token: gatewayToken, actor: `web:overall_${crypto.createHash('sha256').update(session.sessionId).digest('hex').slice(0, 24)}`, identityType: 'web_account' } } });
       const result = called?.result || called;
       if (!result?.ok || !result.visibleText) return res.status(502).json({ ok: false, error: result?.error || 'interview_generation_failed' });
-      messages.push({ role: 'ai', text: result.visibleText, at: Date.now(), meta: { focus: result.focus || '', itemIds: result.itemIds || [], model: result.model || '' } });
+      messages.push({ role: 'ai', text: result.visibleText, at: Date.now(), meta: { focus: result.focus || '', itemIds: result.itemIds || [], model: result.model || '', requestId } });
       const done = Boolean(result.done) || Date.now() >= session.deadlineAt;
       const turnCount = (session.turnCount || 0) + 1;
       await db.collection(SESSIONS).doc(session._id).update({ data: { messages, turnCount, status: done ? 'done' : 'active', updatedAt: Date.now(), ...(done ? { completedAt: Date.now() } : {}) } });
-      return res.json({ ok: true, visibleText: result.visibleText, done, turnCount, deadlineAt: session.deadlineAt });
+      return res.json({ ok: true, visibleText: result.visibleText, done, turnCount, deadlineAt: session.deadlineAt, itemContext: itemContext(teacher, result.itemIds) });
     } catch (error) { next(error); }
   });
 
@@ -216,4 +298,4 @@ function createOverallRouter({ express, cloud, control, allowedOrigins, invoke, 
   return router;
 }
 
-module.exports = { createOverallRouter, VERSION, verifySession };
+module.exports = { createOverallRouter, VERSION, verifySession, teacherChoices, itemContext };
