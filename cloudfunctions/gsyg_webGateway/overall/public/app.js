@@ -184,9 +184,18 @@ async function turn(message, id) {
 function finishView() {
   clearInterval(state.timer);
   const form = document.querySelector('#composer');
-  if (form) form.outerHTML = '<div><h2>访谈已完成</h2><p>感谢您的分享。本次对话已保存，研究人员后续会统一整理。</p><a class="button secondary" href="/">返回网站首页</a></div>';
+  if (form) form.outerHTML = '<div class="finish-panel"><h2>访谈已完成</h2><p>感谢您的分享。本次对话已保存，研究人员后续会统一整理。</p><div class="finish-actions"><button class="button primary" id="choose-another" type="button">选择其他教师</button><a class="button secondary" href="/">返回网站首页</a></div></div>';
+  document.querySelector('#choose-another')?.addEventListener('click', leaveCompletedSession);
   const timer = document.querySelector('#timer');
   if (timer) timer.textContent = '已完成';
+}
+async function leaveCompletedSession() {
+  const button = document.querySelector('#choose-another');
+  if (button) { button.disabled = true; button.textContent = '正在返回…'; }
+  try { await api('logout', { method: 'POST', body: JSON.stringify({}) }); } catch {}
+  state.session = null;
+  state.selectedTeacher = null;
+  entry('已退出上一场访谈，请重新选择教师。');
 }
 async function fileBase64(file) {
   if (!file) return '';
