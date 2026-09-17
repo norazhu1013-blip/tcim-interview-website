@@ -131,17 +131,13 @@ exports.main = async (event = {}) => {
   });
   try {
     const started = Date.now();
-    let lastError;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const repair = attempt ? `${user}\n\n上一次生成未能形成有效JSON。请直接按指定JSON格式重新生成一个简短、自然且只含一个核心问题的回答。` : user;
-        const result = parseOutput(await generate(SYSTEM, repair));
-        return { ok: true, ...result, model: MODEL, provider: PROVIDER, promptVersion: PROMPT_VERSION, latencyMs: Date.now() - started, attempts: attempt + 1 };
-      } catch (error) { lastError = error; }
-    }
-    throw lastError;
+    console.log('[overall] turn_start', JSON.stringify({ turnCount: payload.turnCount || 0, itemCount: Array.isArray(payload.items) ? payload.items.length : 0, messageCount: messages.length, payloadBytes: Buffer.byteLength(user) }));
+    const result = parseOutput(await generate(SYSTEM, user));
+    const latencyMs = Date.now() - started;
+    console.log('[overall] turn_ok', JSON.stringify({ latencyMs, turnCount: payload.turnCount || 0, itemIds: result.itemIds }));
+    return { ok: true, ...result, model: MODEL, provider: PROVIDER, promptVersion: PROMPT_VERSION, latencyMs, attempts: 1 };
   } catch (error) {
-    console.error('[overall] model failed', String(error?.message || error).slice(0, 240));
+    console.error('[overall] model_failed', JSON.stringify({ turnCount: payload.turnCount || 0, error: String(error?.message || error).slice(0, 180) }));
     return { ok: false, error: 'model_generation_failed' };
   }
 };

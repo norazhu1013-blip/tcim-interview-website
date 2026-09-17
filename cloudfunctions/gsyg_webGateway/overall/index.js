@@ -275,10 +275,14 @@ function createOverallRouter({ express, cloud, control, allowedOrigins, invoke, 
         elapsedMs,
         remainingMs: Math.max(0, session.deadlineAt - Date.now())
       };
+      const invokeStartedAt = Date.now();
       const called = await invoke({ name: 'gsyg_overallInterview', data: { operation: 'turn', payload, __gsygGateway: { token: gatewayToken, actor: `web:overall_${crypto.createHash('sha256').update(session.sessionId).digest('hex').slice(0, 24)}`, identityType: 'web_account' } } });
       const result = called?.result || called;
-      if (!result?.ok || !result.visibleText) return res.status(502).json({ ok: false, error: result?.error || 'interview_generation_failed' });
-      messages.push({ role: 'ai', text: result.visibleText, at: Date.now(), meta: { focus: result.focus || '', itemIds: result.itemIds || [], model: result.model || '', requestId } });
+      if (!result?.ok || !result.visibleText) {
+        console.warn('[overall] turn_upstream_failed', JSON.stringify({ elapsedMs: Date.now() - invokeStartedAt, turnCount: session.turnCount || 0, error: result?.error || 'interview_generation_failed' }));
+        return res.status(502).json({ ok: false, error: result?.error || 'interview_generation_failed' });
+      }
+      messages.push({ role: 'ai', text: result.visibleText, at: Date.now(), meta: { focus: result.focus || '', itemIds: result.itemIds || [], model: result.model || '', modelLatencyMs: result.latencyMs || 0, requestId } });
       const done = Boolean(result.done) || Date.now() >= session.deadlineAt;
       const turnCount = (session.turnCount || 0) + 1;
       await db.collection(SESSIONS).doc(session._id).update({ data: { messages, turnCount, status: done ? 'done' : 'active', updatedAt: Date.now(), ...(done ? { completedAt: Date.now() } : {}) } });
