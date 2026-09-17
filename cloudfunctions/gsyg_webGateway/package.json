@@ -2,13 +2,14 @@
   "name": "gsyg_webGateway",
   "version": "0.1.0",
   "private": true,
-  "description": "网页账号登录网关：验证 CloudBase 正式账号并转发至既有 gsyg 云函数",
+  "description": "网页参与码入口：签发隔离身份、验证研究场次并转发至 gsyg 云函数",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node test/smoke.test.js"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "wx-server-sdk": "latest"
   }
