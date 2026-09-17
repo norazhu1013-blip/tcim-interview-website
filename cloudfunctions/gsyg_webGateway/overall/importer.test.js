@@ -51,6 +51,19 @@ test('accepts the documented headerless process export', async () => {
   assert.deepEqual(imported.teachers[0].items[0].process.rankingPath, ['ABCD']);
 });
 
+test('recognizes the legacy export ids for all ten released questions', async () => {
+  const aliases = ['XXXX0108', 'XXXX05232', 'XXXX0304', 'XXXX0609', 'XXXX02032', 'XXXX05152', 'XXXX0310', 'XXXX02082', 'XXXX0303', 'XXXX0825'];
+  const result = await workbook([
+    ['导出答题结果'],
+    ['测评计划', '姓名', 'userID', '所属幼儿园', '答题时长', ...aliases],
+    ['计划', '陈老师', 'u3', '三幼', 100, ...aliases.map(() => 'ABCD')]
+  ]);
+  const process = await workbook([['计划', '陈老师', '', '三幼', '', '', aliases[0], '', '保存答题结果（答题结果：ABCD）', '', '网页', '2026-09-17 10:00:00']]);
+  const imported = await combineImport(result, process);
+  assert.equal(imported.stats.matchedQuestionCount, 10);
+  assert.deepEqual(imported.teachers[0].items.map((item) => item.canonicalItemId), ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10']);
+});
+
 test('marks duplicate teacher names instead of allowing ambiguous name-only entry', async () => {
   const result = await workbook([
     ['导出答题结果'],

@@ -66,7 +66,7 @@ const NEW_ITEMS = [
     }
   },
   {
-    item_id: 'T30', aliases: ['T30', 'NEW30'], title: '反复调整动物园建构', indicator: 'I10 对游戏行为的分析判断',
+    item_id: 'T30', aliases: ['T30', 'NEW30', 'XXXX1027'], title: '反复调整动物园建构', indicator: 'I10 对游戏行为的分析判断',
     stem: '中班幼儿为了让长颈鹿站稳，反复拆搭并调整“长颈鹿的家”。',
     options: {
       A: '围绕幼儿正在解决的问题询问改了哪里、现在是否合适。',
@@ -107,7 +107,11 @@ const NEW_ITEMS = [
   }
 ];
 
-const RELEASED = RELEASED_ITEMS.map((item) => ({ ...item, aliases: [item.item_id] }));
+const RELEASED_ALIASES = {
+  Q1: ['XXXX0108'], Q2: ['XXXX05232'], Q3: ['XXXX0304'], Q4: ['XXXX0609'], Q5: ['XXXX02032'],
+  Q6: ['XXXX05152'], Q7: ['XXXX0310'], Q8: ['XXXX02082'], Q9: ['XXXX0303'], Q10: ['XXXX0825']
+};
+const RELEASED = RELEASED_ITEMS.map((item) => ({ ...item, aliases: [item.item_id, ...(RELEASED_ALIASES[item.item_id] || [])] }));
 const ITEMS = [...RELEASED, ...NEW_ITEMS];
 const BY_ID = new Map();
 for (const item of ITEMS) {
