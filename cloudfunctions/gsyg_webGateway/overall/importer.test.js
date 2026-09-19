@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const ExcelJS = require('exceljs');
 const { combineImport, validRanking } = require('./importer');
+const { findItem, ITEMS } = require('./question-bank');
 
 async function workbook(rows) {
   const book = new ExcelJS.Workbook();
@@ -16,6 +17,16 @@ test('ranking must contain A-D once each', () => {
   assert.equal(validRanking('B>D>A>C'), 'BDAC');
   assert.equal(validRanking('AAAA'), '');
   assert.equal(validRanking('ABC'), '');
+});
+
+test('the 20-item bank uses the current color-material item exported by the assessment', () => {
+  assert.equal(ITEMS.length, 20);
+  const item = findItem('XXXX0114');
+  assert.equal(item.item_id, 'T12_COLOR');
+  assert.equal(item.title, '相近颜色材料的不同理解');
+  assert.match(item.stem, /蓝色停车位/);
+  assert.match(item.options.B, /按自己的发现重新停放/);
+  assert.equal(findItem('XXXX1027'), null);
 });
 
 test('imports a headered process workbook and links known question aliases', async () => {
