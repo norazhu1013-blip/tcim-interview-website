@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { teacherChoices, itemContext } = require('./index');
 
 test('teacher choices show school only when duplicate names need disambiguation', () => {
@@ -21,4 +23,12 @@ test('item context exposes only the questions named by the interviewer', () => {
   assert.equal(context.length, 1);
   assert.equal(context[0].title, '篮球架玩水');
   assert.equal(context[0].ranking, 'CABD');
+});
+
+test('overall entry exposes the protected administrator upload route', () => {
+  const script = fs.readFileSync(path.join(__dirname, 'public', 'app.js'), 'utf8');
+  assert.match(script, /管理员上传资料/);
+  assert.match(script, /上传前请先登录管理员账号/);
+  assert.match(script, /我已登录，显示上传界面/);
+  assert.match(script, /api\('admin-status'\)/);
 });

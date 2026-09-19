@@ -55,6 +55,10 @@ function entry(message = '') {
       <button class="button primary" type="submit">开始访谈</button>
     </form>
     <p class="fine">系统会读取已上传的测验结果和答题过程，无需在这里重新做题。</p>
+    <div class="admin-entry">
+      <div><strong>研究人员入口</strong><p class="fine">上传新的答题结果表和答题过程表；上传前需要登录管理员账号。</p></div>
+      <a class="button secondary" href="#admin">管理员上传资料</a>
+    </div>
   </section>`;
   const form = document.querySelector('#entry-form');
   const input = document.querySelector('#teacher-name');
@@ -225,7 +229,30 @@ async function adminPage() {
   app.className = 'page';
   let info;
   try { info = await api('admin-status'); } catch { info = { admin: false }; }
-  app.innerHTML = `<section class="card admin-grid"><div><p class="eyebrow">管理员 · 整体访谈</p><h1>上传教师测验资料</h1><p>每次上传一份答题结果表和对应的答题过程表。新上传的数据会成为当前访谈数据，旧数据和旧访谈不会删除。</p></div>${info.dataset ? `<p class="fine">当前数据：${esc(info.dataset.label)} · ${esc(info.dataset.stats?.teacherCount || 0)}位教师 · ${esc(info.dataset.stats?.questionCount || 0)}题</p>` : ''}${info.admin ? `<form id="import-form"><label class="field">本批数据名称<input name="label" maxlength="80" placeholder="如：2026年9月教师整体访谈"></label><div class="upload-row"><label class="upload-box"><strong>答题结果表</strong><span class="fine">一位教师一行、每题一个排序</span><input name="result" type="file" accept=".xlsx" required></label><label class="upload-box"><strong>答题过程表</strong><span class="fine">一项操作一行；有无表头均可</span><input name="process" type="file" accept=".xlsx" required></label></div><p id="import-status" class="message"></p><button class="button primary" type="submit">检查并导入</button></form>` : '<p class="error">请先到 <a href="../research/">研究数据工作台</a> 登录管理员账号，再返回本页上传。</p>'}<a href="./">返回教师入口</a></section>`;
+  const adminContent = info.admin
+    ? `<form id="import-form"><label class="field">本批数据名称<input name="label" maxlength="80" placeholder="如：2026年9月教师整体访谈"></label><div class="upload-row"><label class="upload-box"><strong>答题结果表</strong><span class="fine">一位教师一行、每题一个排序</span><input name="result" type="file" accept=".xlsx" required></label><label class="upload-box"><strong>答题过程表</strong><span class="fine">一项操作一行；有无表头均可</span><input name="process" type="file" accept=".xlsx" required></label></div><p id="import-status" class="message"></p><button class="button primary" type="submit">检查并导入</button></form>`
+    : `<div class="admin-login-panel"><strong>上传前请先登录管理员账号</strong><p>点击下方按钮会在新页面打开管理员登录。登录成功后，回到本页点击“我已登录”，即可显示上传资料的界面。</p><div class="button-row"><a class="button primary" href="../research/" target="_blank" rel="noopener">登录管理员账号</a><button class="button secondary" id="admin-recheck" type="button">我已登录，显示上传界面</button></div><p class="message" id="admin-check-message"></p></div>`;
+  app.innerHTML = `<section class="card admin-grid"><div><p class="eyebrow">管理员 · 整体访谈</p><h1>上传教师测验资料</h1><p>每次上传一份答题结果表和对应的答题过程表。新上传的数据会成为当前访谈数据，旧数据和旧访谈不会删除。</p></div>${info.dataset ? `<p class="fine">当前数据：${esc(info.dataset.label)} · ${esc(info.dataset.stats?.teacherCount || 0)}位教师 · ${esc(info.dataset.stats?.questionCount || 0)}题</p>` : ''}${adminContent}<a href="./">返回教师入口</a></section>`;
+  document.querySelector('#admin-recheck')?.addEventListener('click', async () => {
+    const button = document.querySelector('#admin-recheck');
+    const message = document.querySelector('#admin-check-message');
+    button.disabled = true;
+    button.textContent = '正在确认…';
+    try {
+      const refreshed = await api('admin-status');
+      if (!refreshed.admin) {
+        message.textContent = '尚未检测到管理员登录，请先完成登录；如果刚登录成功，请再点一次。';
+        button.disabled = false;
+        button.textContent = '我已登录，重新检查';
+        return;
+      }
+      await adminPage();
+    } catch {
+      message.textContent = '暂时无法确认登录状态，请检查网络后重试。';
+      button.disabled = false;
+      button.textContent = '重新检查';
+    }
+  });
   document.querySelector('#import-form')?.addEventListener('submit', async (event) => {
     event.preventDefault(); const button = event.currentTarget.querySelector('button'); const status = document.querySelector('#import-status'); button.disabled = true; button.textContent = '正在检查表格…';
     try {
