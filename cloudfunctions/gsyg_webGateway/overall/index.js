@@ -9,7 +9,8 @@ const COOKIE = 'gsyg_overall_session';
 const DATASETS = 'gsyg_overall_datasets';
 const TEACHERS = 'gsyg_overall_teacher_inputs';
 const SESSIONS = 'gsyg_overall_sessions';
-const VERSION = 'tcim-overall-interview/0.1.0';
+const VERSION = 'tcim-overall-interview/0.1.1';
+const INTERVIEW_DURATION_MS = 12 * 60 * 1000;
 
 function safeEqual(left, right) {
   const a = Buffer.from(String(left || ''));
@@ -226,7 +227,7 @@ function createOverallRouter({ express, cloud, control, allowedOrigins, invoke, 
       let session = existing.data?.[0];
       if (!session) {
         const now = Date.now();
-        session = { sessionId: crypto.randomUUID(), teacherId: teacher._id, datasetId: dataset.datasetId, status: 'active', startedAt: now, deadlineAt: now + 10 * 60 * 1000, turnCount: 0, messages: [], version: VERSION };
+        session = { sessionId: crypto.randomUUID(), teacherId: teacher._id, datasetId: dataset.datasetId, status: 'active', startedAt: now, deadlineAt: now + INTERVIEW_DURATION_MS, turnCount: 0, messages: [], version: VERSION };
         const added = await db.collection(SESSIONS).add({ data: session });
         session._id = added._id || added.id;
       }
@@ -302,4 +303,4 @@ function createOverallRouter({ express, cloud, control, allowedOrigins, invoke, 
   return router;
 }
 
-module.exports = { createOverallRouter, VERSION, verifySession, teacherChoices, itemContext };
+module.exports = { createOverallRouter, VERSION, INTERVIEW_DURATION_MS, verifySession, teacherChoices, itemContext };
