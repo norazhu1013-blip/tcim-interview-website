@@ -43,7 +43,7 @@ function formatTime(ms) {
 function entry(message = '') {
   app.className = 'page';
   app.innerHTML = `<section class="card entry">
-    <p class="eyebrow">整体访谈 · 约12分钟</p>
+    <p class="eyebrow">整体访谈 · 约16分钟</p>
     <h1>找到自己的姓名，开始访谈</h1>
     <p>输入姓名中的一个字，系统会显示匹配结果。请选择本人；同名教师会用幼儿园等信息区分。</p>
     <form id="entry-form">

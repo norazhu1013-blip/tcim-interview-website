@@ -9,8 +9,8 @@ const COOKIE = 'gsyg_overall_session';
 const DATASETS = 'gsyg_overall_datasets';
 const TEACHERS = 'gsyg_overall_teacher_inputs';
 const SESSIONS = 'gsyg_overall_sessions';
-const VERSION = 'tcim-overall-interview/0.1.1';
-const INTERVIEW_DURATION_MS = 12 * 60 * 1000;
+const VERSION = 'tcim-overall-interview/0.1.2';
+const INTERVIEW_DURATION_MS = 16 * 60 * 1000;
 
 function safeEqual(left, right) {
   const a = Buffer.from(String(left || ''));

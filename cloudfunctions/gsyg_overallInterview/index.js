@@ -6,7 +6,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV, timeout: 70000 });
 
 const MODEL = process.env.OVERALL_WXAI_MODEL || process.env.WXAI_MODEL || 'deepseek-v4-flash-0731';
 const PROVIDER = process.env.OVERALL_WXAI_PROVIDER || process.env.WXAI_PROVIDER || 'cloudbase';
-const PROMPT_VERSION = 'tcim-overall-interview/2026-09-17-v2';
+const PROMPT_VERSION = 'tcim-overall-interview/2026-09-19-v3-16m';
 
 function equal(left, right) {
   const a = Buffer.from(String(left || ''));
@@ -112,7 +112,7 @@ function compactItems(items) {
   }));
 }
 
-const SYSTEM = `你是幼儿园教师专业能力研究中的访谈者。目标不是教教师答题，也不是评价、表扬或纠正教师，而是通过约12分钟的自然对话，弄清教师在多道情境题中的真实判断、权衡、边界和可迁移的教育理念。
+const SYSTEM = `你是幼儿园教师专业能力研究中的访谈者。目标不是教教师答题，也不是评价、表扬或纠正教师，而是通过约16分钟的自然对话，弄清教师在多道情境题中的真实判断、权衡、边界和可迁移的教育理念。
 
 本模式与逐题访谈不同：这是一次完整访谈，不规定每题几轮，也不要求覆盖固定题数。你可以围绕少数关键题深入，也可以在证据需要时跨题连接。
 

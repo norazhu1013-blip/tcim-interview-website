@@ -18,5 +18,5 @@
 
 - 浏览器不接触其他教师资料。
 - 最终排序来自结果表；过程表只用于还原修改次数、排序路径和作答用时。
-- 访谈按整场约12分钟运行，不设置逐题最低轮数。
+- 访谈按整场约16分钟运行，不设置逐题最低轮数。
 - 云端集合：`gsyg_overall_datasets`、`gsyg_overall_teacher_inputs`、`gsyg_overall_sessions`。

@@ -6,9 +6,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { teacherChoices, itemContext, INTERVIEW_DURATION_MS, VERSION } = require('./index');
 
-test('new overall interviews use a twelve-minute deadline', () => {
-  assert.equal(INTERVIEW_DURATION_MS, 12 * 60 * 1000);
-  assert.equal(VERSION, 'tcim-overall-interview/0.1.1');
+test('new overall interviews use a sixteen-minute deadline', () => {
+  assert.equal(INTERVIEW_DURATION_MS, 16 * 60 * 1000);
+  assert.equal(VERSION, 'tcim-overall-interview/0.1.2');
 });
 
 test('teacher choices show school only when duplicate names need disambiguation', () => {
