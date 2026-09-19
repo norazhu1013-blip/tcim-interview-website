@@ -8,9 +8,9 @@ async function* chunks(values) {
   for (const value of values) yield value;
 }
 
-test('system prompt describes the sixteen-minute overall interview', () => {
-  assert.match(__test.SYSTEM, /约16分钟/);
-  assert.doesNotMatch(__test.SYSTEM, /约12分钟/);
+test('system prompt describes the twenty-five-minute overall interview', () => {
+  assert.match(__test.SYSTEM, /约25分钟/);
+  assert.doesNotMatch(__test.SYSTEM, /约16分钟/);
 });
 
 test('drains CloudBase textStream responses', async () => {
