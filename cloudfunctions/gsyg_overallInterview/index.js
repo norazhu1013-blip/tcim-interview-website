@@ -31,14 +31,48 @@ function extractText(result) {
   return String(result?.text || result?.output || result?.choices?.[0]?.message?.content || '').trim();
 }
 
+function pickContent(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  const choice = value.choices?.[0];
+  if (choice) return choice.delta?.content || choice.message?.content || choice.text || '';
+  return value.content || value.text || value.output || value.data?.output || '';
+}
+
+function extractDelta(chunk) {
+  if (chunk == null) return '';
+  if (typeof chunk === 'string') {
+    const text = chunk.replace(/^data:\s*/, '').trim();
+    if (!text || text === '[DONE]') return '';
+    try { return pickContent(JSON.parse(text)); } catch { return text; }
+  }
+  return pickContent(chunk);
+}
+
 async function drain(stream) {
   if (!stream) return '';
+  if (typeof stream === 'string') return stream;
   if (typeof stream.text === 'string') return stream.text;
+  if (stream.textStream?.[Symbol.asyncIterator]) {
+    let output = '';
+    for await (const chunk of stream.textStream) output += typeof chunk === 'string' ? chunk : pickContent(chunk);
+    return output.trim();
+  }
+  if (stream.eventStream?.[Symbol.asyncIterator]) {
+    let output = '';
+    for await (const event of stream.eventStream) output += extractDelta(event?.data ?? event);
+    return output.trim();
+  }
+  if (stream.dataStream?.[Symbol.asyncIterator]) {
+    let output = '';
+    for await (const chunk of stream.dataStream) output += extractDelta(chunk);
+    return output.trim();
+  }
   let output = '';
   if (stream[Symbol.asyncIterator]) {
-    for await (const chunk of stream) output += extractText(chunk) || String(chunk?.data || '');
+    for await (const chunk of stream) output += extractDelta(chunk);
   }
-  return output.trim();
+  return output.trim() || extractText(stream);
 }
 
 async function generate(system, user) {
@@ -46,17 +80,21 @@ async function generate(system, user) {
   let model;
   try { model = ai.createModel(PROVIDER); } catch { model = ai.createModel(MODEL); }
   const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
-  if (typeof model.generateText === 'function') {
-    try {
-      const result = await model.generateText({ model: MODEL, messages, data: { model: MODEL, messages } });
-      const output = extractText(result);
-      if (output) return output;
-    } catch (error) {
-      console.warn('[overall] generateText failed', String(error?.message || error).slice(0, 180));
-    }
+  const request = { model: MODEL, messages, data: { model: MODEL, messages } };
+  // CloudBase AI 的稳定主接口是 streamText。旧实现先等待 generateText 失败、
+  // 再重新调用 streamText，最坏会把一次教师追问变成两次完整模型请求。
+  // 这里每轮只发起一次上游生成，同时完整兼容 text/event/data stream 返回形态。
+  if (typeof model.streamText === 'function') {
+    const output = await drain(await model.streamText(request));
+    if (!output) throw new Error('model_stream_empty');
+    return output;
   }
-  if (typeof model.streamText !== 'function') throw new Error('model_generation_unavailable');
-  return drain(await model.streamText({ model: MODEL, messages, data: { model: MODEL, messages } }));
+  if (typeof model.generateText === 'function') {
+    const output = extractText(await model.generateText(request));
+    if (!output) throw new Error('model_generation_empty');
+    return output;
+  }
+  throw new Error('model_generation_unavailable');
 }
 
 function compactItems(items) {
@@ -142,4 +180,4 @@ exports.main = async (event = {}) => {
   }
 };
 
-exports.__test = { authorized, compactItems, parseOutput, SYSTEM };
+exports.__test = { authorized, compactItems, parseOutput, drain, extractDelta, pickContent, SYSTEM };

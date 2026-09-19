@@ -1,13 +1,24 @@
 const app = document.querySelector('#app');
-const api = (path, options = {}) => fetch('./api/' + path, {
-  credentials: 'include',
-  ...options,
-  headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
-}).then(async (response) => {
-  const data = await response.json().catch(() => ({ ok: false, error: 'invalid_response' }));
-  if (!response.ok) throw Object.assign(new Error(data.error || 'request_failed'), { code: data.error, status: response.status });
-  return data;
-});
+const api = async (path, options = {}) => {
+  const { timeoutMs = 20000, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch('./api/' + path, {
+      credentials: 'include',
+      ...fetchOptions,
+      signal: controller.signal,
+      headers: { ...(fetchOptions.body ? { 'Content-Type': 'application/json' } : {}), ...(fetchOptions.headers || {}) }
+    });
+    const data = await response.json().catch(() => ({ ok: false, error: 'invalid_response' }));
+    if (!response.ok) throw Object.assign(new Error(data.error || 'request_failed'), { code: data.error, status: response.status });
+    return data;
+  } catch (error) {
+    if (error?.name === 'AbortError') throw Object.assign(new Error('request_timeout'), { code: 'request_timeout' });
+    if (!error?.code) throw Object.assign(error, { code: 'network_error' });
+    throw error;
+  } finally { clearTimeout(timer); }
+};
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const errors = {
   teacher_not_found: '没有找到对应的测验资料，请重新输入姓名或联系研究人员。',
@@ -15,6 +26,9 @@ const errors = {
   dataset_not_ready: '研究人员尚未上传访谈资料，请稍后再试。',
   session_not_found: '本次访谈登录已失效，请重新选择姓名。',
   interview_generation_failed: '问题暂未生成成功，请点击重试。',
+  model_generation_failed: 'AI本轮没有成功返回，请点击重试。',
+  request_timeout: '本轮等待时间过长，请点击重试。您的回答仍会使用同一轮次继续生成。',
+  network_error: '网络连接暂时中断，请点击重试。',
   admin_login_required: '请先在“研究数据工作台”登录管理员账号。'
 };
 let state = { session: null, busy: false, timer: null, selectedTeacher: null, searchTimer: null };
@@ -156,8 +170,9 @@ async function turn(message, id) {
   try {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       if (status) status.textContent = attempt ? '刚才连接不稳定，系统正在自动重试…' : '正在结合您的回答和当前题目整理下一个问题…';
+      const attemptStartedAt = Date.now();
       try {
-        const result = await api('turn', { method: 'POST', body: JSON.stringify({ message, requestId: id }) });
+        const result = await api('turn', { method: 'POST', body: JSON.stringify({ message, requestId: id }), timeoutMs: 58000 });
         state.session.messages.push({ role: 'ai', text: result.visibleText });
         state.session.turnCount = result.turnCount;
         state.session.status = result.done ? 'done' : 'active';
@@ -168,7 +183,12 @@ async function turn(message, id) {
         break;
       } catch (error) {
         lastError = error;
-        if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 700));
+        const failedQuickly = Date.now() - attemptStartedAt < 12000;
+        const transient = ['network_error', 'invalid_response', 'overall_internal_error', 'upstream_function_failed', 'model_generation_failed', 'interview_generation_failed'].includes(error.code);
+        // 只自动恢复“很快就失败”的瞬时故障。已经等了较长时间后不再悄悄
+        // 开启第二个完整模型请求，避免教师一次发送连续等待两轮。
+        if (attempt === 0 && failedQuickly && transient) await new Promise((resolve) => setTimeout(resolve, 700));
+        else break;
       }
     }
     if (lastError && status) {
